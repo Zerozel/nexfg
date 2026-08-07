@@ -1,17 +1,37 @@
-// middleware.ts — FIXED
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createMiddlewareSupabase } from "@/lib/supabase/middleware-client";
 import type { UserRole } from "@/types";
 
 export async function middleware(req: NextRequest) {
+  const host = req.headers.get('host') || '';
+  const path = req.nextUrl.pathname;
+
+  // ============================================================
+  // PHASE 6.5: Subdomain → /school/{slug} rewrite (skip API/static)
+  // ============================================================
+  if (
+    !path.startsWith('/api/') &&
+    !path.startsWith('/_next/') &&
+    !path.includes('.')
+  ) {
+    if (host.endsWith('.nexaforges.me') || host.endsWith('.nexaforges.me:3000')) {
+      const slug = host.split('.')[0];
+      if (slug && slug !== 'www') {
+        return NextResponse.rewrite(new URL(`/school/${slug}${path}`, req.url));
+      }
+    }
+  }
+
+  // ============================================================
+  // EXISTING: Auth protection
+  // ============================================================
   const res = NextResponse.next();
   const supabase = createMiddlewareSupabase(req, res);
   const {
     data: { session },
   } = await supabase.auth.getSession();
 
-  const path = req.nextUrl.pathname;
   const isAuthPage =
     path === "/login" || path === "/super-admin/login";
   const isProtectedRoute = path.startsWith("/dashboard");
@@ -60,5 +80,10 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/login", "/super-admin/login", "/dashboard/:path*"],
+  matcher: [
+    "/login",
+    "/super-admin/login",
+    "/dashboard/:path*",
+    "/((?!_next/static|_next/image|favicon.ico).*)",
+  ],
 };
