@@ -6,7 +6,7 @@ import type { UserRole } from "@/types";
 export async function middleware(req: NextRequest) {
   const host = req.headers.get('host') || '';
   const path = req.nextUrl.pathname;
-
+   //this is chaotic
   // ============================================================
   // PHASE 6.5: Subdomain → /school/{slug} rewrite (skip API/static)
   // ============================================================
