@@ -6,7 +6,7 @@ import type { UserRole } from "@/types";
 export async function middleware(req: NextRequest) {
   const host = req.headers.get('host') || '';
   const path = req.nextUrl.pathname;
-   //this is chaotic
+
   // ============================================================
   // PHASE 6.5: Subdomain → /school/{slug} rewrite (skip API/static)
   // ============================================================
@@ -28,20 +28,24 @@ export async function middleware(req: NextRequest) {
   // ============================================================
   const res = NextResponse.next();
   const supabase = createMiddlewareSupabase(req, res);
+
+  // SECURE: Validate JWT with Supabase Auth server
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
 
   const isAuthPage =
     path === "/login" || path === "/super-admin/login";
   const isProtectedRoute = path.startsWith("/dashboard");
 
-  if (!session) {
+  // No valid user: allow auth pages only
+  if (userError || !user) {
     if (isAuthPage) return res;
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
-  const role = session.user.app_metadata?.role as UserRole;
+  const role = user.app_metadata?.role as UserRole;
 
   if (isAuthPage) {
     if (role === "super_admin") {

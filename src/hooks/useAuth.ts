@@ -1,4 +1,4 @@
-// hooks/useAuth.ts — FIXED (added type annotations)
+// hooks/useAuth.ts — UPDATED: getUser() instead of getSession()
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
@@ -14,17 +14,30 @@ export function useAuth() {
   const router = useRouter();
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }: { data: { session: Session | null } }) => {
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+    // SECURE: Validate JWT with Supabase Auth server
+    supabase.auth
+      .getUser()
+      .then(({ data: { user: authUser }, error }) => {
+        setUser(error ? null : authUser);
+        setLoading(false);
+      });
 
+    // Listen for auth changes — re-validate with getUser() for security
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(
       (_event: AuthChangeEvent, session: Session | null) => {
-        setUser(session?.user ?? null);
-        setLoading(false);
+        if (session?.user) {
+          // onAuthStateChange gives us the session for immediate UI updates,
+          // but we re-validate with getUser() to ensure the token is authentic
+          supabase.auth.getUser().then(({ data: { user: validatedUser }, error }) => {
+            setUser(error ? null : validatedUser);
+            setLoading(false);
+          });
+        } else {
+          setUser(null);
+          setLoading(false);
+        }
       }
     );
 
@@ -35,6 +48,7 @@ export function useAuth() {
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
+    setUser(null);
     router.push("/login");
   }, [router]);
 
