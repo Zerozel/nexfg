@@ -6,11 +6,12 @@ import { ZodError } from 'zod';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createServerSupabase();
-    const classData = await getClass(supabase, params.id);
+    const classData = await getClass(supabase, id);
     return NextResponse.json({ data: classData });
   } catch (error: any) {
     if (error.code === 'PGRST116') {
@@ -22,15 +23,16 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createServerSupabase();
     const body = await request.json();
     
     const validatedData = classSchema.partial().parse(body);
     
-    const classData = await updateClass(supabase, params.id, validatedData as any);
+    const classData = await updateClass(supabase, id, validatedData as any);
     return NextResponse.json({ data: classData, message: 'Class updated successfully' });
   } catch (error: any) {
     if (error instanceof ZodError) {
@@ -46,11 +48,12 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createServerSupabase();
-    await deleteClass(supabase, params.id);
+    await deleteClass(supabase, id);
     return NextResponse.json({ message: 'Class deleted successfully' });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { useReportCard } from "@/hooks/useReportCard";
 import { ReportCardTemplate } from "@/components/printing/ReportCardTemplate";
@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Printer, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
-export default function StudentReportCardPrintPage() {
+function StudentReportCardPrint() {
   const params = useParams();
   const searchParams = useSearchParams();
   const studentId = params.id as string;
@@ -102,5 +102,22 @@ export default function StudentReportCardPrintPage() {
         </Link>
       </div>
     </>
+  );
+}
+
+export default function StudentReportCardPrintPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
+            <p className="text-gray-600">Loading report card...</p>
+          </div>
+        </div>
+      }
+    >
+      <StudentReportCardPrint />
+    </Suspense>
   );
 }

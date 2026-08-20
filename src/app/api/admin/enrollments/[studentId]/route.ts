@@ -4,9 +4,10 @@ import { unenrollStudent } from '@/lib/supabase/admin';
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { studentId: string } }
+  { params }: { params: Promise<{ studentId: string }> }
 ) {
   try {
+    const { studentId } = await params;
     const supabase = await createServerSupabase();
     const { searchParams } = new URL(request.url);
     const classId = searchParams.get('classId');
@@ -19,7 +20,7 @@ export async function DELETE(
       );
     }
 
-    await unenrollStudent(supabase, params.studentId, classId, termId);
+    await unenrollStudent(supabase, studentId, classId, termId);
     return NextResponse.json({
       success: true,
       message: 'Student unenrolled successfully',

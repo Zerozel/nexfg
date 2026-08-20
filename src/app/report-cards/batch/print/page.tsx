@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Printer, ArrowLeft } from "lucide-react";
@@ -9,7 +9,7 @@ import type { IndividualReportCardData } from "@/types/printing";
 import { transformStudentReportData } from "@/lib/printing/data-transform";
 import { ReportCardTemplate } from "@/components/printing/ReportCardTemplate";
 
-export default function BatchPrintViewPage() {
+function BatchPrintView() {
   const searchParams = useSearchParams();
   const [reportCards, setReportCards] = useState<
     IndividualReportCardData[]
@@ -155,5 +155,22 @@ export default function BatchPrintViewPage() {
         </Link>
       </div>
     </>
+  );
+}
+
+export default function BatchPrintViewPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
+            <p className="text-gray-600">Loading report cards...</p>
+          </div>
+        </div>
+      }
+    >
+      <BatchPrintView />
+    </Suspense>
   );
 }

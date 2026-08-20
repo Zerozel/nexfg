@@ -4,11 +4,12 @@ import { removeTeacherAssignment } from '@/lib/supabase/admin';
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createServerSupabase();
-    await removeTeacherAssignment(supabase, params.id);
+    await removeTeacherAssignment(supabase, id);
     return NextResponse.json({
       success: true,
       message: 'Teacher assignment removed successfully',

@@ -1,9 +1,10 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { XCircle } from 'lucide-react';
 
-export default function PaymentFailurePage() {
+function PaymentFailureContent() {
   const searchParams = useSearchParams();
   const reference = searchParams.get('reference');
 
@@ -17,5 +18,13 @@ export default function PaymentFailurePage() {
         <a href="/support" className="text-blue-600 hover:underline">Contact Support</a>
       </div>
     </div>
+  );
+}
+
+export default function PaymentFailurePage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-gray-50" />}>
+      <PaymentFailureContent />
+    </Suspense>
   );
 }

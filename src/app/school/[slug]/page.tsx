@@ -14,8 +14,9 @@ async function getSchool(slug: string) {
   return data;
 }
 
-export async function generateMetadata({ params }: { params: { slug: string } }) {
-  const school = await getSchool(params.slug);
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const school = await getSchool(slug);
   if (!school) return { title: 'School Not Found' };
   return {
     title: school.name,
@@ -24,8 +25,9 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   };
 }
 
-export default async function SchoolHomePage({ params }: { params: { slug: string } }) {
-  const school = await getSchool(params.slug);
+export default async function SchoolHomePage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const school = await getSchool(slug);
   if (!school) notFound();
 
   const primaryColor = school.website_theme?.primary_color || '#2563eb';
@@ -37,12 +39,12 @@ export default async function SchoolHomePage({ params }: { params: { slug: strin
         subtitle={school.website_content?.hero_subtitle || null}
         motto={school.motto}
         primaryColor={primaryColor}
-        slug={params.slug}
+        slug={slug}
       />
-      <AboutSection aboutText={school.website_content?.about_text || null} primaryColor={primaryColor} slug={params.slug} />
-      <GallerySection gallery={school.website_content?.gallery || []} primaryColor={primaryColor} slug={params.slug} />
+      <AboutSection aboutText={school.website_content?.about_text || null} primaryColor={primaryColor} slug={slug} />
+      <GallerySection gallery={school.website_content?.gallery || []} primaryColor={primaryColor} slug={slug} />
       <ContactSection
-        slug={params.slug}
+        slug={slug}
         primaryColor={primaryColor}
         contactEmail={school.website_content?.contact_email || null}
         contactPhone={school.website_content?.contact_phone || null}

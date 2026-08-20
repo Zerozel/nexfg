@@ -6,11 +6,12 @@ import { ZodError } from 'zod';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createServerSupabase();
-    const teacher = await getTeacher(supabase, params.id);
+    const teacher = await getTeacher(supabase, id);
     return NextResponse.json({ data: teacher });
   } catch (error: any) {
     if (error.code === 'PGRST116') {
@@ -22,15 +23,16 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createServerSupabase();
     const body = await request.json();
     
     const validatedData = teacherSchema.partial().parse(body);
     
-    const teacher = await updateTeacher(supabase, params.id, validatedData);
+    const teacher = await updateTeacher(supabase, id, validatedData);
     return NextResponse.json({ data: teacher, message: 'Teacher updated successfully' });
   } catch (error: any) {
     if (error instanceof ZodError) {
@@ -46,11 +48,12 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createServerSupabase();
-    await deleteTeacher(supabase, params.id);
+    await deleteTeacher(supabase, id);
     return NextResponse.json({ message: 'Teacher deleted successfully' });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });

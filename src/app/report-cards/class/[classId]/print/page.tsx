@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { useClassReportCards } from "@/hooks/useClassReportCards";
 import { ClassResultSheet } from "@/components/printing/ClassResultSheet";
@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Printer, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
-export default function ClassResultSheetPrintPage() {
+function ClassResultSheetPrint() {
   const params = useParams();
   const searchParams = useSearchParams();
   const classId = params.classId as string;
@@ -102,5 +102,22 @@ export default function ClassResultSheetPrintPage() {
         </Link>
       </div>
     </>
+  );
+}
+
+export default function ClassResultSheetPrintPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
+            <p className="text-gray-600">Loading class result sheet...</p>
+          </div>
+        </div>
+      }
+    >
+      <ClassResultSheetPrint />
+    </Suspense>
   );
 }

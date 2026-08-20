@@ -6,11 +6,12 @@ import { ZodError } from 'zod';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createServerSupabase();
-    const assessment = await getAssessment(supabase, params.id);
+    const assessment = await getAssessment(supabase, id);
     return NextResponse.json({ data: assessment });
   } catch (error: any) {
     if (error.code === 'PGRST116') {
@@ -22,15 +23,16 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createServerSupabase();
     const body = await request.json();
 
     const validatedData = assessmentSchema.partial().parse(body);
 
-    const assessment = await updateAssessment(supabase, params.id, validatedData);
+    const assessment = await updateAssessment(supabase, id, validatedData);
     return NextResponse.json({
       success: true,
       assessment: { id: assessment.id, name: assessment.name },
@@ -49,11 +51,12 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createServerSupabase();
-    await deleteAssessment(supabase, params.id);
+    await deleteAssessment(supabase, id);
     return NextResponse.json({ success: true, message: 'Assessment deleted successfully' });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });

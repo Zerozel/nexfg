@@ -12,8 +12,9 @@ async function getSchool(slug: string) {
   return data;
 }
 
-export default async function ContactPage({ params }: { params: { slug: string } }) {
-  const school = await getSchool(params.slug);
+export default async function ContactPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const school = await getSchool(slug);
   if (!school) notFound();
   const primaryColor = school.website_theme?.primary_color || '#2563eb';
 
@@ -31,7 +32,7 @@ export default async function ContactPage({ params }: { params: { slug: string }
               {school.website_content?.address && <p>📍 {school.website_content.address}</p>}
               <SocialLinks links={school.social_links} />
             </div>
-            <ContactForm slug={params.slug} primaryColor={primaryColor} />
+            <ContactForm slug={slug} primaryColor={primaryColor} />
           </div>
         </div>
       </section>

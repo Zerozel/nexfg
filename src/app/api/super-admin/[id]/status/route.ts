@@ -5,9 +5,10 @@ import { ZodError } from 'zod';
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -25,7 +26,7 @@ export async function PUT(
         subscription_expires_at: validatedData.expires_at || null,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', params.id);
+      .eq('id', id);
 
     if (error) throw error;
 

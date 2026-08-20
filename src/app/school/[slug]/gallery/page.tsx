@@ -11,8 +11,9 @@ async function getSchool(slug: string) {
   return data;
 }
 
-export default async function GalleryPage({ params }: { params: { slug: string } }) {
-  const school = await getSchool(params.slug);
+export default async function GalleryPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const school = await getSchool(slug);
   if (!school) notFound();
   const primaryColor = school.website_theme?.primary_color || '#2563eb';
 
