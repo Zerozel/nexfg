@@ -895,6 +895,7 @@ export async function listEnrollments(
     )
     .eq('class_id', classId)
     .eq('term_id', termId)
+    .eq('is_current', true)
     .is('students.is_deleted', false)
     .order('enrollment_date', { ascending: false })
     .range(from, to);
@@ -924,17 +925,46 @@ export async function enrollStudent(
   supabase: SupabaseClient,
   data: { student_id: string; class_id: string; term_id: string }
 ) {
-  const { data: enrollment, error } = await supabase
+  // An enrollment row may already exist for this (student, class, term) — either
+  // active (a genuine duplicate) or inactive (a student who was unenrolled, which
+  // only flips is_current=false). Reactivate inactive rows so re-enrolling works
+  // despite the unique constraint, but still reject genuine active duplicates.
+  const { data: existing, error: existingError } = await supabase
     .from('enrollments')
-    .insert({
-      student_id: data.student_id,
-      class_id: data.class_id,
-      term_id: data.term_id,
-      enrollment_date: new Date().toISOString().split('T')[0],
-      is_current: true,
-    })
-    .select('*, students(full_name, admission_number)')
-    .single();
+    .select('is_current')
+    .eq('student_id', data.student_id)
+    .eq('class_id', data.class_id)
+    .eq('term_id', data.term_id)
+    .maybeSingle();
+
+  if (existingError) throw existingError;
+
+  if (existing?.is_current) {
+    throw new Error('Student is already enrolled in this class for this term');
+  }
+
+  const enrollmentDate = new Date().toISOString().split('T')[0];
+
+  const { data: enrollment, error } = existing
+    ? await supabase
+        .from('enrollments')
+        .update({ is_current: true, enrollment_date: enrollmentDate })
+        .eq('student_id', data.student_id)
+        .eq('class_id', data.class_id)
+        .eq('term_id', data.term_id)
+        .select('*, students(full_name, admission_number)')
+        .single()
+    : await supabase
+        .from('enrollments')
+        .insert({
+          student_id: data.student_id,
+          class_id: data.class_id,
+          term_id: data.term_id,
+          enrollment_date: enrollmentDate,
+          is_current: true,
+        })
+        .select('*, students(full_name, admission_number)')
+        .single();
 
   if (error) {
     if (error.code === '23505') {
