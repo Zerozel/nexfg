@@ -1,7 +1,7 @@
 // components/scores/ScoreEntryMatrix.tsx
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useCallback } from "react";
 import { useClassStudents } from "@/hooks/useStudents";
 import { useAssessments } from "@/hooks/useAssessments";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { Class, PendingScore, ClassScoreCache } from "@/types";
+import type { Class, ClassScoreCache } from "@/types";
 
 interface ScoreEntryMatrixProps {
   classes: Class[];
@@ -45,8 +45,15 @@ export function ScoreEntryMatrix({
     null
   );
 
-  const { sync, isSyncing, lastSyncTime, pendingCount, refreshPendingCount } =
-    useScoreSync(selectedClassId);
+  const {
+    sync,
+    abort,
+    isSyncing,
+    lastSyncTime,
+    pendingCount,
+    progress,
+    refreshPendingCount,
+  } = useScoreSync(selectedClassId);
 
   const getScore = useCallback(
     (studentId: string, assessmentId: string): number | null => {
@@ -67,7 +74,7 @@ export function ScoreEntryMatrix({
   const isLoading = studentsLoading || assessmentsLoading;
 
   return (
-    <AutoSyncHandler classId={selectedClassId}>
+    <AutoSyncHandler classId={selectedClassId} onReconnect={sync}>
       <div className="space-y-4">
         {/* Toolbar */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -88,7 +95,9 @@ export function ScoreEntryMatrix({
             pendingCount={pendingCount}
             isSyncing={isSyncing}
             onSync={sync}
+            onCancel={abort}
             lastSyncTime={lastSyncTime}
+            progress={progress}
           />
         </div>
 

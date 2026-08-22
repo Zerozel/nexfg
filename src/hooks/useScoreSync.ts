@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { SyncOrchestrator } from "@/lib/sync/orchestrator";
 import type { SyncProgress } from "@/lib/sync/orchestrator";
 import { getPendingCountForClass } from "@/lib/storage/scores";
@@ -19,6 +19,13 @@ export function useScoreSync(classId: string) {
   const refreshPendingCount = useCallback(() => {
     setPendingCount(getPendingCountForClass(classId));
   }, [classId]);
+
+  // Hydrate the pending count on mount and whenever the class changes so the
+  // UI (Sync button visibility, status text) reflects data already sitting in
+  // localStorage — not just changes made during the current session.
+  useEffect(() => {
+    refreshPendingCount();
+  }, [refreshPendingCount]);
 
   const sync = useCallback(async () => {
     if (syncInProgress.current) return;

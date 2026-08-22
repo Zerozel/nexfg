@@ -56,6 +56,12 @@ export function ScoreCell({
       const isOutOfRange = parsed < 0 || parsed > maxScore;
       setIsInvalid(isOutOfRange);
       setIsDirty(true);
+
+      // Don't persist values that fail client-side validation. The cell stays
+      // visibly "invalid" until corrected, so we never queue a score the server
+      // is guaranteed to reject (> max_score or negative).
+      if (isOutOfRange) return;
+
       onChange(parsed);
     },
     [maxScore, onChange]

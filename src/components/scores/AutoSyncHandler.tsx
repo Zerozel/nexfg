@@ -3,40 +3,54 @@
 
 import { useEffect, useRef } from "react";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
-import { useScoreSync } from "@/hooks/useScoreSync";
+import { getPendingCountForClass } from "@/lib/storage/scores";
 
 interface AutoSyncHandlerProps {
   classId: string;
+  /**
+   * Called ~2s after the connection is restored, but only if there is pending
+   * (unsynced) data for the class. Wire this to the parent's `sync` so auto-sync
+   * shares the same orchestrator/state as manual sync.
+   */
+  onReconnect: () => void;
   children: React.ReactNode;
 }
 
 export function AutoSyncHandler({
   classId,
+  onReconnect,
   children,
 }: AutoSyncHandlerProps) {
   const isOnline = useOnlineStatus();
-  const { sync, pendingCount } = useScoreSync(classId);
-  const wasOffline = useRef(false);
-  const hasPendingRef = useRef(false);
+  const wasOnline = useRef(isOnline);
+  const onReconnectRef = useRef(onReconnect);
 
-  // Track if we had pending data while offline
+  // Keep the latest callback without making it an effect dependency (so a new
+  // `sync` identity doesn't retrigger the reconnect logic while already online).
   useEffect(() => {
-    if (!isOnline && pendingCount > 0) {
-      hasPendingRef.current = true;
-    }
-  }, [isOnline, pendingCount]);
+    onReconnectRef.current = onReconnect;
+  }, [onReconnect]);
 
-  // Auto-sync when coming back online with pending data
   useEffect(() => {
-    if (isOnline && wasOffline.current && hasPendingRef.current) {
-      const timer = setTimeout(() => {
-        sync();
-        hasPendingRef.current = false;
-      }, 2000);
-      return () => clearTimeout(timer);
-    }
-    wasOffline.current = !isOnline;
-  }, [isOnline, sync]);
+    const cameBackOnline = isOnline && !wasOnline.current;
+    wasOnline.current = isOnline;
+
+    // Only act on a genuine offline → online transition.
+    if (!cameBackOnline || !classId) return;
+
+    // Read pending count straight from storage so we never depend on
+    // possibly-stale React state elsewhere.
+    if (getPendingCountForClass(classId) === 0) return;
+
+    const timer = setTimeout(() => {
+      // Re-check at fire time in case a manual sync already cleared everything.
+      if (getPendingCountForClass(classId) > 0) {
+        onReconnectRef.current();
+      }
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, [isOnline, classId]);
 
   return <>{children}</>;
 }
