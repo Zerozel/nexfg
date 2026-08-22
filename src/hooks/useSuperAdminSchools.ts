@@ -72,6 +72,60 @@ export function useSuperAdminCreateSchool() {
   return { createSchool, isLoading };
 }
 
+export function useSuperAdminUpdateStatus() {
+  const [isLoading, setIsLoading] = useState(false);
+
+  const updateStatus = async (
+    id: string,
+    payload: { status: string; tier: string; expires_at?: string | null }
+  ) => {
+    setIsLoading(true);
+    try {
+      const response = await fetch(`/api/super-admin/schools/${id}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || 'Failed to update subscription');
+      }
+      return response.json();
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return { updateStatus, isLoading };
+}
+
+export function useSuperAdminSuspendSchool() {
+  const [isLoading, setIsLoading] = useState(false);
+
+  const suspendSchool = async (
+    id: string,
+    payload: { suspend: boolean; reason?: string }
+  ) => {
+    setIsLoading(true);
+    try {
+      const response = await fetch(`/api/super-admin/schools/${id}/suspend`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || 'Failed to update suspension');
+      }
+      return response.json();
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return { suspendSchool, isLoading };
+}
+
 export function useSuperAdminSchoolDetail(id: string) {
   const [data, setData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);

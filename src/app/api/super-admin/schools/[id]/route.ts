@@ -1,17 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { requireSuperAdmin } from '@/lib/supabase/super-admin-auth';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const guard = await requireSuperAdmin();
+    if (!guard.authorized) return guard.response;
+    const supabase = guard.serviceClient;
+
     const { id } = await params;
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { autoRefreshToken: false, persistSession: false } }
-    );
 
     const { data: school, error } = await supabase
       .from('schools')

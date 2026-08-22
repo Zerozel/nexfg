@@ -16,7 +16,7 @@ export const createSchoolSchema = z.object({
 
 export const updateSubscriptionSchema = z.object({
   status: z.enum(['trial', 'active', 'inactive', 'expired']),
-  tier: z.enum(['free', 'basic', 'pro']),
+  tier: z.enum(['free', 'trial', 'basic', 'pro']),
   expires_at: z.string().optional().nullable(),
 });
 

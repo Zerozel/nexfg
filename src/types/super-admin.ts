@@ -18,7 +18,7 @@ export interface SuperAdminSchool {
   admin_name: string;
   admin_email: string;
   subscription_status: 'trial' | 'active' | 'inactive' | 'expired';
-  subscription_tier: 'free' | 'basic' | 'pro';
+  subscription_tier: 'free' | 'trial' | 'basic' | 'pro';
   student_count: number;
   teacher_count: number;
   class_count: number;
@@ -37,7 +37,7 @@ export interface SuperAdminSchoolDetail {
   logo_url: string | null;
   motto: string | null;
   subscription_status: 'trial' | 'active' | 'inactive' | 'expired';
-  subscription_tier: 'free' | 'basic' | 'pro';
+  subscription_tier: 'free' | 'trial' | 'basic' | 'pro';
   subscription_expires_at: string | null;
   created_at: string;
   updated_at: string;
@@ -46,7 +46,7 @@ export interface SuperAdminSchoolDetail {
     full_name: string;
     email: string;
     avatar_url: string | null;
-  };
+  } | null;
   stats: {
     students: number;
     teachers: number;

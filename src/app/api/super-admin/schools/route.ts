@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { requireSuperAdmin } from '@/lib/supabase/super-admin-auth';
 import { createSchoolSchema } from '@/lib/validations/super-admin.schema';
 import { ZodError } from 'zod';
 
@@ -21,11 +21,9 @@ function generatePassword(): string {
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { autoRefreshToken: false, persistSession: false } }
-    );
+    const guard = await requireSuperAdmin();
+    if (!guard.authorized) return guard.response;
+    const supabase = guard.serviceClient;
 
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
@@ -85,11 +83,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { autoRefreshToken: false, persistSession: false } }
-    );
+    const guard = await requireSuperAdmin();
+    if (!guard.authorized) return guard.response;
+    const supabase = guard.serviceClient;
 
     const body = await request.json();
     const validatedData = createSchoolSchema.parse(body);
@@ -118,13 +114,18 @@ export async function POST(request: NextRequest) {
 
     if (schoolError) throw schoolError;
 
-    // Create auth user
+    // Create auth user.
+    // IMPORTANT: role and school_id MUST live in app_metadata — the login forms,
+    // middleware, and RLS policies (auth.jwt() -> 'app_metadata') all read from
+    // there. Storing them in user_metadata breaks login and row-level security.
     const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
       email: validatedData.admin_email,
       password,
       email_confirm: true,
       user_metadata: {
         full_name: validatedData.admin_full_name,
+      },
+      app_metadata: {
         role: 'admin',
         school_id: school.id,
       },
@@ -140,13 +141,20 @@ export async function POST(request: NextRequest) {
     }
 
     // Create profile
-    await supabase.from('profiles').insert({
+    const { error: profileError } = await supabase.from('profiles').insert({
       id: authUser.user.id,
       school_id: school.id,
       full_name: validatedData.admin_full_name,
       email: validatedData.admin_email,
       role: 'admin',
     });
+
+    if (profileError) {
+      // Rollback both the auth user and the school so we don't orphan records
+      await supabase.auth.admin.deleteUser(authUser.user.id);
+      await supabase.from('schools').delete().eq('id', school.id);
+      throw profileError;
+    }
 
     // Update school with admin_id
     await supabase.from('schools').update({ admin_id: authUser.user.id }).eq('id', school.id);

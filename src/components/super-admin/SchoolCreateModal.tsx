@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Loader2, Copy, Printer, Check } from 'lucide-react';
+import { LoaderCircle, Copy, Printer, Check } from 'lucide-react';
 
 interface SchoolCreateModalProps {
   open: boolean;
@@ -73,15 +73,24 @@ export function SchoolCreateModal({ open, onOpenChange, onSubmit, isLoading }: S
     }
   };
 
-  const handleDone = () => {
+  const resetForm = () => {
     setResult(null);
     setFormData({ name: '', admin_full_name: '', admin_email: '', admin_password: '', phone: '', subscription_tier: 'trial' });
+  };
+
+  const handleOpenChange = (next: boolean) => {
+    if (!next) resetForm();
+    onOpenChange(next);
+  };
+
+  const handleDone = () => {
+    resetForm();
     onOpenChange(false);
   };
 
   if (result) {
     return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
+      <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>School Created Successfully</DialogTitle>
@@ -111,7 +120,7 @@ export function SchoolCreateModal({ open, onOpenChange, onSubmit, isLoading }: S
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Create New School</DialogTitle>
@@ -153,9 +162,9 @@ export function SchoolCreateModal({ open, onOpenChange, onSubmit, isLoading }: S
             </Select>
           </div>
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>Cancel</Button>
             <Button type="submit" disabled={isLoading}>
-              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isLoading && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
               Create School
             </Button>
           </div>
