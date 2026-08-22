@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSuperAdmin } from '@/lib/supabase/super-admin-auth';
 import { createSchoolSchema } from '@/lib/validations/super-admin.schema';
+import { generateSessionName } from '@/lib/supabase/admin';
 import { ZodError } from 'zod';
+
 
 function generateSlug(name: string): string {
   return name
@@ -159,7 +161,23 @@ export async function POST(request: NextRequest) {
     // Update school with admin_id
     await supabase.from('schools').update({ admin_id: authUser.user.id }).eq('id', school.id);
 
+    // Seed the initial academic session (e.g. "2024/2025"). The school admin can
+    // validate or edit this at the start of each new session. This is best-effort:
+    // the class form also self-heals via ensureCurrentAcademicYear, so a failure
+    // here must not block onboarding. We set school_id explicitly because the
+    // table trigger derives it from the caller's JWT (the super admin), not this
+    // freshly created school.
+    const { error: sessionError } = await supabase.from('academic_years').insert({
+      school_id: school.id,
+      name: generateSessionName(),
+      is_current: true,
+    });
+    if (sessionError) {
+      console.error('Failed to seed initial academic year (non-fatal):', sessionError);
+    }
+
     return NextResponse.json({
+
       success: true,
       school: {
         id: school.id,

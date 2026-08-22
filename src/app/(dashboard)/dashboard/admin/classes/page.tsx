@@ -3,6 +3,8 @@
 import { useState, useCallback } from 'react';
 import { useAdminClasses, useClassMutations } from '@/hooks/useClasses';
 import { useTeachers } from '@/hooks/useTeachers';
+import { useAcademicYears } from '@/hooks/useAcademicYears';
+
 import { DataTable } from '@/components/admin/DataTable';
 import { CreateModal } from '@/components/admin/CreateModal';
 import { EditModal } from '@/components/admin/EditModal';
@@ -27,17 +29,26 @@ export default function ClassesPage() {
   const { toast } = useToast();
   const { data, isLoading, refetch } = useAdminClasses({ page, search });
   const { data: teachersData } = useTeachers({ pageSize: 100 });
+  const { data: academicYears } = useAcademicYears();
   const { createClass, updateClass, deleteClass } = useClassMutations();
 
   const teachers = teachersData?.data?.map((t) => ({ id: t.id, full_name: t.full_name })) || [];
-  const academicYears = [
-    { id: 'current', name: '2024/2025' },
-  ];
+
+  // Default a new class to the current session (falling back to the newest one)
+  // so the required academic_year_id is always populated with a real UUID.
+  const defaultAcademicYearId =
+    academicYears.find((ay) => ay.is_current)?.id || academicYears[0]?.id || '';
 
   const handleSearch = useCallback((value: string) => {
     setSearch(value);
     setPage(1);
   }, []);
+
+  const openCreate = () => {
+    setFormData({ academic_year_id: defaultAcademicYearId });
+    setShowCreate(true);
+  };
+
 
   const handleCreate = async () => {
     setIsSubmitting(true);
@@ -101,10 +112,11 @@ export default function ClassesPage() {
             Manage classes for your school.
           </p>
         </div>
-        <Button onClick={() => setShowCreate(true)}>
+        <Button onClick={openCreate}>
           <Plus className="mr-2 h-4 w-4" />
           Add Class
         </Button>
+
       </div>
 
       <DataTable

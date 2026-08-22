@@ -113,14 +113,16 @@ export function StudentForm({ data = {}, onChange, classes = [] }: StudentFormPr
         <div className="space-y-2">
           <Label htmlFor="class_id">Class</Label>
           <Select
-            value={data.class_id || ''}
-            onValueChange={(value) => onChange('class_id', value || null)}
+            value={data.class_id || 'none'}
+            onValueChange={(value) =>
+              onChange('class_id', value === 'none' ? null : value)
+            }
           >
             <SelectTrigger>
               <SelectValue placeholder="Select class" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">No class</SelectItem>
+              <SelectItem value="none">No class</SelectItem>
               {classes.map((c) => (
                 <SelectItem key={c.id} value={c.id}>
                   {c.name}

@@ -61,14 +61,16 @@ export function ClassForm({
       <div className="space-y-2">
         <Label htmlFor="teacher_id">Class Teacher</Label>
         <Select
-          value={data.teacher_id || ''}
-          onValueChange={(value) => onChange('teacher_id', value || null)}
+          value={data.teacher_id || 'none'}
+          onValueChange={(value) =>
+            onChange('teacher_id', value === 'none' ? null : value)
+          }
         >
           <SelectTrigger>
             <SelectValue placeholder="Select class teacher" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">No teacher</SelectItem>
+            <SelectItem value="none">No teacher</SelectItem>
             {teachers.map((t) => (
               <SelectItem key={t.id} value={t.id}>
                 {t.full_name}

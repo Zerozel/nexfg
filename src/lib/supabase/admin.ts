@@ -5,8 +5,10 @@ import type {
   Student,
   Teacher,
   TeacherWithCredentials,
+  AcademicYear,
   Class,
   Subject,
+
   ClassSubjectAssignment,
   Assessment,
   Enrollment,
@@ -197,6 +199,17 @@ export async function createTeacher(
 ): Promise<TeacherWithCredentials> {
   const tempPassword = generateSecurePassword();
 
+  // Derive the admin's school_id from the authenticated session. New staff MUST
+  // be scoped to the same school for multi-tenant isolation.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const schoolId = user?.app_metadata?.school_id as string | undefined;
+  if (!schoolId) {
+    throw new Error('Unable to determine school context for the current user');
+  }
+
   // Create auth user via Supabase Admin API
   const supabaseAdmin = createAdminClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -209,13 +222,19 @@ export async function createTeacher(
     }
   );
 
+  // IMPORTANT: role and school_id MUST live in app_metadata — the login forms,
+  // middleware, and RLS policies (auth.jwt() -> 'app_metadata') all read from
+  // there. Storing them in user_metadata breaks login and row-level security.
   const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
     email: data.email,
     password: tempPassword,
     email_confirm: true,
     user_metadata: {
       full_name: data.full_name,
+    },
+    app_metadata: {
       role: data.role,
+      school_id: schoolId,
     },
   });
 
@@ -226,24 +245,34 @@ export async function createTeacher(
     throw authError;
   }
 
-  // Profile is created by database trigger, update it
-  const { data: profile, error: profileError } = await supabase
+  // A database trigger creates the base profile row on auth.users insert. Update
+  // it with the correct name/role and ensure it is scoped to the admin's school.
+  // Use the service client so this write isn't blocked by RLS while the profile
+  // is still being provisioned.
+  const { data: profile, error: profileError } = await supabaseAdmin
     .from('profiles')
     .update({
       full_name: data.full_name,
       role: data.role,
+      school_id: schoolId,
     })
     .eq('id', authUser.user.id)
     .select()
     .single();
 
-  if (profileError) throw profileError;
+  if (profileError) {
+    // Roll back the auth user so a failed provisioning doesn't leave an orphaned
+    // account that blocks re-creating the teacher with the same email.
+    await supabaseAdmin.auth.admin.deleteUser(authUser.user.id);
+    throw profileError;
+  }
 
   return {
     ...(profile as Teacher),
     temporary_password: tempPassword,
   };
 }
+
 
 export async function getTeacher(
   supabase: SupabaseClient,
@@ -407,7 +436,174 @@ export async function deleteClass(
   if (error) throw error;
 }
 
+// ============ ACADEMIC YEARS ============
+
+// Nigerian academic sessions run ~September -> July and are labelled by the two
+// calendar years they span, e.g. a session starting Sept 2024 is "2024/2025".
+// Before September we are still in the previous session.
+export function generateSessionName(reference: Date = new Date()): string {
+  const year = reference.getFullYear();
+  const month = reference.getMonth(); // 0 = January
+  const startYear = month >= 8 ? year : year - 1; // 8 = September
+  return `${startYear}/${startYear + 1}`;
+}
+
+export async function listAcademicYears(
+  supabase: SupabaseClient
+): Promise<AcademicYear[]> {
+  const { data, error } = await supabase
+    .from('academic_years')
+    .select('*')
+    .is('is_deleted', false)
+    .order('name', { ascending: false });
+
+  if (error) throw error;
+  return (data || []) as AcademicYear[];
+}
+
+export async function createAcademicYear(
+  supabase: SupabaseClient,
+  data: { name: string; start_date?: string | null; end_date?: string | null; is_current?: boolean }
+): Promise<AcademicYear> {
+  // If this session is being marked current, clear the flag on any existing
+  // current session first so the "one current session" invariant holds.
+  if (data.is_current) {
+    await clearCurrentAcademicYear(supabase);
+  }
+
+  const { data: academicYear, error } = await supabase
+    .from('academic_years')
+    .insert({
+      name: data.name,
+      start_date: data.start_date ?? null,
+      end_date: data.end_date ?? null,
+      is_current: data.is_current ?? false,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    if (error.code === '23505') {
+      throw new Error('An academic year with this name already exists');
+    }
+    throw error;
+  }
+  return academicYear as AcademicYear;
+}
+
+export async function getAcademicYear(
+  supabase: SupabaseClient,
+  id: string
+): Promise<AcademicYear> {
+  const { data, error } = await supabase
+    .from('academic_years')
+    .select('*')
+    .eq('id', id)
+    .is('is_deleted', false)
+    .single();
+
+  if (error) throw error;
+  return data as AcademicYear;
+}
+
+export async function updateAcademicYear(
+  supabase: SupabaseClient,
+  id: string,
+  data: Partial<Pick<AcademicYear, 'name' | 'start_date' | 'end_date' | 'is_current'>>
+): Promise<AcademicYear> {
+  // Promote this session to current: demote whichever one currently holds it.
+  if (data.is_current) {
+    await clearCurrentAcademicYear(supabase, id);
+  }
+
+  const { data: academicYear, error } = await supabase
+    .from('academic_years')
+    .update({ ...data, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .is('is_deleted', false)
+    .select()
+    .single();
+
+  if (error) {
+    if (error.code === '23505') {
+      throw new Error('An academic year with this name already exists');
+    }
+    throw error;
+  }
+  return academicYear as AcademicYear;
+}
+
+export async function deleteAcademicYear(
+  supabase: SupabaseClient,
+  id: string
+) {
+  const { error } = await supabase
+    .from('academic_years')
+    .update({
+      is_deleted: true,
+      deleted_at: new Date().toISOString(),
+      is_current: false,
+    })
+    .eq('id', id);
+
+  if (error) throw error;
+}
+
+// Demote the current session (optionally excluding one id we're about to set).
+async function clearCurrentAcademicYear(
+  supabase: SupabaseClient,
+  exceptId?: string
+) {
+  let query = supabase
+    .from('academic_years')
+    .update({ is_current: false, updated_at: new Date().toISOString() })
+    .eq('is_current', true)
+    .is('is_deleted', false);
+
+  if (exceptId) {
+    query = query.neq('id', exceptId);
+  }
+
+  const { error } = await query;
+  if (error) throw error;
+}
+
+// Guarantees a school has a "current" academic session, creating the computed
+// one (e.g. "2024/2025") on first use. Called during onboarding and as a safe
+// fallback when loading the class form. Returns the current session.
+export async function ensureCurrentAcademicYear(
+  supabase: SupabaseClient
+): Promise<AcademicYear> {
+  const { data: existing, error: existingError } = await supabase
+    .from('academic_years')
+    .select('*')
+    .eq('is_current', true)
+    .is('is_deleted', false)
+    .maybeSingle();
+
+  if (existingError) throw existingError;
+  if (existing) return existing as AcademicYear;
+
+  const name = generateSessionName();
+
+  // Another session with this name may already exist but not be flagged current
+  // (e.g. created then unset). Re-use it instead of violating the unique name.
+  const { data: sameName } = await supabase
+    .from('academic_years')
+    .select('*')
+    .eq('name', name)
+    .is('is_deleted', false)
+    .maybeSingle();
+
+  if (sameName) {
+    return updateAcademicYear(supabase, sameName.id, { is_current: true });
+  }
+
+  return createAcademicYear(supabase, { name, is_current: true });
+}
+
 // ============ SUBJECTS ============
+
 
 export async function listSubjects(
   supabase: SupabaseClient,

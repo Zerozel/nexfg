@@ -36,11 +36,25 @@ export interface TeacherWithCredentials extends Teacher {
   temporary_password: string;
 }
 
+export interface AcademicYear {
+  id: string;
+  school_id: string;
+  name: string;
+  start_date: string | null;
+  end_date: string | null;
+  is_current: boolean;
+  is_deleted: boolean;
+  deleted_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Class {
   id: string;
   school_id: string;
   name: string;
   academic_year_id: string;
+  academic_year_name?: string | null;
   teacher_id: string | null;
   teacher_name?: string | null;
   is_deleted: boolean;
@@ -48,6 +62,7 @@ export interface Class {
   created_at: string;
   updated_at: string;
 }
+
 
 export interface Subject {
   id: string;
