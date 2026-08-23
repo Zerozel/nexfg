@@ -100,7 +100,8 @@ export function FinalCTASection() {
             marginBottom: 32,
           }}
         >
-          <button
+          <a
+            href="mailto:admin@nexaforges.me?subject=Get%20my%20school%20on%20NexaForge&body=School%20name%3A%0ALocation%3A%0AApprox.%20number%20of%20students%3A%0AContact%20phone%3A%0A%0AWe%27d%20like%20to%20get%20started%20on%20NexaForge."
             style={{
               background: COLORS.gold,
               color: COLORS.primaryDark,
@@ -112,11 +113,14 @@ export function FinalCTASection() {
               border: "none",
               fontFamily: "inherit",
               boxShadow: "0 4px 20px rgba(201,153,26,0.35)",
+              textDecoration: "none",
+              display: "inline-block",
             }}
           >
             Get Your School on NexaForge →
-          </button>
-          <button
+          </a>
+          <a
+            href="tel:+2348012345678"
             style={{
               background: "transparent",
               color: COLORS.white,
@@ -127,10 +131,12 @@ export function FinalCTASection() {
               cursor: "pointer",
               border: "2px solid rgba(255,255,255,0.3)",
               fontFamily: "inherit",
+              textDecoration: "none",
+              display: "inline-block",
             }}
           >
             Schedule a Demo Call
-          </button>
+          </a>
         </div>
 
         <div

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { COLORS, NAV_LINKS } from "@/lib/marketing/constants";
 
 export function MarketingNav() {
@@ -129,8 +130,8 @@ export function MarketingNav() {
               {link.label}
             </button>
           ))}
-          <button
-            onClick={() => scrollTo("cta")}
+          <Link
+            href="/login"
             style={{
               color: "rgba(255,255,255,0.65)",
               fontSize: 13,
@@ -142,10 +143,12 @@ export function MarketingNav() {
               background: "none",
               fontFamily: "inherit",
               marginLeft: 4,
+              textDecoration: "none",
+              display: "inline-block",
             }}
           >
             School Login
-          </button>
+          </Link>
           <button
             onClick={() => scrollTo("cta")}
             style={{
@@ -189,8 +192,9 @@ export function MarketingNav() {
             </button>
           ))}
           <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 10 }}>
-            <button
-              onClick={() => scrollTo("cta")}
+            <Link
+              href="/login"
+              onClick={() => setMenuOpen(false)}
               style={{
                 color: "rgba(255,255,255,0.65)",
                 fontSize: 14,
@@ -202,10 +206,14 @@ export function MarketingNav() {
                 background: "none",
                 fontFamily: "inherit",
                 width: "100%",
+                textDecoration: "none",
+                textAlign: "center",
+                display: "block",
+                boxSizing: "border-box",
               }}
             >
               School Login
-            </button>
+            </Link>
             <button
               onClick={() => scrollTo("cta")}
               style={{
