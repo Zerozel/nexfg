@@ -30,8 +30,9 @@ export function PublicPricingPlans({ currentTier, primaryColor }: PublicPricingP
           isCurrent={currentTier === key}
           primaryColor={primaryColor}
           onSubscribe={() => {
-            // Billing is managed from the authenticated dashboard.
-            window.location.href = '/login';
+            // Billing is managed from the authenticated admin dashboard; the
+            // route's AuthGuard redirects unauthenticated visitors to /login.
+            window.location.href = '/dashboard/admin/billing';
           }}
         />
       ))}

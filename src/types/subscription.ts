@@ -1,3 +1,19 @@
+// Canonical subscription enums — the single source of truth used across the
+// app (billing UI, super-admin management, API validation). `free` and `trial`
+// are lifecycle tiers; `starter`/`growth`/`premium` are the purchasable plans.
+export type SubscriptionTier =
+  | 'free'
+  | 'trial'
+  | 'starter'
+  | 'growth'
+  | 'premium';
+
+export type SubscriptionStatusValue =
+  | 'trial'
+  | 'active'
+  | 'expired'
+  | 'inactive';
+
 export interface SubscriptionPlan {
   name: string;
   price: number;
@@ -9,8 +25,8 @@ export interface SubscriptionPlan {
 }
 
 export interface SubscriptionStatus {
-  status: 'trial' | 'active' | 'expired' | 'inactive';
-  tier: 'free' | 'starter' | 'growth' | 'premium';
+  status: SubscriptionStatusValue;
+  tier: SubscriptionTier;
   expires_at: string | null;
   usage: { students: number; staff: number };
   limits: { students: number; staff: number };

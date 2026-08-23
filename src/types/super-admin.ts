@@ -1,3 +1,8 @@
+import type {
+  SubscriptionTier,
+  SubscriptionStatusValue,
+} from './subscription';
+
 export interface SuperAdminStats {
   total_schools: number;
   active_schools: number;
@@ -17,8 +22,8 @@ export interface SuperAdminSchool {
   domain: string | null;
   admin_name: string;
   admin_email: string;
-  subscription_status: 'trial' | 'active' | 'inactive' | 'expired';
-  subscription_tier: 'free' | 'trial' | 'basic' | 'pro';
+  subscription_status: SubscriptionStatusValue;
+  subscription_tier: SubscriptionTier;
   student_count: number;
   teacher_count: number;
   class_count: number;
@@ -36,8 +41,8 @@ export interface SuperAdminSchoolDetail {
   address: string | null;
   logo_url: string | null;
   motto: string | null;
-  subscription_status: 'trial' | 'active' | 'inactive' | 'expired';
-  subscription_tier: 'free' | 'trial' | 'basic' | 'pro';
+  subscription_status: SubscriptionStatusValue;
+  subscription_tier: SubscriptionTier;
   subscription_expires_at: string | null;
   created_at: string;
   updated_at: string;
@@ -62,7 +67,7 @@ export interface CreateSchoolPayload {
   admin_email: string;
   admin_password?: string;
   phone?: string;
-  subscription_tier: 'free' | 'trial' | 'basic' | 'pro';
+  subscription_tier: SubscriptionTier;
 }
 
 export interface CreateSchoolResponse {

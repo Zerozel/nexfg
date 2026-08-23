@@ -1,13 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createServerSupabase } from '@/lib/supabase/server';
+import { NextResponse } from 'next/server';
+import { requireSchoolAdmin } from '@/lib/supabase/school-admin-auth';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    const supabase = await createServerSupabase();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-    const schoolId = user.app_metadata?.school_id;
+    const guard = await requireSchoolAdmin();
+    if (!guard.authorized) return guard.response;
+    const { supabase, schoolId } = guard;
 
     const { data: history, error } = await supabase
       .from('subscription_payments')
@@ -19,7 +17,8 @@ export async function GET(request: NextRequest) {
     if (error) throw error;
 
     return NextResponse.json({ success: true, history: history || [] });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unexpected error';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

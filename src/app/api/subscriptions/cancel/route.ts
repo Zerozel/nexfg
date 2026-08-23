@@ -1,22 +1,32 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createServerSupabase } from '@/lib/supabase/server';
+import { NextResponse } from 'next/server';
+import { requireSchoolAdmin } from '@/lib/supabase/school-admin-auth';
 
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
-    const supabase = await createServerSupabase();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const guard = await requireSchoolAdmin();
+    if (!guard.authorized) return guard.response;
+    const { supabase, schoolId } = guard;
 
-    const schoolId = user.app_metadata?.school_id;
-
-    const db = supabase as any;
-    await db
+    // Checkout uses one-time Paystack transactions (not Paystack's recurring
+    // Subscriptions API), so there is no remote subscription to disable — we
+    // simply mark the school inactive. Access remains until expiry is enforced
+    // by the app/cron based on subscription_status.
+    const { error } = await supabase
       .from('schools')
-      .update({ subscription_status: 'inactive', updated_at: new Date().toISOString() })
+      .update({
+        subscription_status: 'inactive',
+        updated_at: new Date().toISOString(),
+      })
       .eq('id', schoolId);
 
-    return NextResponse.json({ success: true, message: 'Subscription cancelled' });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) throw error;
+
+    return NextResponse.json({
+      success: true,
+      message: 'Subscription cancelled',
+    });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unexpected error';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

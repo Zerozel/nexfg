@@ -1,25 +1,31 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createServerSupabase } from '@/lib/supabase/server';
+import { NextResponse } from 'next/server';
+import { requireSchoolAdmin } from '@/lib/supabase/school-admin-auth';
 import { PLAN_LIMITS } from '@/lib/paystack/plans';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    const supabase = await createServerSupabase();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const guard = await requireSchoolAdmin();
+    if (!guard.authorized) return guard.response;
+    const { supabase, schoolId } = guard;
 
-    const schoolId = user.app_metadata?.school_id;
-
-    const db = supabase as any;
-    const { data: school } = await db
+    const { data: school } = await supabase
       .from('schools')
       .select('subscription_status, subscription_tier, subscription_expires_at')
       .eq('id', schoolId)
       .single();
 
     const [{ count: students }, { count: staff }] = await Promise.all([
-      supabase.from('students').select('*', { count: 'exact', head: true }).eq('school_id', schoolId).is('is_deleted', false),
-      supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('school_id', schoolId).in('role', ['teacher', 'admin', 'principal']).is('is_deleted', false),
+      supabase
+        .from('students')
+        .select('*', { count: 'exact', head: true })
+        .eq('school_id', schoolId)
+        .is('is_deleted', false),
+      supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true })
+        .eq('school_id', schoolId)
+        .in('role', ['teacher', 'admin', 'principal'])
+        .is('is_deleted', false),
     ]);
 
     const tier = school?.subscription_tier || 'free';
@@ -35,7 +41,8 @@ export async function GET(request: NextRequest) {
         limits,
       },
     });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unexpected error';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

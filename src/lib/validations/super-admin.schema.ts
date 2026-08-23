@@ -1,5 +1,14 @@
 import { z } from 'zod';
 
+// Canonical tiers — must mirror SubscriptionTier in @/types/subscription.
+const subscriptionTierEnum = z.enum([
+  'free',
+  'trial',
+  'starter',
+  'growth',
+  'premium',
+]);
+
 export const createSchoolSchema = z.object({
   name: z.string().min(2, 'School name is required'),
   admin_full_name: z.string().min(2, 'Admin full name is required'),
@@ -11,12 +20,12 @@ export const createSchoolSchema = z.object({
       { message: 'Password must be at least 8 characters' }
     ),
   phone: z.string().optional(),
-  subscription_tier: z.enum(['free', 'trial', 'basic', 'pro']),
+  subscription_tier: subscriptionTierEnum,
 });
 
 export const updateSubscriptionSchema = z.object({
   status: z.enum(['trial', 'active', 'inactive', 'expired']),
-  tier: z.enum(['free', 'trial', 'basic', 'pro']),
+  tier: subscriptionTierEnum,
   expires_at: z.string().optional().nullable(),
 });
 

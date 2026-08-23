@@ -21,17 +21,26 @@ export function useSubscription() {
       const historyData = await historyRes.json();
       if (statusData.success) setStatus(statusData.subscription);
       if (historyData.success) setHistory(historyData.history || []);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error ? err.message : 'Failed to load subscription'
+      );
     } finally {
       setIsLoading(false);
     }
   }, []);
 
   useEffect(() => {
+    // Intentional mount-time load of the current subscription + payment history.
+    // fetchStatus flips isLoading synchronously; that's the desired initial
+    // spinner behaviour, so the set-state-in-effect guard is opted out here.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchStatus();
   }, [fetchStatus]);
 
+
+  // Kicks off Paystack checkout and hands back the hosted authorization URL. The
+  // caller is responsible for redirecting the browser there (see redirectTo...).
   const initializePayment = async (plan: string) => {
     const res = await fetch('/api/subscriptions/initialize', {
       method: 'POST',
@@ -40,7 +49,7 @@ export function useSubscription() {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
-    return data;
+    return data as { authorization_url: string; reference: string };
   };
 
   const cancelSubscription = async () => {
@@ -59,9 +68,35 @@ export function useSubscription() {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
-    await fetchStatus();
-    return data;
+    // NOTE: the tier does NOT change here — it changes only after Paystack
+    // confirms payment via the webhook. Return the checkout URL so the caller
+    // can redirect the user to complete payment.
+    return data as { authorization_url: string; reference: string };
   };
 
-  return { status, history, isLoading, error, refetch: fetchStatus, initializePayment, cancelSubscription, upgradePlan };
+  // Convenience helpers: start checkout for a (new or upgraded) plan and send the
+  // browser straight to Paystack's hosted payment page.
+  const subscribeAndRedirect = async (plan: string) => {
+    const { authorization_url } = await initializePayment(plan);
+    if (authorization_url) window.location.href = authorization_url;
+  };
+
+  const upgradeAndRedirect = async (plan: string) => {
+    const { authorization_url } = await upgradePlan(plan);
+    if (authorization_url) window.location.href = authorization_url;
+  };
+
+  return {
+    status,
+    history,
+    isLoading,
+    error,
+    refetch: fetchStatus,
+    initializePayment,
+    cancelSubscription,
+    upgradePlan,
+    subscribeAndRedirect,
+    upgradeAndRedirect,
+  };
 }
+

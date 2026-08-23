@@ -69,8 +69,9 @@ export default function SchoolsPage() {
             <SelectItem value="all">All Tiers</SelectItem>
             <SelectItem value="trial">Trial</SelectItem>
             <SelectItem value="free">Free</SelectItem>
-            <SelectItem value="basic">Basic</SelectItem>
-            <SelectItem value="pro">Pro</SelectItem>
+            <SelectItem value="starter">Starter</SelectItem>
+            <SelectItem value="growth">Growth</SelectItem>
+            <SelectItem value="premium">Premium</SelectItem>
           </SelectContent>
         </Select>
       </div>
