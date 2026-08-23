@@ -8,6 +8,8 @@ interface SignatureBlockProps {
   principalSignatureUrl?: string | null;
   date: string;
   teacherName?: string | null;
+  /** Optional class-teacher signature image. Falls back to a blank line. */
+  teacherSignatureUrl?: string | null;
 }
 
 export function SignatureBlock({
@@ -15,16 +17,17 @@ export function SignatureBlock({
   principalSignatureUrl,
   date,
   teacherName,
+  teacherSignatureUrl,
 }: SignatureBlockProps) {
   return (
     <div className="signature-block">
       {/* Class Teacher Signature */}
       {teacherName && (
         <div className="signature-item">
-          {principalSignatureUrl && (
+          {teacherSignatureUrl && (
             <Image
-              src={principalSignatureUrl}
-              alt="Signature"
+              src={teacherSignatureUrl}
+              alt="Class Teacher's Signature"
               width={150}
               height={50}
               className="signature-image"

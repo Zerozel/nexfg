@@ -5,9 +5,12 @@ import { useRouter } from "next/navigation";
 import { PrintControls } from "@/components/printing/PrintControls";
 import { BatchPrintModal } from "@/components/printing/BatchPrintModal";
 import { useClassesDropdown } from "@/hooks/useReportCard";
+import { useClassStudents } from "@/hooks/useStudents";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import type { StudentInfo } from "@/types/printing";
+
 
 export default function BatchPrintPage() {
   const router = useRouter();
@@ -15,6 +18,20 @@ export default function BatchPrintPage() {
   const [showBatchModal, setShowBatchModal] = useState(false);
   const [selectedClassId, setSelectedClassId] = useState("");
   const [selectedTermId, setSelectedTermId] = useState("");
+
+  // Load the students for the class chosen for batch printing.
+  // Returns [] until a class is selected (empty classId short-circuits).
+  const { data: classStudents, loading: studentsLoading } =
+    useClassStudents(selectedClassId);
+
+  const batchStudents: StudentInfo[] = (classStudents || []).map((s) => ({
+    id: s.id,
+    full_name: s.full_name,
+    admission_number: s.admission_number ?? null,
+    avatar_url: null,
+  }));
+
+
 
   const handlePrintIndividual = useCallback(
     (classId: string, termId: string) => {
@@ -170,10 +187,12 @@ export default function BatchPrintPage() {
         isOpen={showBatchModal}
         onClose={() => setShowBatchModal(false)}
         onPrint={handleBatchPrint}
-        students={[]}
+        students={batchStudents}
+        isLoading={studentsLoading}
         classId={selectedClassId}
         termId={selectedTermId}
       />
+
     </div>
   );
 }

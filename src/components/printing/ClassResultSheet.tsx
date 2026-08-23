@@ -4,7 +4,8 @@ import type { ClassResultSheetData } from "@/types/printing";
 import { PrintHeader } from "./PrintHeader";
 import { PrintFooter } from "./PrintFooter";
 import { SignatureBlock } from "./SignatureBlock";
-import { getOrdinal } from "@/lib/printing/data-transform";
+import { getOrdinal, getGradeClass } from "@/lib/printing/data-transform";
+
 
 interface ClassResultSheetProps {
   data: ClassResultSheetData;
@@ -134,11 +135,16 @@ export function ClassResultSheet({ data }: ClassResultSheetProps) {
                   {studentData.overall.average.toFixed(1)}
                 </td>
                 <td>
-                  <span className="grade grade-a1">
+                  <span
+                    className={`grade ${getGradeClass(
+                      studentData.overall.grade
+                    )}`}
+                  >
                     {studentData.overall.grade}
                   </span>
                 </td>
               </tr>
+
             ))}
           </tbody>
         </table>

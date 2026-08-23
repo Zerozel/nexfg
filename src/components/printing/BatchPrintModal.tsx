@@ -13,6 +13,8 @@ interface BatchPrintModalProps {
   students: StudentInfo[];
   classId: string;
   termId: string;
+  /** Whether the student list is still being fetched. */
+  isLoading?: boolean;
 }
 
 export function BatchPrintModal({
@@ -22,7 +24,9 @@ export function BatchPrintModal({
   students,
   classId,
   termId,
+  isLoading = false,
 }: BatchPrintModalProps) {
+
   const [selectedIds, setSelectedIds] = useState<Set<string>>(
     new Set()
   );
@@ -91,36 +95,43 @@ export function BatchPrintModal({
 
         {/* Student List */}
         <div className="student-list">
-          {students.map((student) => (
-            <div
-              key={student.id}
-              className={`student-item ${
-                selectedIds.has(student.id) ? "selected" : ""
-              }`}
-              onClick={() => handleToggleStudent(student.id)}
-            >
-              <Checkbox
-                checked={selectedIds.has(student.id)}
-                onCheckedChange={() =>
-                  handleToggleStudent(student.id)
-                }
-              />
-              <div>
-                <div className="font-medium">{student.full_name}</div>
-                {student.admission_number && (
-                  <div className="text-sm text-gray-500">
-                    {student.admission_number}
-                  </div>
-                )}
-              </div>
+          {isLoading && (
+            <div className="text-center py-8 text-gray-500">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-3" />
+              Loading students...
             </div>
-          ))}
+          )}
 
-          {students.length === 0 && (
+          {!isLoading &&
+            students.map((student) => (
+              <div
+                key={student.id}
+                className={`student-item ${
+                  selectedIds.has(student.id) ? "selected" : ""
+                }`}
+                onClick={() => handleToggleStudent(student.id)}
+              >
+                <Checkbox
+                  checked={selectedIds.has(student.id)}
+                  onCheckedChange={() => handleToggleStudent(student.id)}
+                />
+                <div>
+                  <div className="font-medium">{student.full_name}</div>
+                  {student.admission_number && (
+                    <div className="text-sm text-gray-500">
+                      {student.admission_number}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+
+          {!isLoading && students.length === 0 && (
             <div className="text-center py-8 text-gray-500">
               No students found in this class
             </div>
           )}
+
         </div>
 
         {/* Footer */}

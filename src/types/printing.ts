@@ -45,7 +45,25 @@ export interface SubjectResult {
   class_average: number | null;
   class_highest: number | null;
   class_lowest: number | null;
+  /** Relative weight used for weighted-average calculation. Defaults to 1. */
+  weight?: number | null;
 }
+
+/**
+ * A single band within a school's grading system, e.g.
+ * { grade: "A1", min_score: 80, max_score: 100, remarks: "Excellent" }.
+ */
+export interface GradingBand {
+  grade: string;
+  min_score: number;
+  max_score: number;
+  remarks: string | null;
+  color?: string | null;
+}
+
+/** An ordered list of grading bands. When absent, WAEC defaults are used. */
+export type GradingSystem = GradingBand[];
+
 
 export interface OverallResult {
   average: number;

@@ -7,15 +7,47 @@ import type {
   StudentInfo,
   ClassInfo,
   TermInfo,
+  GradingSystem,
 } from "@/types/printing";
 
 /**
  * Transforms raw database compiled_results into print-ready data
  */
 
+/**
+ * WAEC-style default grading bands, used when a school has not configured
+ * a custom grading system.
+ */
+const DEFAULT_GRADING_SYSTEM: GradingSystem = [
+  { grade: "A1", min_score: 80, max_score: 100, remarks: "Excellent" },
+  { grade: "B2", min_score: 75, max_score: 79, remarks: "Very Good" },
+  { grade: "B3", min_score: 70, max_score: 74, remarks: "Very Good" },
+  { grade: "C4", min_score: 65, max_score: 69, remarks: "Good" },
+  { grade: "C5", min_score: 60, max_score: 64, remarks: "Good" },
+  { grade: "C6", min_score: 55, max_score: 59, remarks: "Credit" },
+  { grade: "D7", min_score: 50, max_score: 54, remarks: "Credit" },
+  { grade: "E8", min_score: 45, max_score: 49, remarks: "Pass" },
+  { grade: "F9", min_score: 0, max_score: 44, remarks: "Fail" },
+];
+
+/**
+ * Reads a grading system off raw API data. Supports either
+ * `rawData.grading_system` or `rawData.school.grading_system`.
+ */
+function extractGradingSystem(rawData: any): GradingSystem | undefined {
+  const candidate =
+    rawData?.grading_system ?? rawData?.school?.grading_system;
+  if (Array.isArray(candidate) && candidate.length > 0) {
+    return candidate as GradingSystem;
+  }
+  return undefined;
+}
+
 export function transformStudentReportData(
   rawData: any
 ): IndividualReportCardData {
+  const gradingSystems = extractGradingSystem(rawData);
+
   const school: SchoolInfo = {
     id: rawData.school?.id || "",
     name: rawData.school?.name || "School Name",
@@ -60,12 +92,12 @@ export function transformStudentReportData(
         id: subj.id || subj.subject_id || "",
         name: subj.name || subj.subject_name || "Subject",
         score: typeof subj.score === "number" ? subj.score : 0,
-        grade: subj.grade || formatGrade(subj.score),
+        grade: subj.grade || formatGrade(subj.score, gradingSystems),
         subject_position:
           typeof subj.subject_position === "number"
             ? subj.subject_position
             : null,
-        remarks: subj.remarks || getRemarks(subj.score),
+        remarks: subj.remarks || getRemarks(subj.score, gradingSystems),
         class_average:
           typeof subj.class_average === "number"
             ? subj.class_average
@@ -78,6 +110,8 @@ export function transformStudentReportData(
           typeof subj.class_lowest === "number"
             ? subj.class_lowest
             : null,
+        weight:
+          typeof subj.weight === "number" ? subj.weight : null,
       }))
     : [];
 
@@ -100,14 +134,16 @@ export function transformStudentReportData(
       formatGrade(
         typeof rawData.compiled_results?.average === "number"
           ? rawData.compiled_results.average
-          : calculateAverage(subjects)
+          : calculateAverage(subjects),
+        gradingSystems
       ),
     remarks:
       rawData.compiled_results?.remarks ||
       getRemarks(
         typeof rawData.compiled_results?.average === "number"
           ? rawData.compiled_results.average
-          : calculateAverage(subjects)
+          : calculateAverage(subjects),
+        gradingSystems
       ),
   };
 
@@ -130,6 +166,8 @@ export function transformStudentReportData(
 export function transformClassResultData(
   rawData: any
 ): ClassResultSheetData {
+  const gradingSystems = extractGradingSystem(rawData);
+
   const school: SchoolInfo = {
     id: rawData.school?.id || "",
     name: rawData.school?.name || "School Name",
@@ -173,12 +211,13 @@ export function transformClassResultData(
                 name: subj.name || subj.subject_name || "Subject",
                 score:
                   typeof subj.score === "number" ? subj.score : 0,
-                grade: subj.grade || formatGrade(subj.score),
+                grade: subj.grade || formatGrade(subj.score, gradingSystems),
                 subject_position:
                   typeof subj.subject_position === "number"
                     ? subj.subject_position
                     : null,
-                remarks: subj.remarks || getRemarks(subj.score),
+                remarks:
+                  subj.remarks || getRemarks(subj.score, gradingSystems),
                 class_average:
                   typeof subj.class_average === "number"
                     ? subj.class_average
@@ -191,6 +230,8 @@ export function transformClassResultData(
                   typeof subj.class_lowest === "number"
                     ? subj.class_lowest
                     : null,
+                weight:
+                  typeof subj.weight === "number" ? subj.weight : null,
               };
             })
           : [];
@@ -214,14 +255,16 @@ export function transformClassResultData(
             formatGrade(
               typeof studentData.average === "number"
                 ? studentData.average
-                : calculateAverage(studentSubjects)
+                : calculateAverage(studentSubjects),
+              gradingSystems
             ),
           remarks:
             studentData.remarks ||
             getRemarks(
               typeof studentData.average === "number"
                 ? studentData.average
-                : calculateAverage(studentSubjects)
+                : calculateAverage(studentSubjects),
+              gradingSystems
             ),
         };
 
@@ -273,31 +316,95 @@ export function transformClassResultData(
  * Utility functions for grading
  */
 
+/**
+ * Weighted average of subject scores. Each subject may carry a `weight`;
+ * when omitted the weight defaults to 1, so this reduces to a simple mean
+ * for data that has no weighting configured (backward compatible).
+ */
 export function calculateAverage(subjects: SubjectResult[]): number {
   if (subjects.length === 0) return 0;
-  const sum = subjects.reduce((acc, subj) => acc + subj.score, 0);
-  return Math.round((sum / subjects.length) * 100) / 100;
+
+  let weightedSum = 0;
+  let totalWeight = 0;
+  for (const subj of subjects) {
+    const weight =
+      typeof subj.weight === "number" && subj.weight > 0 ? subj.weight : 1;
+    weightedSum += subj.score * weight;
+    totalWeight += weight;
+  }
+
+  if (totalWeight === 0) return 0;
+  return Math.round((weightedSum / totalWeight) * 100) / 100;
 }
 
-export function formatGrade(score: number): string {
-  if (score >= 80) return "A1";
-  if (score >= 75) return "B2";
-  if (score >= 70) return "B3";
-  if (score >= 65) return "C4";
-  if (score >= 60) return "C5";
-  if (score >= 55) return "C6";
-  if (score >= 50) return "D7";
-  if (score >= 45) return "E8";
-  return "F9";
+/**
+ * Assigns a letter grade (e.g. A1–F9) for a score. Uses the supplied
+ * `gradingSystems` bands when provided, otherwise WAEC defaults.
+ */
+export function formatGrade(
+  score: number,
+  gradingSystems?: GradingSystem
+): string {
+  const safeScore = typeof score === "number" ? score : 0;
+  const bands = gradingSystems?.length ? gradingSystems : DEFAULT_GRADING_SYSTEM;
+
+  const band = bands.find(
+    (b) => safeScore >= b.min_score && safeScore <= b.max_score
+  );
+
+  if (band) return band.grade;
+
+  // Fall back to the lowest band's grade when nothing matches.
+  return bands[bands.length - 1]?.grade || "F9";
 }
 
-export function getRemarks(score: number): string {
-  if (score >= 80) return "Excellent";
-  if (score >= 70) return "Very Good";
-  if (score >= 60) return "Good";
-  if (score >= 50) return "Credit";
-  if (score >= 45) return "Pass";
+/**
+ * Returns the remark associated with a score, using the school's grading
+ * bands when available, otherwise WAEC-style defaults.
+ */
+export function getRemarks(
+  score: number,
+  gradingSystems?: GradingSystem
+): string {
+  const safeScore = typeof score === "number" ? score : 0;
+  const bands = gradingSystems?.length ? gradingSystems : DEFAULT_GRADING_SYSTEM;
+
+  const band = bands.find(
+    (b) => safeScore >= b.min_score && safeScore <= b.max_score
+  );
+
+  if (band?.remarks) return band.remarks;
+
+  // Default remark fallbacks (used when a custom band omits remarks).
+  if (safeScore >= 80) return "Excellent";
+  if (safeScore >= 70) return "Very Good";
+  if (safeScore >= 60) return "Good";
+  if (safeScore >= 50) return "Credit";
+  if (safeScore >= 45) return "Pass";
   return "Fail";
+}
+
+/**
+ * Maps a letter grade to a CSS class used for grade-color styling.
+ * Shared by ReportCardTemplate and ClassResultSheet so the A1–F9 palette
+ * is applied consistently.
+ */
+export function getGradeClass(grade: string | null | undefined): string {
+  if (!grade) return "";
+  const g = grade.trim().toUpperCase();
+
+  if (/^(A1|B2|B3)/.test(g)) return "grade-a1";
+  if (/^(C4|C5|C6)/.test(g)) return "grade-c4";
+  if (/^(D7|E8)/.test(g)) return "grade-d7";
+  if (/^F9/.test(g)) return "grade-f9";
+
+  // Fallback for single-letter grades (A/B/C/D/E/F)
+  const first = g.charAt(0);
+  if (first === "A" || first === "B") return "grade-a1";
+  if (first === "C") return "grade-c4";
+  if (first === "D" || first === "E") return "grade-d7";
+  if (first === "F") return "grade-f9";
+  return "";
 }
 
 export function formatDate(dateString: string): string {
@@ -310,6 +417,8 @@ export function formatDate(dateString: string): string {
 }
 
 export function getOrdinal(n: number): string {
+  // Guard against missing/zero positions (e.g. uncompiled results).
+  if (!Number.isFinite(n) || n <= 0) return "-";
   const s = ["th", "st", "nd", "rd"];
   const v = n % 100;
   return n + (s[(v - 20) % 10] || s[v] || s[0]);

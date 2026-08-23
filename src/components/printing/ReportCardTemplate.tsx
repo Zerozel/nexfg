@@ -4,7 +4,8 @@ import type { IndividualReportCardData } from "@/types/printing";
 import { PrintHeader } from "./PrintHeader";
 import { PrintFooter } from "./PrintFooter";
 import { SignatureBlock } from "./SignatureBlock";
-import { getOrdinal } from "@/lib/printing/data-transform";
+import { getOrdinal, getGradeClass } from "@/lib/printing/data-transform";
+
 
 interface ReportCardTemplateProps {
   data: IndividualReportCardData;
@@ -26,17 +27,9 @@ export function ReportCardTemplate({ data }: ReportCardTemplateProps) {
     psychomotor_skills,
   } = data;
 
-  const getGradeClass = (grade: string): string => {
-    const gradeNum = grade.toUpperCase().replace("A", "a").replace("B", "b").replace("C", "c").replace("D", "d").replace("E", "e").replace("F", "f");
-    if (gradeNum.startsWith("a") || gradeNum.startsWith("b")) return "grade-a1";
-    if (gradeNum.startsWith("c")) return "grade-c4";
-    if (gradeNum.startsWith("d") || gradeNum.startsWith("e")) return "grade-d7";
-    if (gradeNum.startsWith("f")) return "grade-f9";
-    return "";
-  };
-
   return (
     <div className="report-card-template">
+
       {/* Watermark */}
       <div className="watermark">{school.name}</div>
 
