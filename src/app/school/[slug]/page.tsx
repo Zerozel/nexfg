@@ -3,20 +3,14 @@ import { HeroSection } from '@/components/public/HeroSection';
 import { AboutSection } from '@/components/public/AboutSection';
 import { GallerySection } from '@/components/public/GallerySection';
 import { ContactSection } from '@/components/public/ContactSection';
-import { createClient } from '@supabase/supabase-js';
+import { getPublicSchool } from '@/lib/public/get-school';
 import { notFound } from 'next/navigation';
 
 export const revalidate = 60;
 
-async function getSchool(slug: string) {
-  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
-  const { data } = await supabase.from('schools').select('*').eq('slug', slug).eq('website_enabled', true).single();
-  return data;
-}
-
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const school = await getSchool(slug);
+  const school = await getPublicSchool(slug);
   if (!school) return { title: 'School Not Found' };
   return {
     title: school.name,
@@ -27,7 +21,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function SchoolHomePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const school = await getSchool(slug);
+  const school = await getPublicSchool(slug);
   if (!school) notFound();
 
   const primaryColor = school.website_theme?.primary_color || '#2563eb';
@@ -41,7 +35,13 @@ export default async function SchoolHomePage({ params }: { params: Promise<{ slu
         primaryColor={primaryColor}
         slug={slug}
       />
-      <AboutSection aboutText={school.website_content?.about_text || null} primaryColor={primaryColor} slug={slug} />
+      <AboutSection
+        aboutText={school.website_content?.about_text || null}
+        mission={school.website_content?.mission || null}
+        vision={school.website_content?.vision || null}
+        primaryColor={primaryColor}
+        slug={slug}
+      />
       <GallerySection gallery={school.website_content?.gallery || []} primaryColor={primaryColor} slug={slug} />
       <ContactSection
         slug={slug}

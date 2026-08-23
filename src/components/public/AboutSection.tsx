@@ -1,10 +1,17 @@
 interface AboutSectionProps {
   aboutText: string | null;
+  mission?: string | null;
+  vision?: string | null;
   primaryColor: string;
   slug: string;
 }
 
-export function AboutSection({ aboutText, primaryColor, slug }: AboutSectionProps) {
+const DEFAULT_MISSION =
+  'To empower students with knowledge, skills, and character to excel in a dynamic world.';
+const DEFAULT_VISION =
+  'To be a center of educational excellence and innovation, nurturing future leaders.';
+
+export function AboutSection({ aboutText, mission, vision, primaryColor, slug }: AboutSectionProps) {
   return (
     <section className="py-16 md:py-24">
       <div className="max-w-[1200px] mx-auto px-4">
@@ -16,11 +23,11 @@ export function AboutSection({ aboutText, primaryColor, slug }: AboutSectionProp
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
           <div className="p-6 rounded-lg border border-gray-200 shadow-sm hover:-translate-y-1 transition-transform" style={{ borderTopColor: primaryColor, borderTopWidth: '4px' }}>
             <h3 className="font-bold text-lg mb-3" style={{ color: '#1A1A2E' }}>Our Mission</h3>
-            <p className="text-gray-600">To empower students with knowledge, skills, and character to excel in a dynamic world.</p>
+            <p className="text-gray-600">{mission || DEFAULT_MISSION}</p>
           </div>
           <div className="p-6 rounded-lg border border-gray-200 shadow-sm hover:-translate-y-1 transition-transform" style={{ borderTopColor: primaryColor, borderTopWidth: '4px' }}>
             <h3 className="font-bold text-lg mb-3" style={{ color: '#1A1A2E' }}>Our Vision</h3>
-            <p className="text-gray-600">To be a center of educational excellence and innovation, nurturing future leaders.</p>
+            <p className="text-gray-600">{vision || DEFAULT_VISION}</p>
           </div>
         </div>
 

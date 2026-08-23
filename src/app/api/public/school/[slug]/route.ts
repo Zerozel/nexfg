@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getPublicSchool } from '@/lib/public/get-school';
 
 export async function GET(
   request: NextRequest,
@@ -7,20 +7,12 @@ export async function GET(
 ) {
   try {
     const { slug } = await params;
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { autoRefreshToken: false, persistSession: false } }
-    );
 
-    const { data: school, error } = await supabase
-      .from('schools')
-      .select('*')
-      .eq('slug', slug)
-      .eq('website_enabled', true)
-      .single();
+    // getPublicSchool uses the service-role key and selects ONLY public,
+    // whitelisted columns — so no admin/billing fields leak to the browser.
+    const school = await getPublicSchool(slug);
 
-    if (error || !school) {
+    if (!school) {
       return NextResponse.json({ error: 'School not found' }, { status: 404 });
     }
 

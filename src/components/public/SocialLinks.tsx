@@ -1,3 +1,5 @@
+'use client';
+
 interface SocialLinksProps {
   links: { facebook?: string | null; twitter?: string | null; instagram?: string | null } | null;
   color?: string;

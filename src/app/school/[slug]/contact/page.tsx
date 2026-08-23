@@ -1,20 +1,14 @@
 import { SchoolLayout } from '@/components/public/SchoolLayout';
 import { ContactForm } from '@/components/public/ContactForm';
 import { SocialLinks } from '@/components/public/SocialLinks';
-import { createClient } from '@supabase/supabase-js';
+import { getPublicSchool } from '@/lib/public/get-school';
 import { notFound } from 'next/navigation';
 
 export const revalidate = 60;
 
-async function getSchool(slug: string) {
-  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
-  const { data } = await supabase.from('schools').select('*').eq('slug', slug).eq('website_enabled', true).single();
-  return data;
-}
-
 export default async function ContactPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const school = await getSchool(slug);
+  const school = await getPublicSchool(slug);
   if (!school) notFound();
   const primaryColor = school.website_theme?.primary_color || '#2563eb';
 
