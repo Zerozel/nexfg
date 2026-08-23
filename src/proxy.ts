@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createMiddlewareSupabase } from '@/lib/supabase/middleware-client';
+import { getDashboardRoute } from '@/config/roles';
 import type { UserRole } from '@/types';
 
 // Next.js 16: the `middleware` convention is deprecated and renamed to `proxy`
@@ -106,30 +107,50 @@ export async function proxy(req: NextRequest) {
     return NextResponse.redirect(new URL('/login', req.url));
   }
 
-  const role = user.app_metadata?.role as UserRole;
+  const role = user.app_metadata?.role as UserRole | undefined;
 
+  // Where does *this* user belong? getDashboardRoute() maps each known role to
+  // its dashboard and returns '/login' for a missing/unknown role.
+  const homeForRole = role ? getDashboardRoute(role) : '/login';
+
+  // Authenticated user on an auth page → bounce to their own dashboard.
+  // If the role is missing/unknown, homeForRole is an auth page itself, so we
+  // render the page instead of redirecting to it — otherwise a role-less but
+  // authenticated user would loop /login → /login forever.
   if (isAuthPage) {
-    if (role === 'super_admin') {
-      return NextResponse.redirect(new URL('/dashboard/super-admin', req.url));
+    if (
+      homeForRole === path ||
+      homeForRole === '/login' ||
+      homeForRole === '/super-admin/login'
+    ) {
+      return res;
     }
-    const dashboardPath =
-      role === 'teacher' ? '/dashboard/teacher' : '/dashboard/admin';
-    return NextResponse.redirect(new URL(dashboardPath, req.url));
+    return NextResponse.redirect(new URL(homeForRole, req.url));
   }
 
+  // Bare `/dashboard` has no page of its own — route the user to the dashboard
+  // that matches their role (or /login if they have no valid role).
+  if (path === '/dashboard' || path === '/dashboard/') {
+    return NextResponse.redirect(new URL(homeForRole, req.url));
+  }
+
+  // Role-based access control within the dashboard. A logged-in user who lacks
+  // access to a section is sent to *their own* dashboard (not an auth page),
+  // avoiding a double redirect that bounces them through a login screen.
   if (path.startsWith('/dashboard/teacher') && role !== 'teacher') {
-    return NextResponse.redirect(new URL('/login', req.url));
+    return NextResponse.redirect(new URL(homeForRole, req.url));
   }
 
   if (
     path.startsWith('/dashboard/admin') &&
-    !['admin', 'principal'].includes(role)
+    role !== 'admin' &&
+    role !== 'principal'
   ) {
-    return NextResponse.redirect(new URL('/login', req.url));
+    return NextResponse.redirect(new URL(homeForRole, req.url));
   }
 
   if (path.startsWith('/dashboard/super-admin') && role !== 'super_admin') {
-    return NextResponse.redirect(new URL('/super-admin/login', req.url));
+    return NextResponse.redirect(new URL(homeForRole, req.url));
   }
 
   return res;
