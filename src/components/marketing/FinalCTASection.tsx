@@ -120,7 +120,7 @@ export function FinalCTASection() {
             Get Your School on NexaForge →
           </a>
           <a
-            href="tel:+2348012345678"
+            href="tel:+2349045955670"
             style={{
               background: "transparent",
               color: COLORS.white,
