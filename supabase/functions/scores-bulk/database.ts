@@ -13,13 +13,23 @@ declare const Deno: {
 
 export function createSupabaseClient(authHeader: string): SupabaseClient {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
 
-  if (!supabaseUrl || !supabaseServiceRoleKey) {
-    throw new Error("Missing required environment variables: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY");
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error("Missing required environment variables: SUPABASE_URL and SUPABASE_ANON_KEY");
   }
 
-  return createClient(supabaseUrl, supabaseServiceRoleKey, {
+  // Least-privilege by design: we use the ANON key (not the service-role key)
+  // and forward the caller's JWT via the Authorization header. PostgREST derives
+  // the Postgres role from that JWT, so every query runs as the authenticated
+  // user with RLS enforced and `auth.jwt() -> app_metadata -> school_id`
+  // resolving to the caller's school. This keeps tenant isolation intact even
+  // though the function performs the writes.
+  //
+  // Do NOT switch this to the service-role key: that would run as `service_role`
+  // (bypassing RLS) and make `auth.jwt() -> school_id` NULL, which both defeats
+  // tenant isolation and breaks the school_id auto-inject trigger.
+  return createClient(supabaseUrl, supabaseAnonKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
@@ -165,7 +175,13 @@ export async function executeBatchUpsert(
     return { inserted: 0, updated: 0 };
   }
 
+  // Write school_id explicitly rather than depending solely on the DB
+  // auto-inject trigger. `schoolId` is derived from the caller's verified JWT
+  // (app_metadata.school_id) in index.ts, so this is authoritative and also
+  // satisfies the RLS WITH CHECK (school_id = auth.jwt() -> school_id) and the
+  // onConflict target below without relying on trigger side-effects.
   const values = records.map((record: ValidatedRecord) => ({
+    school_id: schoolId,
     student_id: record.student_id,
     assessment_id: record.assessment_id,
     score: record.score,

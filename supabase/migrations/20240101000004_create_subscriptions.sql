@@ -5,6 +5,10 @@
 -- The `schools` table itself is created in an earlier (Section-1) migration; the
 -- subscription columns may or may not already exist there, so every ALTER below
 -- is guarded with IF NOT EXISTS to stay idempotent against existing databases.
+--
+-- This migration is fully idempotent / safe to re-run: table + column + index
+-- creation use IF NOT EXISTS, and every policy/trigger is preceded by a
+-- DROP ... IF EXISTS so applying it more than once never errors.
 
 -- ---------------------------------------------------------------------------
 -- 1. schools: subscription + Paystack columns
@@ -55,6 +59,7 @@ CREATE INDEX IF NOT EXISTS idx_subscription_payments_school
 ALTER TABLE public.subscription_payments ENABLE ROW LEVEL SECURITY;
 
 -- Members of a school may read their own payment history.
+DROP POLICY IF EXISTS "Users can view payments from their school" ON public.subscription_payments;
 CREATE POLICY "Users can view payments from their school"
     ON public.subscription_payments
     FOR SELECT
@@ -63,6 +68,7 @@ CREATE POLICY "Users can view payments from their school"
 -- School admins record a pending payment when they start checkout. The webhook
 -- flips it to success/failed using the service-role key (which bypasses RLS),
 -- so no UPDATE policy is required for regular users.
+DROP POLICY IF EXISTS "Users can insert payments for their school" ON public.subscription_payments;
 CREATE POLICY "Users can insert payments for their school"
     ON public.subscription_payments
     FOR INSERT
@@ -87,11 +93,13 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+DROP TRIGGER IF EXISTS trigger_subscription_payments_before_insert ON public.subscription_payments;
 CREATE TRIGGER trigger_subscription_payments_before_insert
     BEFORE INSERT ON public.subscription_payments
     FOR EACH ROW
     EXECUTE FUNCTION public.subscription_payments_trigger_handler();
 
+DROP TRIGGER IF EXISTS trigger_subscription_payments_before_update ON public.subscription_payments;
 CREATE TRIGGER trigger_subscription_payments_before_update
     BEFORE UPDATE ON public.subscription_payments
     FOR EACH ROW

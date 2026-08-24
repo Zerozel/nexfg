@@ -85,8 +85,9 @@ export async function canPrintReportCard(
 
   // Teacher: only assigned/owned classes.
   if (role === "teacher") {
+    // Teachers are linked to classes through the subjects they teach.
     const { data: assignedClasses } = await supabase
-      .from("class_teachers")
+      .from("class_subjects")
       .select("class_id")
       .eq("teacher_id", user.id);
 
@@ -189,9 +190,9 @@ export async function checkPrintPermissions(
 
   // Teacher can only print their assigned classes
   if (role === "teacher") {
-    // Get teacher's assigned classes
+    // Get teacher's assigned classes (linked via the subjects they teach)
     const { data: assignedClasses } = await supabase
-      .from("class_teachers")
+      .from("class_subjects")
       .select("class_id")
       .eq("teacher_id", user.id);
 

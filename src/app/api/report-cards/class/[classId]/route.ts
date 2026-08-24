@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
+import { fetchCompiledResultsByStudent } from "@/lib/printing/compiled-results";
 
 export async function GET(
   request: NextRequest,
@@ -36,7 +37,8 @@ export async function GET(
     }
 
     if (role === "teacher") {
-      const ctResult = await supabase.from("class_teachers").select("id").eq("class_id", classId).eq("teacher_id", user.id).maybeSingle();
+      // class_subjects can hold multiple (class, teacher) rows; limit(1) keeps maybeSingle safe.
+      const ctResult = await supabase.from("class_subjects").select("id").eq("class_id", classId).eq("teacher_id", user.id).limit(1).maybeSingle();
       const ocResult = await supabase.from("classes").select("id").eq("id", classId).eq("teacher_id", user.id).maybeSingle();
       if (!ctResult.data && !ocResult.data) {
         return NextResponse.json({ success: false, error: "Not assigned to this class" }, { status: 403 });
@@ -50,12 +52,15 @@ export async function GET(
     }
     const school: any = schoolResult.data;
 
-    // Fetch term
-    const termResult = await supabase.from("terms").select("*").eq("id", termId).maybeSingle();
+    // Fetch term (academic_session is derived from academic_years.name)
+    const termResult = await supabase.from("terms").select("*, academic_years:academic_year_id(name)").eq("id", termId).maybeSingle();
     if (!termResult.data) {
       return NextResponse.json({ success: false, error: "Term not found" }, { status: 404 });
     }
     const term: any = termResult.data;
+    const academicSession = Array.isArray(term.academic_years)
+      ? term.academic_years[0]?.name
+      : term.academic_years?.name;
 
     // Get teacher name
     let teacherName: string | null = null;
@@ -64,13 +69,13 @@ export async function GET(
 		teacherName = teacherResult?.data?.full_name || null;
 	}
 
-    // Fetch enrollments
+    // Fetch enrollments (real table is `enrollments`, flagged via is_current)
     const enrollmentsResult = await supabase
-      .from("student_enrollments")
-      .select("student_id, students:student_id(id, full_name, admission_number, avatar_url), attendance_total, attendance_present")
+      .from("enrollments")
+      .select("student_id, students:student_id(id, full_name, admission_number, avatar_url:profile_image_url)")
       .eq("class_id", classId)
       .eq("term_id", termId)
-      .eq("is_active", true);
+      .eq("is_current", true);
     const enrollments: any[] = enrollmentsResult.data || [];
 
     if (enrollments.length === 0) {
@@ -79,33 +84,25 @@ export async function GET(
         data: {
           school: { id: school.id, name: school.name, logo_url: school.logo_url, motto: school.motto, address: school.address, phone: school.phone, email: school.email, primary_color: school.primary_color || "#2563eb", principal_name: school.principal_name, principal_signature_url: school.principal_signature_url },
           class: { id: classInfo.id, name: classInfo.name, teacher_name: teacherName, teacher_id: classInfo.teacher_id },
-          term: { id: term.id, name: term.name, academic_session: term.academic_session, start_date: term.start_date, end_date: term.end_date },
+          term: { id: term.id, name: term.name, academic_session: academicSession || "", start_date: term.start_date, end_date: term.end_date },
           students: [],
           issued_date: new Date().toISOString().split("T")[0],
         },
       });
     }
 
-    // Fetch compiled results
+    // Aggregate compiled results (per-subject rows) into per-student results.
     const studentIds = enrollments.map((e: any) => e.student_id);
-    const resultsResult = await supabase
-      .from("compiled_results")
-      .select("*")
-      .in("student_id", studentIds)
-      .eq("term_id", termId)
-      .eq("class_id", classId);
-    const compiledResults: any[] = resultsResult.data || [];
-
-    // Build results map
-    const resultsMap: Record<string, any> = {};
-    for (const r of compiledResults) {
-      resultsMap[r.student_id] = r;
-    }
+    const resultsMap = await fetchCompiledResultsByStudent(supabase, {
+      classId,
+      termId,
+      studentIds,
+    });
 
     // Transform students
     const studentsData = enrollments.map((enrollment: any) => {
       const student = Array.isArray(enrollment.students) ? enrollment.students[0] : enrollment.students;
-      const result = resultsMap[enrollment.student_id] || { subjects: [], average: 0, position: 0 };
+      const result = resultsMap.get(enrollment.student_id);
 
       return {
         student: {
@@ -114,17 +111,14 @@ export async function GET(
           admission_number: student?.admission_number || null,
           avatar_url: student?.avatar_url || null,
         },
-        subjects: result.subjects || [],
-        average: result.average || 0,
-        position: result.position || 0,
-        total_students: result.total_students || enrollments.length,
-        grade: result.grade || null,
-        remarks: result.remarks || null,
-        attendance: {
-          total_days: enrollment.attendance_total || 0,
-          present: enrollment.attendance_present || 0,
-          absent: (enrollment.attendance_total || 0) - (enrollment.attendance_present || 0),
-        },
+        subjects: result?.subjects || [],
+        average: result?.average || 0,
+        position: result?.position || 0,
+        total_students: result?.total_students || enrollments.length,
+        grade: result?.grade || null,
+        remarks: result?.remarks || null,
+        // `enrollments` has no attendance columns; not tracked yet.
+        attendance: null,
       };
     });
 
@@ -135,7 +129,7 @@ export async function GET(
       data: {
         school: { id: school.id, name: school.name, logo_url: school.logo_url, motto: school.motto, address: school.address, phone: school.phone, email: school.email, primary_color: school.primary_color || "#2563eb", principal_name: school.principal_name, principal_signature_url: school.principal_signature_url },
         class: { id: classInfo.id, name: classInfo.name, teacher_name: teacherName, teacher_id: classInfo.teacher_id },
-        term: { id: term.id, name: term.name, academic_session: term.academic_session, start_date: term.start_date, end_date: term.end_date },
+        term: { id: term.id, name: term.name, academic_session: academicSession || "", start_date: term.start_date, end_date: term.end_date },
         students: studentsData,
         issued_date: new Date().toISOString().split("T")[0],
       },

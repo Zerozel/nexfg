@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
+import { fetchCompiledResultsByStudent } from "@/lib/printing/compiled-results";
 
 export async function GET(
   request: NextRequest,
@@ -23,7 +24,7 @@ export async function GET(
     }
 
     // Fetch student
-    const studentResult = await supabase.from("students").select("id, full_name, admission_number, avatar_url, school_id").eq("id", studentId).maybeSingle();
+    const studentResult = await supabase.from("students").select("id, full_name, admission_number, avatar_url:profile_image_url, school_id").eq("id", studentId).maybeSingle();
     if (!studentResult.data) {
       return NextResponse.json({ success: false, error: "Student not found" }, { status: 404 });
     }
@@ -37,21 +38,35 @@ export async function GET(
     }
 
     if (role === "teacher") {
-      const ctResult = await supabase.from("class_teachers").select("id").eq("class_id", classId).eq("teacher_id", user.id).maybeSingle();
+      // A teacher may teach several subjects in a class, so class_subjects can
+      // return multiple rows for (class, teacher); limit(1) keeps maybeSingle safe.
+      const ctResult = await supabase.from("class_subjects").select("id").eq("class_id", classId).eq("teacher_id", user.id).limit(1).maybeSingle();
       const ocResult = await supabase.from("classes").select("id").eq("id", classId).eq("teacher_id", user.id).maybeSingle();
       if (!ctResult.data && !ocResult.data) {
         return NextResponse.json({ success: false, error: "Not assigned to this class" }, { status: 403 });
       }
     }
 
-    // Fetch school, class, term in parallel
-    const [schoolResult, classResult, termResult, resultData, enrollmentResult] = await Promise.all([
-      supabase.from("schools").select("*").eq("id", student.school_id).maybeSingle(),
-      supabase.from("classes").select("id, name, teacher_id").eq("id", classId).maybeSingle(),
-      supabase.from("terms").select("*").eq("id", termId).maybeSingle(),
-      supabase.from("compiled_results").select("*").eq("student_id", studentId).eq("term_id", termId).eq("class_id", classId).maybeSingle(),
-      supabase.from("student_enrollments").select("attendance_total, attendance_present").eq("student_id", studentId).eq("class_id", classId).eq("term_id", termId).maybeSingle(),
-    ]);
+    // Fetch school, class, term, class size, and compiled results in parallel.
+    // `compiled_results` is a per-(student,subject) table, so we aggregate it
+    // into the per-student shape the template expects via the shared helper.
+    const [schoolResult, classResult, termResult, enrollCountResult, compiledMap] =
+      await Promise.all([
+        supabase.from("schools").select("*").eq("id", student.school_id).maybeSingle(),
+        supabase.from("classes").select("id, name, teacher_id").eq("id", classId).maybeSingle(),
+        supabase
+          .from("terms")
+          .select("*, academic_years:academic_year_id(name)")
+          .eq("id", termId)
+          .maybeSingle(),
+        supabase
+          .from("enrollments")
+          .select("student_id", { count: "exact", head: true })
+          .eq("class_id", classId)
+          .eq("term_id", termId)
+          .eq("is_current", true),
+        fetchCompiledResultsByStudent(supabase, { classId, termId }),
+      ]);
 
     if (!schoolResult.data) return NextResponse.json({ success: false, error: "School not found" }, { status: 404 });
     if (!classResult.data) return NextResponse.json({ success: false, error: "Class not found" }, { status: 404 });
@@ -60,8 +75,26 @@ export async function GET(
     const school: any = schoolResult.data;
     const classInfo: any = classResult.data;
     const term: any = termResult.data;
-    const compiledResult: any = resultData.data;
-    const enrollment: any = enrollmentResult.data;
+
+    // academic_session lives on academic_years.name (terms has no such column).
+    const academicSession = Array.isArray(term.academic_years)
+      ? term.academic_years[0]?.name
+      : term.academic_years?.name;
+
+    const aggregate = compiledMap.get(studentId) || null;
+    const totalStudents =
+      (enrollCountResult as any).count || aggregate?.total_students || 0;
+    const compiledResult: any = aggregate
+      ? {
+          subjects: aggregate.subjects,
+          average: aggregate.average,
+          position: aggregate.position,
+          total_students: totalStudents,
+          grade: aggregate.grade,
+          remarks: aggregate.remarks,
+          updated_at: aggregate.updated_at,
+        }
+      : { subjects: [], average: 0, position: 0, total_students: totalStudents };
 
     // Get teacher name
     let teacherName: string | null = null;
@@ -89,15 +122,13 @@ export async function GET(
           teacher_name: teacherName, teacher_id: classInfo.teacher_id,
         },
         term: {
-          id: term.id, name: term.name, academic_session: term.academic_session,
+          id: term.id, name: term.name, academic_session: academicSession || "",
           start_date: term.start_date, end_date: term.end_date,
         },
-        compiled_results: compiledResult || { subjects: [], average: 0, position: 0, total_students: 0 },
-        attendance: enrollment ? {
-          total_days: enrollment.attendance_total || 0,
-          present: enrollment.attendance_present || 0,
-          absent: (enrollment.attendance_total || 0) - (enrollment.attendance_present || 0),
-        } : null,
+        compiled_results: compiledResult,
+        // The real `enrollments` table has no attendance columns; attendance is
+        // not tracked yet, so return null and let the template omit it.
+        attendance: null,
         affective_traits: [],
         psychomotor_skills: [],
         issued_date: compiledResult?.updated_at

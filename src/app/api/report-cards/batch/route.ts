@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
+import { fetchCompiledResultsByStudent } from "@/lib/printing/compiled-results";
 
 export async function POST(request: NextRequest) {
   try {
@@ -36,7 +37,8 @@ export async function POST(request: NextRequest) {
     }
 
     if (role === "teacher") {
-      const ctResult = await supabase.from("class_teachers").select("id").eq("class_id", class_id).eq("teacher_id", user.id).maybeSingle();
+      // class_subjects can hold multiple (class, teacher) rows; limit(1) keeps maybeSingle safe.
+      const ctResult = await supabase.from("class_subjects").select("id").eq("class_id", class_id).eq("teacher_id", user.id).limit(1).maybeSingle();
       const ocResult = await supabase.from("classes").select("id").eq("id", class_id).eq("teacher_id", user.id).maybeSingle();
       if (!ctResult.data && !ocResult.data) {
         return NextResponse.json({ success: false, error: "Not assigned to this class" }, { status: 403 });
@@ -50,11 +52,14 @@ export async function POST(request: NextRequest) {
     }
     const school: any = schoolResult.data;
 
-    const termResult = await supabase.from("terms").select("*").eq("id", term_id).maybeSingle();
+    const termResult = await supabase.from("terms").select("*, academic_years:academic_year_id(name)").eq("id", term_id).maybeSingle();
     if (!termResult.data) {
       return NextResponse.json({ success: false, error: "Term not found" }, { status: 404 });
     }
     const term: any = termResult.data;
+    const academicSession = Array.isArray(term.academic_years)
+      ? term.academic_years[0]?.name
+      : term.academic_years?.name;
 
     // Get teacher name
     let teacherName: string | null = null;
@@ -63,35 +68,27 @@ export async function POST(request: NextRequest) {
 		teacherName = teacherResult?.data?.full_name || null;
     }
 
-    // Fetch enrollments
+    // Fetch enrollments (real table is `enrollments`, flagged via is_current)
     const enrollmentsResult = await supabase
-      .from("student_enrollments")
-      .select("student_id, students:student_id(id, full_name, admission_number, avatar_url)")
+      .from("enrollments")
+      .select("student_id, students:student_id(id, full_name, admission_number, avatar_url:profile_image_url)")
       .eq("class_id", class_id)
       .eq("term_id", term_id)
       .in("student_id", student_ids)
-      .eq("is_active", true);
+      .eq("is_current", true);
     const enrollments: any[] = enrollmentsResult.data || [];
 
-    // Fetch compiled results
-    const resultsResult = await supabase
-      .from("compiled_results")
-      .select("*")
-      .in("student_id", student_ids)
-      .eq("term_id", term_id)
-      .eq("class_id", class_id);
-    const compiledResults: any[] = resultsResult.data || [];
-
-    // Build results map
-    const resultsMap: Record<string, any> = {};
-    for (const r of compiledResults) {
-      resultsMap[r.student_id] = r;
-    }
+    // Aggregate compiled results (per-subject rows) into per-student results.
+    const resultsMap = await fetchCompiledResultsByStudent(supabase, {
+      classId: class_id,
+      termId: term_id,
+      studentIds: student_ids,
+    });
 
     // Transform students
     const studentsData = enrollments.map((enrollment: any) => {
       const student = Array.isArray(enrollment.students) ? enrollment.students[0] : enrollment.students;
-      const result = resultsMap[enrollment.student_id] || {};
+      const result = resultsMap.get(enrollment.student_id);
 
       return {
         student: {
@@ -100,16 +97,16 @@ export async function POST(request: NextRequest) {
           admission_number: student?.admission_number || null,
           avatar_url: student?.avatar_url || null,
         },
-        subjects: result.subjects || [],
+        subjects: result?.subjects || [],
         overall: {
-          average: result.average || 0,
-          position: result.position || 0,
-          total_students: result.total_students || enrollments.length,
-          total_subjects: (result.subjects || []).length,
-          grade: result.grade || null,
-          remarks: result.remarks || null,
+          average: result?.average || 0,
+          position: result?.position || 0,
+          total_students: result?.total_students || enrollments.length,
+          total_subjects: (result?.subjects || []).length,
+          grade: result?.grade || null,
+          remarks: result?.remarks || null,
         },
-        issued_date: result.updated_at
+        issued_date: result?.updated_at
           ? new Date(result.updated_at).toISOString().split("T")[0]
           : new Date().toISOString().split("T")[0],
       };
@@ -130,7 +127,7 @@ export async function POST(request: NextRequest) {
           teacher_name: teacherName, teacher_id: classInfo.teacher_id,
         },
         term: {
-          id: term.id, name: term.name, academic_session: term.academic_session,
+          id: term.id, name: term.name, academic_session: academicSession || "",
           start_date: term.start_date, end_date: term.end_date,
         },
         students: studentsData,

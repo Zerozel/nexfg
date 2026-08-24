@@ -51,9 +51,9 @@ export async function GET(request: NextRequest) {
 
     // If teacher, only get assigned classes
     if (role === "teacher") {
-      // Get teacher's assigned classes from class_teachers
+      // Get teacher's assigned classes (teachers link to classes via class_subjects)
       const { data: assignedClassIds } = await supabase
-        .from("class_teachers")
+        .from("class_subjects")
         .select("class_id")
         .eq("teacher_id", user.id);
 
@@ -117,15 +117,15 @@ export async function GET(request: NextRequest) {
         ) || {};
     }
 
-    // Fetch terms
+    // Fetch terms (academic_session is derived from the linked academic_years.name)
     const { data: terms, error: termsError } = await supabase
       .from("terms")
       .select(
         `
         id,
         name,
-        academic_session,
-        is_current
+        is_current,
+        academic_years:academic_year_id(name)
       `
       )
       .eq("school_id", schoolId)
@@ -148,11 +148,22 @@ export async function GET(request: NextRequest) {
       teacher_name: c.teacher_id ? teacherMap[c.teacher_id] || null : null,
     }));
 
+    // Flatten the academic_years embed into the academic_session field the
+    // client (PrintControls) expects.
+    const formattedTerms = (terms || []).map((t: any) => ({
+      id: t.id,
+      name: t.name,
+      academic_session: Array.isArray(t.academic_years)
+        ? t.academic_years[0]?.name || ""
+        : t.academic_years?.name || "",
+      is_current: t.is_current,
+    }));
+
     return NextResponse.json({
       success: true,
       data: {
         classes: formattedClasses || [],
-        terms: terms || [],
+        terms: formattedTerms,
       },
     });
   } catch (error) {
