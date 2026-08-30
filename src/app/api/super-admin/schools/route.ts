@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from('schools')
-      .select('*, profiles!schools_admin_id_fkey(full_name, email)', { count: 'exact' })
+      .select('*, profiles!schools_admin_id_fkey(full_name)', { count: 'exact' })
       .is('is_deleted', false)
       .order('created_at', { ascending: false })
       .range(from, to);
@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
       subdomain: s.subdomain,
       domain: s.domain,
       admin_name: s.profiles?.full_name || 'N/A',
-      admin_email: s.profiles?.email || 'N/A',
+      admin_email: s.email || 'N/A',
       subscription_status: s.subscription_status,
       subscription_tier: s.subscription_tier,
       student_count: 0,
@@ -147,7 +147,7 @@ export async function POST(request: NextRequest) {
       id: authUser.user.id,
       school_id: school.id,
       full_name: validatedData.admin_full_name,
-      email: validatedData.admin_email,
+      //email: validatedData.admin_email,   //deleted
       role: 'admin',
     });
 
