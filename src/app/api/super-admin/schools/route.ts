@@ -4,7 +4,6 @@ import { createSchoolSchema } from '@/lib/validations/super-admin.schema';
 import { generateSessionName } from '@/lib/supabase/admin';
 import { ZodError } from 'zod';
 
-
 function generateSlug(name: string): string {
   return name
     .toLowerCase()
@@ -38,7 +37,7 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from('schools')
-      .select('*, profiles!schools_admin_id_fkey(full_name)', { count: 'exact' })
+      .select('*, profiles!admin_id(full_name)', { count: 'exact' })
       .is('is_deleted', false)
       .order('created_at', { ascending: false })
       .range(from, to);
@@ -142,14 +141,17 @@ export async function POST(request: NextRequest) {
       throw authError;
     }
 
-    // Create profile
-    const { error: profileError } = await supabase.from('profiles').insert({
-      id: authUser.user.id,
-      school_id: school.id,
-      full_name: validatedData.admin_full_name,
-      //email: validatedData.admin_email,   //deleted
-      role: 'admin',
-    });
+    // Create or update profile (handles duplicate key gracefully)
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .upsert({
+        id: authUser.user.id,
+        school_id: school.id,
+        full_name: validatedData.admin_full_name,
+        role: 'admin',
+      }, {
+        onConflict: 'id'
+      });
 
     if (profileError) {
       // Rollback both the auth user and the school so we don't orphan records
@@ -161,12 +163,7 @@ export async function POST(request: NextRequest) {
     // Update school with admin_id
     await supabase.from('schools').update({ admin_id: authUser.user.id }).eq('id', school.id);
 
-    // Seed the initial academic session (e.g. "2024/2025"). The school admin can
-    // validate or edit this at the start of each new session. This is best-effort:
-    // the class form also self-heals via ensureCurrentAcademicYear, so a failure
-    // here must not block onboarding. We set school_id explicitly because the
-    // table trigger derives it from the caller's JWT (the super admin), not this
-    // freshly created school.
+    // Seed the initial academic session (e.g. "2024/2025")
     const { error: sessionError } = await supabase.from('academic_years').insert({
       school_id: school.id,
       name: generateSessionName(),
@@ -177,7 +174,6 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({
-
       success: true,
       school: {
         id: school.id,
