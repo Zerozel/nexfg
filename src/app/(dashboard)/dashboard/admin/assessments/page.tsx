@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAdminAssessments, useAssessmentMutations } from '@/hooks/useAssessments';
 import { useAdminClasses } from '@/hooks/useClasses';
 import { useSubjects } from '@/hooks/useSubjects';
+import { supabase } from '@/lib/supabase/client';
 import { AssessmentTable } from '@/components/admin/tables/AssessmentTable';
 import { CreateModal } from '@/components/admin/CreateModal';
 import { EditModal } from '@/components/admin/EditModal';
@@ -18,7 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { Plus, Search, Filter } from 'lucide-react';
+import { Plus, Search } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import type { Assessment } from '@/types/admin';
 
@@ -33,6 +34,8 @@ export default function AssessmentsPage() {
   const [showEdit, setShowEdit] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
   const [selectedAssessment, setSelectedAssessment] = useState<Assessment | null>(null);
+  const [terms, setTerms] = useState<any[]>([]);
+  const [termsLoading, setTermsLoading] = useState(true);
   const [formData, setFormData] = useState({
     name: '',
     type: 'exam' as "exam" | "test" | "quiz",
@@ -46,6 +49,8 @@ export default function AssessmentsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { toast } = useToast();
+  
+  // Fetch assessments
   const { data, isLoading, refetch } = useAdminAssessments({
     page,
     search,
@@ -60,10 +65,29 @@ export default function AssessmentsPage() {
 
   const classes = classesData?.data || [];
   const subjects = subjectsData?.data || [];
-  const terms = [
-    { id: 'first-term-2024', name: 'First Term 2024' },
-    { id: 'second-term-2024', name: 'Second Term 2024' },
-  ];
+
+  // Fetch terms directly from Supabase
+  useEffect(() => {
+    async function fetchTerms() {
+      try {
+        setTermsLoading(true);
+        const { data: termsData, error } = await supabase
+          .from('terms')
+          .select('*')
+          .is('is_deleted', false)
+          .order('order', { ascending: true });
+
+        if (error) throw error;
+        setTerms(termsData || []);
+      } catch (err) {
+        console.error('Failed to fetch terms:', err);
+      } finally {
+        setTermsLoading(false);
+      }
+    }
+
+    fetchTerms();
+  }, []);
 
   const resetForm = () => {
     setFormData({
@@ -180,7 +204,7 @@ export default function AssessmentsPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="">All Terms</SelectItem>
-            {terms.map((t) => (
+            {terms.map((t: any) => (
               <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
             ))}
           </SelectContent>

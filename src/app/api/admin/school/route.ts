@@ -49,6 +49,8 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const validatedData = schoolSettingsSchema.parse(body);
 
+    // Cast the Supabase client as any to bypass TypeScript's strict type checking
+    // for dynamic update fields from the Zod schema
     const db = supabase as any;
     const { error } = await db
       .from('schools')

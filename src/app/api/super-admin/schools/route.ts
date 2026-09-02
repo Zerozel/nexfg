@@ -3,6 +3,7 @@ import { requireSuperAdmin } from '@/lib/supabase/super-admin-auth';
 import { createSchoolSchema } from '@/lib/validations/super-admin.schema';
 import { generateSessionName } from '@/lib/supabase/admin';
 import { ZodError } from 'zod';
+import { ensureTermsForAcademicYear } from '@/lib/supabase/admin';
 
 function generateSlug(name: string): string {
   return name
@@ -163,7 +164,7 @@ export async function POST(request: NextRequest) {
     // Update school with admin_id
     await supabase.from('schools').update({ admin_id: authUser.user.id }).eq('id', school.id);
 
-    // Seed the initial academic session (e.g. "2024/2025")
+    // Seed the initial academic session (e.g. "2024/2025") and its 3 terms
     const { error: sessionError } = await supabase.from('academic_years').insert({
       school_id: school.id,
       name: generateSessionName(),
@@ -171,6 +172,19 @@ export async function POST(request: NextRequest) {
     });
     if (sessionError) {
       console.error('Failed to seed initial academic year (non-fatal):', sessionError);
+    } else {
+      // Get the newly created academic year
+      const { data: newYear } = await supabase
+        .from('academic_years')
+        .select('id')
+        .eq('school_id', school.id)
+        .eq('is_current', true)
+        .single();
+
+      if (newYear) {
+        // Import ensureTermsForAcademicYear at the top of the file
+        await ensureTermsForAcademicYear(supabase, newYear.id, school.id);
+      }
     }
 
     return NextResponse.json({

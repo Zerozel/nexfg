@@ -582,12 +582,15 @@ export async function ensureCurrentAcademicYear(
     .maybeSingle();
 
   if (existingError) throw existingError;
-  if (existing) return existing as AcademicYear;
+  if (existing) {
+    // Ensure terms exist for this academic year
+    await ensureTermsForAcademicYear(supabase, existing.id, existing.school_id);
+    return existing as AcademicYear;
+  }
 
   const name = generateSessionName();
 
   // Another session with this name may already exist but not be flagged current
-  // (e.g. created then unset). Re-use it instead of violating the unique name.
   const { data: sameName } = await supabase
     .from('academic_years')
     .select('*')
@@ -595,11 +598,62 @@ export async function ensureCurrentAcademicYear(
     .is('is_deleted', false)
     .maybeSingle();
 
+  let academicYear: AcademicYear;
+
   if (sameName) {
-    return updateAcademicYear(supabase, sameName.id, { is_current: true });
+    academicYear = await updateAcademicYear(supabase, sameName.id, { is_current: true });
+  } else {
+    academicYear = await createAcademicYear(supabase, { name, is_current: true });
   }
 
-  return createAcademicYear(supabase, { name, is_current: true });
+  // Ensure terms exist for this academic year
+  await ensureTermsForAcademicYear(supabase, academicYear.id, academicYear.school_id);
+
+  return academicYear;
+}
+
+
+// ============ TERMS ============
+
+// Ensure a school has the 3 default terms for a given academic year
+export async function ensureTermsForAcademicYear(
+  supabase: SupabaseClient,
+  academicYearId: string,
+  schoolId: string
+): Promise<void> {
+  // Check if terms already exist for this academic year
+  const { data: existingTerms, error: checkError } = await supabase
+    .from('terms')
+    .select('id')
+    .eq('academic_year_id', academicYearId)
+    .is('is_deleted', false);
+
+  if (checkError) throw checkError;
+
+  // If terms already exist, skip
+  if (existingTerms && existingTerms.length > 0) {
+    return;
+  }
+
+  // Define the 3 default terms
+  const terms = [
+    { name: 'First Term', order: 1 },
+    { name: 'Second Term', order: 2 },
+    { name: 'Third Term', order: 3 },
+  ];
+
+  // Insert the 3 terms
+  const { error: insertError } = await supabase.from('terms').insert(
+    terms.map((term) => ({
+      school_id: schoolId,
+      academic_year_id: academicYearId,
+      name: term.name,
+      order: term.order,
+      is_current: term.order === 1, // First term is current by default
+    }))
+  );
+
+  if (insertError) throw insertError;
 }
 
 // ============ SUBJECTS ============
