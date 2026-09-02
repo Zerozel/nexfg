@@ -4,17 +4,17 @@ export interface Student {
   id: string;
   school_id: string;
   full_name: string;
-  date_of_birth: string | null;
-  gender: 'male' | 'female' | 'other' | null;
-  guardian_name: string;
-  guardian_phone: string;
-  guardian_email: string | null;
-  address: string | null;
+  date_of_birth?: string | null;
+  gender?: 'male' | 'female' | 'other' | null;
+  guardian_name?: string | null;
+  guardian_phone?: string | null;
+  guardian_email?: string | null;
+  address?: string | null;
   enrollment_year: number;
-  class_id: string | null;
+  class_id?: string | null;
   class_name?: string | null;
   is_deleted: boolean;
-  deleted_at: string | null;
+  deleted_at?: string | null;
   created_at: string;
   updated_at: string;
 }
