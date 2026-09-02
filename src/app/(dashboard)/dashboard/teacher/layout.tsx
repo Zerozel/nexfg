@@ -1,12 +1,9 @@
-// app/(dashboard)/dashboard/teacher/layout.tsx
-import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
+import { AuthGuard } from "@/components/auth/AuthGuard";
 
 export default function TeacherLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <DashboardLayout allowedRoles={["teacher"]}>{children}</DashboardLayout>
-  );
+  return <AuthGuard allowedRoles={["teacher"]}>{children}</AuthGuard>;
 }

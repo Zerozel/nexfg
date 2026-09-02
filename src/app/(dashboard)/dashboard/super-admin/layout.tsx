@@ -1,4 +1,3 @@
-// app/(dashboard)/dashboard/super-admin/layout.tsx
 import { AuthGuard } from "@/components/auth/AuthGuard";
 
 export default function SuperAdminLayout({
@@ -6,9 +5,5 @@ export default function SuperAdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <AuthGuard allowedRoles={["super_admin"]}>
-      {children}
-    </AuthGuard>
-  );
+  return <AuthGuard allowedRoles={["super_admin"]}>{children}</AuthGuard>;
 }
