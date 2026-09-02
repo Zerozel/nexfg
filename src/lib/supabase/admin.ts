@@ -715,8 +715,6 @@ export async function assignClassSubject(
 }
 
 
-// Add these functions to existing src/lib/supabase/admin.ts
-
 // ============ ASSESSMENTS ============
 
 export async function listAssessments(
@@ -740,9 +738,9 @@ export async function listAssessments(
     .select(
       `
       *,
-      classes!inner(name),
-      subjects!inner(name),
-      terms!inner(name)
+      classes:class_id(name),
+      subjects:subject_id(name),
+      terms:term_id(name)
     `,
       { count: 'exact' }
     )
@@ -793,7 +791,7 @@ export async function createAssessment(
   const { data: assessment, error } = await supabase
     .from('assessments')
     .insert(data)
-    .select('*, classes(name), subjects(name), terms(name)')
+    .select('*, classes:class_id(name), subjects:subject_id(name), terms:term_id(name)')
     .single();
 
   if (error) throw error;
@@ -812,7 +810,7 @@ export async function getAssessment(
 ) {
   const { data, error } = await supabase
     .from('assessments')
-    .select('*, classes(name), subjects(name), terms(name)')
+    .select('*, classes:class_id(name), subjects:subject_id(name), terms:term_id(name)')
     .eq('id', id)
     .is('is_deleted', false)
     .single();
@@ -837,7 +835,7 @@ export async function updateAssessment(
     .update({ ...data, updated_at: new Date().toISOString() })
     .eq('id', id)
     .is('is_deleted', false)
-    .select('*, classes(name), subjects(name), terms(name)')
+    .select('*, classes:class_id(name), subjects:subject_id(name), terms:term_id(name)')
     .single();
 
   if (error) throw error;
