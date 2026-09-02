@@ -56,7 +56,7 @@ export async function listStudents(
 
   let query = supabase
     .from('students')
-    .select('*, classes(name)', { count: 'exact' })
+    .select('*, classes!class_id(name)', { count: 'exact' })
     .is('is_deleted', false)
     .order('full_name', { ascending: true })
     .range(from, to);
@@ -92,7 +92,7 @@ export async function createStudent(
   const { data: student, error } = await supabase
     .from('students')
     .insert(data)
-    .select('*, classes(name)')
+    .select('*, classes!class_id(name)')
     .single();
 
   if (error) throw error;
@@ -109,7 +109,7 @@ export async function getStudent(
 ) {
   const { data, error } = await supabase
     .from('students')
-    .select('*, classes(name)')
+    .select('*, classes!class_id(name)')
     .eq('id', id)
     .is('is_deleted', false)
     .single();
@@ -132,7 +132,7 @@ export async function updateStudent(
     .update({ ...data, updated_at: new Date().toISOString() })
     .eq('id', id)
     .is('is_deleted', false)
-    .select('*, classes(name)')
+    .select('*, classes!class_id(name)')
     .single();
 
   if (error) throw error;
