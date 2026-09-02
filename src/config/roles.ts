@@ -50,7 +50,7 @@ export const ADMIN_NAV: NavItem[] = [
 export const SUPER_ADMIN_NAV: NavItem[] = [
   { label: "Dashboard", href: "/dashboard/super-admin", roles: ["super_admin"] },
   { label: "Schools", href: "/dashboard/super-admin/schools", roles: ["super_admin"] },
-  { label: "System Settings", href: "/dashboard/super-admin/settings", roles: ["super_admin"] },
+  //{ label: "System Settings", href: "/dashboard/super-admin/settings", roles: ["super_admin"] },
 ];
 
 export function getNavForRole(role: UserRole): NavItem[] {
