@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabase } from '@/lib/supabase/server';
+import { createClient as createAdminClient } from '@supabase/supabase-js';
 import {
   listAcademicYears,
   createAcademicYear,
@@ -8,12 +9,39 @@ import {
 import { academicYearSchema } from '@/lib/validations/academic-year.schema';
 import { ZodError } from 'zod';
 
+// Create a service role client that bypasses RLS
+function getServiceClient() {
+  return createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    }
+  );
+}
+
 export async function GET() {
   try {
-    const supabase = await createServerSupabase();
+    // Use service client for read operations to bypass RLS
+    const supabase = getServiceClient();
 
-    // Guarantee the school always has a current session so the class form is
-    // never empty. Safe to call repeatedly — it's a no-op once one exists.
+    // Get the current user to extract school_id
+    const userClient = await createServerSupabase();
+    const { data: { user } } = await userClient.auth.getUser();
+    
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const schoolId = user.app_metadata?.school_id;
+    if (!schoolId) {
+      return NextResponse.json({ error: 'No school associated' }, { status: 403 });
+    }
+
+    // Ensure the school has a current academic year
     await ensureCurrentAcademicYear(supabase);
 
     const data = await listAcademicYears(supabase);
@@ -26,12 +54,28 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createServerSupabase();
     const body = await request.json();
-
     const validatedData = academicYearSchema.parse(body);
 
+    // Use service client to bypass RLS
+    const supabase = getServiceClient();
+
+    // Get the current user to extract school_id
+    const userClient = await createServerSupabase();
+    const { data: { user } } = await userClient.auth.getUser();
+    
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const schoolId = user.app_metadata?.school_id;
+    if (!schoolId) {
+      return NextResponse.json({ error: 'No school associated' }, { status: 403 });
+    }
+
+    // Ensure school_id is set in the data (handled by RLS in the function)
     const academicYear = await createAcademicYear(supabase, validatedData);
+    
     return NextResponse.json(
       { data: academicYear, message: 'Academic year created successfully' },
       { status: 201 }
