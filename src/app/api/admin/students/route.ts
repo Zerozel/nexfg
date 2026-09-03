@@ -25,15 +25,32 @@ export async function POST(request: NextRequest) {
     const supabase = await createServerSupabase();
     const body = await request.json();
     
-    const validatedData = studentSchema.parse(body);
+    // Log the incoming data for debugging
+    console.log('Student creation request body:', JSON.stringify(body, null, 2));
     
-    const sanitized = Object.fromEntries(Object.entries(validatedData).map(([k, v]) => [k, v ?? null]));
+    const validatedData = studentSchema.parse(body);
+    console.log('Validated data:', JSON.stringify(validatedData, null, 2));
+    
+    // Sanitize data before insertion - ensure empty strings become null
+    const sanitized = Object.fromEntries(
+      Object.entries(validatedData).map(([key, value]) => [
+        key,
+        value === '' ? null : value,
+      ])
+    );
+    
+    console.log('Sanitized data:', JSON.stringify(sanitized, null, 2));
+    
     const student = await createStudent(supabase, sanitized as any);
     return NextResponse.json({ data: student, message: 'Student created successfully' }, { status: 201 });
   } catch (error: any) {
     if (error instanceof ZodError) {
+      console.error('Zod validation errors:', JSON.stringify(error.errors, null, 2));
       const firstError = error.errors[0];
-      return NextResponse.json({ error: firstError.message }, { status: 400 });
+      return NextResponse.json({ 
+        error: firstError.message,
+        details: error.errors 
+      }, { status: 400 });
     }
     console.error('POST /api/admin/students error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
