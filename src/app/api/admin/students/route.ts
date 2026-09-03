@@ -102,8 +102,16 @@ export async function POST(request: NextRequest) {
       ])
     );
 
+    // ✅ FIX: Ensure enrollment_year is a number
+    let enrollmentYear = sanitized.enrollment_year;
+    if (typeof enrollmentYear === 'string') {
+      enrollmentYear = parseInt(enrollmentYear, 10);
+    }
+    if (!enrollmentYear || isNaN(enrollmentYear)) {
+      enrollmentYear = new Date().getFullYear();
+    }
+
     // Generate admission_number based on school and enrollment year
-    const enrollmentYear = sanitized.enrollment_year || new Date().getFullYear();
     const admissionNumber = await generateAdmissionNumber(
       supabase,
       schoolId,
@@ -112,6 +120,7 @@ export async function POST(request: NextRequest) {
 
     sanitized.admission_number = admissionNumber;
     sanitized.school_id = schoolId;
+    sanitized.enrollment_year = enrollmentYear; // Ensure it's stored as a number
 
     console.log('Sanitized data with admission_number:', JSON.stringify(sanitized, null, 2));
 
