@@ -12,7 +12,7 @@ import {
 import { Student } from '@/types/admin';
 
 interface StudentFormProps {
-  data?: Partial<Student>;
+  data?: Record<string, any>;
   onChange: (field: string, value: any) => void;
   classes?: { id: string; name: string }[];
 }
@@ -106,8 +106,12 @@ export function StudentForm({ data = {}, onChange, classes = [] }: StudentFormPr
           <Input
             id="enrollment_year"
             type="number"
-            value={data.enrollment_year || new Date().getFullYear()}
-            onChange={(e) => onChange('enrollment_year', parseInt(e.target.value))}
+            value={data.enrollment_year || ''}
+            onChange={(e) => {
+              const value = e.target.value === '' ? '' : parseInt(e.target.value);
+              onChange('enrollment_year', value);
+            }}
+            placeholder={new Date().getFullYear().toString()}
           />
         </div>
         <div className="space-y-2">

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase/client';
+import type { Student as AdminStudent } from '@/types/admin';
 import type { Student } from '@/types';
 import type { PaginatedResponse } from '@/types/admin';
 
@@ -59,7 +60,7 @@ interface UseAdminStudentsParams {
 
 export function useAdminStudents(params: UseAdminStudentsParams = {}) {
   const { page = 1, pageSize = 10, search = '' } = params;
-  const [data, setData] = useState<PaginatedResponse<Student> | null>(null);
+  const [data, setData] = useState<PaginatedResponse<AdminStudent> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -94,7 +95,7 @@ export function useAdminStudents(params: UseAdminStudentsParams = {}) {
 }
 
 export function useStudentMutations() {
-  const createStudent = async (studentData: Partial<Student>) => {
+  const createStudent = async (studentData: Partial<AdminStudent>) => {
     const response = await fetch('/api/admin/students', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -107,7 +108,7 @@ export function useStudentMutations() {
     return response.json();
   };
 
-  const updateStudent = async (id: string, studentData: Partial<Student>) => {
+  const updateStudent = async (id: string, studentData: Partial<AdminStudent>) => {
     const response = await fetch(`/api/admin/students/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
