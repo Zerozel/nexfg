@@ -39,6 +39,13 @@ export function ScoreEntryMatrix({
   const { data: assessments, loading: assessmentsLoading } =
     useAssessments(selectedClassId);
 
+    console.log('🔍 ScoreEntryMatrix Debug:');
+  console.log('  selectedClassId:', selectedClassId);
+  console.log('  students:', students);
+  console.log('  studentsLoading:', studentsLoading);
+  console.log('  assessments:', assessments);
+  console.log('  assessmentsLoading:', assessmentsLoading);
+
   const cacheKey = STORAGE_KEYS.SCORES(selectedClassId);
   const { value: cache } = useLocalStorage<ClassScoreCache | null>(
     cacheKey,
