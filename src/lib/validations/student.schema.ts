@@ -5,7 +5,7 @@ const emptyToNull = (val: any) => (val === '' ? null : val);
 
 export const studentSchema = z.object({
   full_name: z.string().min(2, 'Name is required'),
-  admission_number: z.string().min(1, 'Admission number is required').optional(),
+  admission_number: z.string().transform(emptyToNull).nullish(),
   date_of_birth: z.string().optional().nullable().transform(emptyToNull),
   gender: z.enum(['male', 'female', 'other']).optional().nullable(),
   guardian_name: z.string().optional().nullable().transform(emptyToNull),

@@ -68,7 +68,7 @@ export default function StudentsPage() {
       // Transform empty strings to null and ensure proper types
       const submitData: Partial<Student> = {
         full_name: formData.full_name,
-        admission_number: formData.admission_number || undefined,
+        admission_number: formData.admission_number,
         date_of_birth: formData.date_of_birth || null,
         gender: (formData.gender ? formData.gender : null) as 'male' | 'female' | 'other' | null,
         guardian_name: formData.guardian_name || null,
@@ -99,7 +99,7 @@ export default function StudentsPage() {
       // Transform empty strings to null and ensure proper types
       const submitData: Partial<Student> = {
         full_name: formData.full_name,
-        admission_number: formData.admission_number || undefined,
+        admission_number: formData.admission_number,
         date_of_birth: formData.date_of_birth || null,
         gender: (formData.gender ? formData.gender : null) as 'male' | 'female' | 'other' | null,
         guardian_name: formData.guardian_name || null,

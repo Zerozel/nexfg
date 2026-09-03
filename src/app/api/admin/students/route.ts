@@ -42,12 +42,13 @@ export async function POST(request: NextRequest) {
     const sanitized = Object.fromEntries(
       Object.entries(validatedData).map(([key, value]) => [
         key,
-        value === '' ? null : value,
+        value === '' || value === null || value === undefined ? null : value,
       ])
     );
     
-    // Generate admission_number if not provided
-    if (!sanitized.admission_number) {
+    // Generate admission_number if not provided (null, undefined, or empty)
+    const admissionNum = sanitized.admission_number as string | null | undefined;
+    if (!admissionNum || admissionNum.trim() === '') {
       sanitized.admission_number = generateAdmissionNumber();
     }
     
