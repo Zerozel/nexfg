@@ -4,6 +4,7 @@ export interface Student {
   id: string;
   school_id: string;
   full_name: string;
+  admission_number: string;
   date_of_birth?: string | null;
   gender?: 'male' | 'female' | 'other' | null;
   guardian_name?: string | null;

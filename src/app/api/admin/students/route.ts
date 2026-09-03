@@ -4,6 +4,13 @@ import { listStudents, createStudent } from '@/lib/supabase/admin';
 import { studentSchema } from '@/lib/validations/student.schema';
 import { ZodError } from 'zod';
 
+// Helper function to generate unique admission number
+function generateAdmissionNumber(): string {
+  const year = new Date().getFullYear();
+  const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+  return `ADM-${year}-${random}`;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createServerSupabase();
@@ -39,7 +46,12 @@ export async function POST(request: NextRequest) {
       ])
     );
     
-    console.log('Sanitized data:', JSON.stringify(sanitized, null, 2));
+    // Generate admission_number if not provided
+    if (!sanitized.admission_number) {
+      sanitized.admission_number = generateAdmissionNumber();
+    }
+    
+    console.log('Sanitized data with admission_number:', JSON.stringify(sanitized, null, 2));
     
     const student = await createStudent(supabase, sanitized as any);
     return NextResponse.json({ data: student, message: 'Student created successfully' }, { status: 201 });

@@ -30,6 +30,16 @@ export function StudentForm({ data = {}, onChange, classes = [] }: StudentFormPr
         />
       </div>
 
+      <div className="space-y-2">
+        <Label htmlFor="admission_number">Admission Number</Label>
+        <Input
+          id="admission_number"
+          value={data.admission_number || ''}
+          onChange={(e) => onChange('admission_number', e.target.value)}
+          placeholder="Auto-generated if left empty"
+        />
+      </div>
+
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="date_of_birth">Date of Birth</Label>
