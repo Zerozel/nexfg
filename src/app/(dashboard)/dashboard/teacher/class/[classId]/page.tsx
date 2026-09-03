@@ -11,6 +11,7 @@ export default function ScoreEntryPage() {
   const params = useParams();
   const classIdParam = params.classId as string;
   const { data: classes, loading } = useTeacherClasses();
+  const [selectedSubjectId, setSelectedSubjectId] = useState("");
   const [selectedClassId, setSelectedClassId] = useState(classIdParam || "");
 
   useEffect(() => {
@@ -34,7 +35,9 @@ export default function ScoreEntryPage() {
       <ScoreEntryMatrix
         classes={classes}
         selectedClassId={selectedClassId}
+        selectedSubjectId={selectedSubjectId}
         onClassChange={setSelectedClassId}
+        onSubjectChange={setSelectedSubjectId}
       />
     </div>
   );

@@ -26,7 +26,10 @@ import type { Class, ClassScoreCache } from "@/types";
 interface ScoreEntryMatrixProps {
   classes: Class[];
   selectedClassId: string;
+  selectedSubjectId: string;  // ← NEW
   onClassChange: (classId: string) => void;
+  onSubjectChange: (subjectId: string) => void;  // ← NEW
+  subjects?: { id: string; name: string }[];  // ← NEW
 }
 
 export function ScoreEntryMatrix({
