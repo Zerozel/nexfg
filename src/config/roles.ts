@@ -29,11 +29,11 @@ export function getDashboardRoute(role: UserRole): string {
 
 export const TEACHER_NAV: NavItem[] = [
   { label: "My Classes", href: "/dashboard/teacher", roles: ["teacher"] },
-  {
+  /*{
     label: "Enter Scores",
     href: "/dashboard/teacher/scores",
     roles: ["teacher"],
-  },
+  },*/
 ];
 
 export const ADMIN_NAV: NavItem[] = [
