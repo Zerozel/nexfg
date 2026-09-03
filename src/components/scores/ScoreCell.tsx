@@ -1,5 +1,5 @@
 // components/scores/ScoreCell.tsx
-"use client";
+"use client"; 
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Input } from "@/components/ui/input";

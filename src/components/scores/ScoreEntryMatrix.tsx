@@ -1,8 +1,8 @@
 // components/scores/ScoreEntryMatrix.tsx
-"use client";
+"use client"; 
 
 import { useCallback } from "react";
-import { useClassStudents } from "@/hooks/useStudents";
+import { useClassStudents } from "@/hooks/useClassStudents";
 import { useAssessments } from "@/hooks/useAssessments";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useScoreSync } from "@/hooks/useScoreSync";

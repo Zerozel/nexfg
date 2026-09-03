@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase/client';
 import type { Assessment } from '@/types';
-
+ 
 // ============================================================
 // Phase 6.1: Direct Supabase hook (existing — for class-specific use)
 // ============================================================

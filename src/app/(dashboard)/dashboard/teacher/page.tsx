@@ -1,6 +1,6 @@
 // src/app/(dashboard)/dashboard/teacher/page.tsx
 "use client";
-
+ 
 import { useTeacherClasses } from "@/hooks/useClasses";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
