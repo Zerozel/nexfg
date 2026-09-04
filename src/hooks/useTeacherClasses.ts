@@ -3,11 +3,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase/client';
 
-interface TeacherClass {
-  id: string;
-  [key: string]: unknown;
-}
-
 export function useTeacherClasses() {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -19,7 +14,6 @@ export function useTeacherClasses() {
         setLoading(true);
         setError(null);
 
-        // Get current user
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
           setError('Not authenticated');
@@ -36,45 +30,42 @@ export function useTeacherClasses() {
           return;
         }
 
-        // Get classes where teacher is the class teacher
-        const { data: classes, error: fetchError } = await supabase
+        // 1. Get classes where teacher is the Form Teacher
+        const { data: formClasses, error: formError } = await supabase
           .from('classes')
-          .select('*')
+          .select('*, academic_years!inner(name)')
           .eq('school_id', schoolId)
           .eq('teacher_id', teacherId)
           .is('is_deleted', false)
-          .order('name', { ascending: true });
+          .order('name');
 
-        if (fetchError) throw fetchError;
+        if (formError) throw formError;
 
-        // Get classes where teacher is assigned via class_subjects
+        // 2. Get classes where teacher is a Subject Teacher (via class_subjects)
         const { data: assignments, error: assignError } = await supabase
           .from('class_subjects')
-          .select('class_id')
+          .select(`
+            class_id,
+            classes!inner (
+              id,
+              name,
+              academic_year_id,
+              academic_years!inner(name)
+            )
+          `)
           .eq('teacher_id', teacherId);
 
         if (assignError) throw assignError;
 
-        const assignedClassIds = assignments?.map((a: any) => a.class_id) || [];
+        // Start with form classes
+        const allClasses: any[] = [...(formClasses || [])];
+        const seenIds = new Set(allClasses.map((c: any) => c.id));
 
-        let additionalClasses: any[] = [];
-        if (assignedClassIds.length > 0) {
-          const { data: extra, error: extraError } = await supabase
-            .from('classes')
-            .select('*')
-            .in('id', assignedClassIds)
-            .is('is_deleted', false)
-            .order('name', { ascending: true });
-
-          if (!extraError && extra) {
-            additionalClasses = extra;
-          }
-        }
-
-        // Combine and deduplicate
-        const allClasses: TeacherClass[] = [...(classes || [])];
-        for (const cls of additionalClasses) {
-          if (!allClasses.find(c => c.id === cls.id)) {
+        // Add subject classes if not already present
+        for (const assignment of (assignments || [])) {
+          const cls = (assignment as any).classes;
+          if (cls && !seenIds.has(cls.id)) {
+            seenIds.add(cls.id);
             allClasses.push(cls);
           }
         }
