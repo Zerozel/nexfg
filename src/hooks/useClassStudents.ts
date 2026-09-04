@@ -38,12 +38,15 @@ export function useClassStudents(classId: string, options?: UseClassStudentsOpti
             .maybeSingle();
 
           if (termError) {
-            throw new Error('Failed to fetch current term');
+            setError('Failed to fetch current term');
+            setLoading(false);
+            return;
           }
 
           const resolvedCurrentTerm = currentTerm as { id: string } | null;
 
           if (!resolvedCurrentTerm) {
+            setError('No current term found. Please contact your admin.');
             setData([]);
             setLoading(false);
             return;
@@ -53,7 +56,9 @@ export function useClassStudents(classId: string, options?: UseClassStudentsOpti
         }
 
         if (!targetTermId) {
+          setError('No term selected');
           setData([]);
+          setLoading(false);
           return;
         }
 
@@ -67,7 +72,7 @@ export function useClassStudents(classId: string, options?: UseClassStudentsOpti
             term_id,
             enrollment_date,
             is_current,
-            students (
+              students!inner (
               id,
               full_name,
               admission_number,
@@ -81,16 +86,19 @@ export function useClassStudents(classId: string, options?: UseClassStudentsOpti
           .is('students.is_deleted', false);
 
         if (enrollError) {
-          throw enrollError;
+          setError('Failed to fetch students');
+          console.error('useClassStudents error:', enrollError);
+          setLoading(false);
+          return;
         }
 
-        const students = ((enrollments || []) as any[])
-          .filter((enrollment: any) => enrollment.students != null)
+        const students = (enrollments || []) as any[];
+        setData(students
           .map((enrollment: any) => ({
             id: enrollment.students.id,
             full_name: enrollment.students.full_name,
             admission_number: enrollment.students.admission_number,
-          }));
+          })));
 
         setData(students);
       } catch (err) {

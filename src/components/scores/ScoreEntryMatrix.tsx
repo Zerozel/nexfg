@@ -37,7 +37,7 @@ export function ScoreEntryMatrix({
   selectedClassId,
   onClassChange,
 }: ScoreEntryMatrixProps) {
-  const { data: students, loading: studentsLoading } =
+  const { data: students, loading: studentsLoading, error: studentsError } =
     useClassStudents(selectedClassId);
   const { data: assessments, loading: assessmentsLoading } =
     useAssessments(selectedClassId);
@@ -118,6 +118,10 @@ export function ScoreEntryMatrix({
             <Skeleton className="h-12 w-full" />
             <Skeleton className="h-12 w-full" />
             <Skeleton className="h-12 w-full" />
+          </div>
+        ) : studentsError ? (
+          <div className="text-center py-12 border rounded-lg bg-red-50">
+            <p className="text-red-600">{studentsError}</p>
           </div>
         ) : students.length === 0 ? (
           <div className="text-center py-12 border rounded-lg bg-white">
