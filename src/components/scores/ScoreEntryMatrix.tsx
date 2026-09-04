@@ -26,10 +26,10 @@ import type { Class, ClassScoreCache } from "@/types";
 interface ScoreEntryMatrixProps {
   classes: Class[];
   selectedClassId: string;
-  selectedSubjectId: string;  // ← NEW
+  selectedSubjectId: string;
   onClassChange: (classId: string) => void;
-  onSubjectChange: (subjectId: string) => void;  // ← NEW
-  subjects?: { id: string; name: string }[];  // ← NEW
+  onSubjectChange: (subjectId: string) => void;
+  subjects?: { id: string; name: string }[];
 }
 
 export function ScoreEntryMatrix({
@@ -42,7 +42,7 @@ export function ScoreEntryMatrix({
   const { data: assessments, loading: assessmentsLoading } =
     useAssessments(selectedClassId);
 
-    console.log('🔍 ScoreEntryMatrix Debug:');
+  console.log('🔍 ScoreEntryMatrix Debug:');
   console.log('  selectedClassId:', selectedClassId);
   console.log('  students:', students);
   console.log('  studentsLoading:', studentsLoading);
@@ -75,7 +75,6 @@ export function ScoreEntryMatrix({
   const handleScoreChange = useCallback(
     (studentId: string, assessmentId: string, score: number | null) => {
       upsertScore(selectedClassId, studentId, assessmentId, score);
-      // Force refresh of pending count
       setTimeout(refreshPendingCount, 100);
     },
     [selectedClassId, refreshPendingCount]
@@ -131,12 +130,6 @@ export function ScoreEntryMatrix({
                 : "Select a class to begin entering scores."}
             </p>
           </div>
-        ) : assessments.length === 0 ? (
-          <div className="text-center py-12 border rounded-lg bg-white">
-            <p className="text-gray-500">
-              No assessments found for this class. Contact your admin.
-            </p>
-          </div>
         ) : (
           <div className="border rounded-lg bg-white overflow-hidden shadow-sm">
             <div className="overflow-x-auto">
@@ -146,21 +139,27 @@ export function ScoreEntryMatrix({
                     <TableHead className="sticky left-0 bg-gray-50 z-10 min-w-[180px]">
                       Student
                     </TableHead>
-                    {assessments.map((assessment) => (
-                      <TableHead
-                        key={assessment.id}
-                        className="text-center min-w-[100px]"
-                      >
-                        <div>
-                          <span className="block text-xs font-medium">
-                            {assessment.name}
-                          </span>
-                          <span className="block text-[10px] text-gray-400 font-normal">
-                            Max: {assessment.max_score}
-                          </span>
-                        </div>
+                    {assessments.length === 0 ? (
+                      <TableHead className="text-center text-gray-400">
+                        No assessments available
                       </TableHead>
-                    ))}
+                    ) : (
+                      assessments.map((assessment) => (
+                        <TableHead
+                          key={assessment.id}
+                          className="text-center min-w-[100px]"
+                        >
+                          <div>
+                            <span className="block text-xs font-medium">
+                              {assessment.name}
+                            </span>
+                            <span className="block text-[10px] text-gray-400 font-normal">
+                              Max: {assessment.max_score}
+                            </span>
+                          </div>
+                        </TableHead>
+                      ))
+                    )}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
