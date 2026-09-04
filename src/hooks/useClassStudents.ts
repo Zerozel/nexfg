@@ -14,6 +14,8 @@ export function useClassStudents(classId: string, options?: UseClassStudentsOpti
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+     console.log('🔍 useClassStudents: classId =', classId);
+
     if (!classId) {
       setData([]);
       setLoading(false);
