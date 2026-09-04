@@ -29,6 +29,7 @@ export function getDashboardRoute(role: UserRole): string {
 
 export const TEACHER_NAV: NavItem[] = [
   { label: "My Classes", href: "/dashboard/teacher", roles: ["teacher"] },
+  { label: 'Manage Subjects', href: '/dashboard/teacher/subjects', roles: ["teacher"] }
   /*{
     label: "Enter Scores",
     href: "/dashboard/teacher/scores",
