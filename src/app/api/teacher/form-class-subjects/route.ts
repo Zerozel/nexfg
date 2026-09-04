@@ -35,12 +35,16 @@ export async function GET(request: NextRequest) {
     // Get active subjects for this class
     const { data: classSubjects, error: classError } = await supabase
       .from('class_subjects')
-      .select('subject_id')
+      .select('subject_id, teacher_id')
       .eq('class_id', classId);
 
     if (classError) throw classError;
 
     const activeIds = (classSubjects || []).map((cs: any) => cs.subject_id);
+    const teacherMap = new Map();
+    (classSubjects || []).forEach((cs: any) => {
+      teacherMap.set(cs.subject_id, cs.teacher_id);
+    });
 
     const active = (allSubjects || []).filter((s: any) => activeIds.includes(s.id));
     const available = (allSubjects || []).filter((s: any) => !activeIds.includes(s.id));
@@ -52,6 +56,7 @@ export async function GET(request: NextRequest) {
         available,
         total: allSubjects?.length || 0,
         active_count: active.length,
+        teacher_map: Object.fromEntries(teacherMap),
       },
     });
   } catch (error: any) {
@@ -84,6 +89,19 @@ export async function PUT(request: NextRequest) {
       );
     }
 
+    // Get existing teacher assignments to preserve them
+    const { data: existing, error: existingError } = await supabase
+      .from('class_subjects')
+      .select('subject_id, teacher_id')
+      .eq('class_id', class_id);
+
+    if (existingError) throw existingError;
+
+    const teacherMap = new Map();
+    (existing || []).forEach((record: any) => {
+      teacherMap.set(record.subject_id, record.teacher_id);
+    });
+
     // Delete all existing class_subjects for this class
     const { error: deleteError } = await supabase
       .from('class_subjects')
@@ -92,12 +110,12 @@ export async function PUT(request: NextRequest) {
 
     if (deleteError) throw deleteError;
 
-    // Insert new ones
+    // Insert new ones, preserving teacher_id if it existed
     if (subject_ids.length > 0) {
       const insertData = subject_ids.map((subject_id: string) => ({
         class_id,
         subject_id,
-        teacher_id: null, // Teacher will be assigned later
+        teacher_id: teacherMap.get(subject_id) || null,
       }));
 
       const { error: insertError } = await supabase
