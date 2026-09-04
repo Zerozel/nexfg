@@ -8,6 +8,18 @@ interface UseClassStudentsOptions {
   termId?: string;
 }
 
+interface StudentRow {
+  id: string;
+  full_name: string;
+  admission_number: string | null;
+}
+
+interface ScoreRow {
+  student_id: string;
+  assessment_id: string;
+  score: number | null;
+}
+
 export function useClassStudents(classId: string, options?: UseClassStudentsOptions) {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,7 +45,10 @@ export function useClassStudents(classId: string, options?: UseClassStudentsOpti
           .select('id, full_name, admission_number')
           .eq('class_id', classId)
           .is('is_deleted', false)
-          .order('full_name', { ascending: true });
+          .order('full_name', { ascending: true }) as {
+            data: StudentRow[] | null;
+            error: Error | null;
+          };
 
         if (studentsError) {
           setError('Failed to fetch students');
@@ -42,7 +57,41 @@ export function useClassStudents(classId: string, options?: UseClassStudentsOpti
           return;
         }
 
-        setData(students || []);
+        const studentRows = students || [];
+        const studentIds = studentRows.map((student) => student.id);
+        let scoresByStudent: Record<string, Record<string, number | null>> = {};
+
+        if (studentIds.length > 0) {
+          const { data: scores, error: scoresError } = await supabase
+            .from('scores')
+            .select('student_id, assessment_id, score')
+            .in('student_id', studentIds) as {
+              data: ScoreRow[] | null;
+              error: Error | null;
+            };
+
+          if (scoresError) {
+            console.error('useClassStudents scores error:', scoresError);
+          } else {
+            scoresByStudent = (scores || []).reduce(
+              (map, score) => {
+                if (!map[score.student_id]) {
+                  map[score.student_id] = {};
+                }
+                map[score.student_id][score.assessment_id] = score.score;
+                return map;
+              },
+              {} as Record<string, Record<string, number | null>>
+            );
+          }
+        }
+
+        setData(
+          studentRows.map((student) => ({
+            ...student,
+            scores: scoresByStudent[student.id] || {},
+          }))
+        );
       } catch (err) {
         console.error('useClassStudents error:', err);
         setError(err instanceof Error ? err.message : 'Failed to fetch students');

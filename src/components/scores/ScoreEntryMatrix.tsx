@@ -4,10 +4,8 @@
 import { useCallback } from "react";
 import { useClassStudents } from "@/hooks/useClassStudents";
 import { useAssessments } from "@/hooks/useAssessments";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useScoreSync } from "@/hooks/useScoreSync";
-import { STORAGE_KEYS } from "@/lib/storage/keys";
-import { getScoreForCell, upsertScore } from "@/lib/storage/scores";
+import { getScoresForClass, upsertScore } from "@/lib/storage/scores";
 import { ClassSelector } from "./ClassSelector";
 import { SyncStatusBar } from "./SyncStatusBar";
 import { AutoSyncHandler } from "./AutoSyncHandler";
@@ -21,7 +19,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { Class, ClassScoreCache } from "@/types";
+import type { Class } from "@/types";
 
 interface ScoreEntryMatrixProps {
   classes: Class[];
@@ -65,12 +63,6 @@ export function ScoreEntryMatrix({
   console.log('  assessmentsLoading:', assessmentsLoading);
   console.log('  readOnly:', readOnly);
 
-  const cacheKey = STORAGE_KEYS.SCORES(selectedClassId);
-  const { value: cache } = useLocalStorage<ClassScoreCache | null>(
-    cacheKey,
-    null
-  );
-
   const {
     sync,
     abort,
@@ -93,9 +85,16 @@ export function ScoreEntryMatrix({
 
   const getScore = useCallback(
     (studentId: string, assessmentId: string): number | null => {
-      return getScoreForCell(selectedClassId, studentId, assessmentId);
+      const localScore = getScoresForClass(selectedClassId)?.scores.find(
+        (score) =>
+          score.student_id === studentId && score.assessment_id === assessmentId
+      );
+      if (localScore) return localScore.score;
+
+      const student = students.find((item) => item.id === studentId);
+      return student?.scores?.[assessmentId] ?? null;
     },
-    [selectedClassId]
+    [selectedClassId, students]
   );
 
   const handleScoreChange = useCallback(
