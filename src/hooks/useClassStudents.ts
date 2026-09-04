@@ -47,7 +47,6 @@ export function useClassStudents(classId: string, options?: UseClassStudentsOpti
 
           if (!resolvedCurrentTerm) {
             setError('No current term found. Please contact your admin.');
-            setData([]);
             setLoading(false);
             return;
           }
@@ -57,13 +56,11 @@ export function useClassStudents(classId: string, options?: UseClassStudentsOpti
 
         if (!targetTermId) {
           setError('No term selected');
-          setData([]);
           setLoading(false);
           return;
         }
 
         // Fetch students enrolled in this class for the term
-        // Using the same simpler query pattern
         const { data: enrollments, error: enrollError } = await supabase
           .from('enrollments')
           .select(`
@@ -72,7 +69,7 @@ export function useClassStudents(classId: string, options?: UseClassStudentsOpti
             term_id,
             enrollment_date,
             is_current,
-              students!inner (
+            students!inner (
               id,
               full_name,
               admission_number,
@@ -92,15 +89,15 @@ export function useClassStudents(classId: string, options?: UseClassStudentsOpti
           return;
         }
 
-        const students = (enrollments || []) as any[];
-        setData(students
-          .map((enrollment: any) => ({
-            id: enrollment.students.id,
-            full_name: enrollment.students.full_name,
-            admission_number: enrollment.students.admission_number,
-          })));
+        // Map to clean student objects
+        const mappedStudents = (enrollments || []).map((enrollment: any) => ({
+          id: enrollment.students.id,
+          full_name: enrollment.students.full_name,
+          admission_number: enrollment.students.admission_number,
+        }));
 
-        setData(students);
+        // ✅ Only set data ONCE with the mapped students
+        setData(mappedStudents);
       } catch (err) {
         console.error('useClassStudents error:', err);
         setError(err instanceof Error ? err.message : 'Failed to fetch students');
