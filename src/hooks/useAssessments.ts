@@ -5,35 +5,26 @@ import { supabase } from '@/lib/supabase/client';
 import type { Assessment } from '@/types';
  
 // ============================================================
-// Phase 6.1: Direct Supabase hook (existing — for class-specific use)
+// Phase 6.1: Direct Supabase hook (for teacher score entry)
 // ============================================================
 
-export function useAssessments(classId: string, subjectId?: string) {  // ← NEW: Added subjectId
+export function useAssessments(classId: string, subjectId?: string) {
   const [data, setData] = useState<Assessment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!classId) {
-      setData([]);
-      setLoading(false);
-      return;
-    }
-
     async function fetchAssessments() {
       try {
-        let query = supabase
+        // ✅ Fetch global assessments (is_auto_created = true)
+        // These are the 4 templates: CA1, CA2, CA3, Exam
+        // They are NOT tied to any specific class, subject, or term
+        const { data: assessments, error: fetchError } = await supabase
           .from('assessments')
           .select('*')
-          .eq('class_id', classId)
+          .eq('is_auto_created', true)
           .is('is_deleted', false)
-          .order('created_at');
-
-        if (subjectId) {  // ← NEW: Filter by subject
-          query = query.eq('subject_id', subjectId);
-        }
-
-        const { data: assessments, error: fetchError } = await query;
+          .order('name');
 
         if (fetchError) throw fetchError;
         setData(assessments || []);
@@ -47,7 +38,7 @@ export function useAssessments(classId: string, subjectId?: string) {  // ← NE
     }
 
     fetchAssessments();
-  }, [classId, subjectId]);  // ← NEW: Added subjectId to dependencies
+  }, []); // ✅ No dependencies — fetches once and caches
 
   return { data, loading, error };
 }
