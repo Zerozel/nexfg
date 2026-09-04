@@ -10,8 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/use-toast';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { X, UserPlus } from 'lucide-react';
 
 interface SubjectSelectionProps {
@@ -31,7 +30,15 @@ export function SubjectSelection({ classId, className }: SubjectSelectionProps) 
   const [dialogOpen, setDialogOpen] = useState(false);
   const { toast } = useToast();
 
+  // Build teacherMap from activeSubjects when they change
   useEffect(() => {
+    const map: Record<string, string> = {};
+    activeSubjects.forEach((subject) => {
+      if (subject.teacher_id) {
+        map[subject.id] = subject.teacher_id;
+      }
+    });
+    setTeacherMap(map);
     setSelectedIds(activeSubjects.map((s) => s.id));
   }, [activeSubjects]);
 
@@ -196,9 +203,10 @@ export function SubjectSelection({ classId, className }: SubjectSelectionProps) 
           <div className="grid gap-4">
             {allSubjects.map((subject) => {
               const isActive = selectedIds.includes(subject.id);
-              const assignedTeacher = teacherMap[subject.id] || null;
-              const teacherName = teachers?.find((t) => t.id === assignedTeacher)?.full_name || 'Not Assigned';
-              const isAssigned = !!assignedTeacher;
+              // Use teacher_id directly from the subject object
+              const assignedTeacherId = subject.teacher_id || null;
+              const teacherName = teachers?.find((t) => t.id === assignedTeacherId)?.full_name || 'Not Assigned';
+              const isAssigned = !!assignedTeacherId;
 
               return (
                 <div key={subject.id} className="flex items-center justify-between p-3 border rounded-lg">

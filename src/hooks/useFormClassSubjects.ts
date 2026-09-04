@@ -39,18 +39,32 @@ export function useFormClassSubjects(classId: string) {
 
       if (subjectsError) throw subjectsError;
 
-      // Get active subjects for this class
+      // Get active subjects with teacher_id for this class
       const { data: classSubjects, error: classError } = await supabase
         .from('class_subjects')
-        .select('subject_id')
+        .select('subject_id, teacher_id')
         .eq('class_id', classId);
 
       if (classError) throw classError;
 
       const activeIds = (classSubjects || []).map((cs: any) => cs.subject_id);
+      
+      // Build teacher map
+      const teacherMap: Record<string, string> = {};
+      (classSubjects || []).forEach((cs: any) => {
+        if (cs.teacher_id) {
+          teacherMap[cs.subject_id] = cs.teacher_id;
+        }
+      });
 
-      // Split into active and available
-      const active = (allSubjects || []).filter((s: any) => activeIds.includes(s.id));
+      // Build active subjects with teacher_id included
+      const active = (allSubjects || [])
+        .filter((s: any) => activeIds.includes(s.id))
+        .map((s: any) => ({
+          ...s,
+          teacher_id: teacherMap[s.id] || null,
+        }));
+
       const available = (allSubjects || []).filter((s: any) => !activeIds.includes(s.id));
 
       setActiveSubjects(active);
