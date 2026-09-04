@@ -13,8 +13,7 @@ export function useAssessments(classId: string, subjectId?: string) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function fetchAssessments() {
+  const refetch = useCallback(async () => {
       try {
         // ✅ Fetch global assessments (is_auto_created = true)
         // These are the 4 templates: CA1, CA2, CA3, Exam
@@ -35,12 +34,13 @@ export function useAssessments(classId: string, subjectId?: string) {
       } finally {
         setLoading(false);
       }
-    }
+  }, []);
 
-    fetchAssessments();
-  }, []); // ✅ No dependencies — fetches once and caches
+  useEffect(() => {
+    refetch();
+  }, [refetch]);
 
-  return { data, loading, error };
+  return { data, loading, error, refetch };
 }
 
 // ============================================================

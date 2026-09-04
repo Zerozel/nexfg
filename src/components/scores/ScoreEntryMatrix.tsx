@@ -30,7 +30,7 @@ interface ScoreEntryMatrixProps {
   onClassChange: (classId: string) => void;
   onSubjectChange: (subjectId: string) => void;
   subjects?: { id: string; name: string }[];
-  readOnly?: boolean;  // ← NEW
+  readOnly?: boolean;
 }
 
 export function ScoreEntryMatrix({
@@ -40,12 +40,21 @@ export function ScoreEntryMatrix({
   onClassChange,
   onSubjectChange,
   subjects = [],
-  readOnly = false,  // ← NEW
+  readOnly = false,
 }: ScoreEntryMatrixProps) {
-  const { data: students, loading: studentsLoading, error: studentsError } =
-    useClassStudents(selectedClassId);
-  const { data: assessments, loading: assessmentsLoading } =
-    useAssessments(selectedClassId, selectedSubjectId);  // ← FIXED: Pass subjectId
+  // ✅ Add refetch to both hooks
+  const { 
+    data: students, 
+    loading: studentsLoading, 
+    error: studentsError,
+    refetch: refetchStudents 
+  } = useClassStudents(selectedClassId);
+
+  const { 
+    data: assessments, 
+    loading: assessmentsLoading,
+    refetch: refetchAssessments 
+  } = useAssessments(selectedClassId, selectedSubjectId);
 
   console.log('🔍 ScoreEntryMatrix Debug:');
   console.log('  selectedClassId:', selectedClassId);
@@ -54,7 +63,7 @@ export function ScoreEntryMatrix({
   console.log('  studentsLoading:', studentsLoading);
   console.log('  assessments:', assessments);
   console.log('  assessmentsLoading:', assessmentsLoading);
-  console.log('  readOnly:', readOnly);  // ← NEW
+  console.log('  readOnly:', readOnly);
 
   const cacheKey = STORAGE_KEYS.SCORES(selectedClassId);
   const { value: cache } = useLocalStorage<ClassScoreCache | null>(
@@ -72,6 +81,16 @@ export function ScoreEntryMatrix({
     refreshPendingCount,
   } = useScoreSync(selectedClassId);
 
+  // ✅ Wrap sync to refetch after success
+  const handleSync = useCallback(async () => {
+    const result = await sync();
+    if (result?.success) {
+      await refetchStudents();
+      await refetchAssessments();
+    }
+    return result;
+  }, [sync, refetchStudents, refetchAssessments]);
+
   const getScore = useCallback(
     (studentId: string, assessmentId: string): number | null => {
       return getScoreForCell(selectedClassId, studentId, assessmentId);
@@ -81,17 +100,17 @@ export function ScoreEntryMatrix({
 
   const handleScoreChange = useCallback(
     (studentId: string, assessmentId: string, score: number | null) => {
-      if (readOnly) return;  // ← NEW: Skip if read-only
+      if (readOnly) return;
       upsertScore(selectedClassId, studentId, assessmentId, score);
       setTimeout(refreshPendingCount, 100);
     },
-    [selectedClassId, refreshPendingCount, readOnly]  // ← NEW
+    [selectedClassId, refreshPendingCount, readOnly]
   );
 
   const isLoading = studentsLoading || assessmentsLoading;
 
   return (
-    <AutoSyncHandler classId={selectedClassId} onReconnect={sync}>
+    <AutoSyncHandler classId={selectedClassId} onReconnect={handleSync}>
       <div className="space-y-4">
         {/* Toolbar */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -107,16 +126,16 @@ export function ScoreEntryMatrix({
                 {assessments.length !== 1 ? "s" : ""}
               </Badge>
             )}
-            {readOnly && (  // ← NEW: Read-only badge
+            {readOnly && (
               <Badge variant="outline" className="text-amber-600 border-amber-300">
                 🔒 Read-Only
               </Badge>
             )}
           </div>
           <SyncStatusBar
-            pendingCount={readOnly ? 0 : pendingCount}  // ← NEW: No sync in read-only
+            pendingCount={readOnly ? 0 : pendingCount}
             isSyncing={isSyncing}
-            onSync={sync}
+            onSync={handleSync}
             onCancel={abort}
             lastSyncTime={lastSyncTime}
             progress={progress}
@@ -183,7 +202,7 @@ export function ScoreEntryMatrix({
                       assessments={assessments}
                       getScore={getScore}
                       onScoreChange={handleScoreChange}
-                      readOnly={readOnly}  // ← NEW: Pass readOnly
+                      readOnly={readOnly}
                     />
                   ))}
                 </TableBody>
@@ -193,7 +212,7 @@ export function ScoreEntryMatrix({
         )}
 
         {/* Legend */}
-        {!readOnly && (  // ← NEW: Hide legend in read-only
+        {!readOnly && (
           <div className="flex items-center gap-4 text-xs text-gray-400">
             <span className="flex items-center gap-1">
               <span className="w-3 h-3 rounded border border-amber-300 bg-amber-50" />

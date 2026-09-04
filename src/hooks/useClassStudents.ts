@@ -1,7 +1,7 @@
 // src/hooks/useClassStudents.ts
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase/client';
 
 interface UseClassStudentsOptions {
@@ -13,7 +13,7 @@ export function useClassStudents(classId: string, options?: UseClassStudentsOpti
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const refetch = useCallback(async () => {
     console.log('🔍 useClassStudents: classId =', classId);
 
     if (!classId) {
@@ -54,5 +54,9 @@ export function useClassStudents(classId: string, options?: UseClassStudentsOpti
     fetchStudents();
   }, [classId]);
 
-  return { data, loading, error };
+  useEffect(() => {
+    refetch();
+  }, [refetch]);
+
+  return { data, loading, error, refetch };
 }
