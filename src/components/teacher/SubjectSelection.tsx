@@ -28,6 +28,7 @@ export function SubjectSelection({ classId, className }: SubjectSelectionProps) 
   const [selectedSubjectId, setSelectedSubjectId] = useState('');
   const [selectedTeacherId, setSelectedTeacherId] = useState('');
   const [teacherMap, setTeacherMap] = useState<Record<string, string>>({});
+  const [dialogOpen, setDialogOpen] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -77,6 +78,12 @@ export function SubjectSelection({ classId, className }: SubjectSelectionProps) 
     }
   };
 
+  const handleOpenAssign = (subjectId: string) => {
+    setSelectedSubjectId(subjectId);
+    setSelectedTeacherId('');
+    setDialogOpen(true);
+  };
+
   const handleAssign = async () => {
     if (!selectedSubjectId || !selectedTeacherId) {
       toast({
@@ -110,6 +117,7 @@ export function SubjectSelection({ classId, className }: SubjectSelectionProps) 
       });
       setSelectedSubjectId('');
       setSelectedTeacherId('');
+      setDialogOpen(false);
       refetch();
     } catch (err: any) {
       toast({
@@ -217,54 +225,14 @@ export function SubjectSelection({ classId, className }: SubjectSelectionProps) 
                     </div>
 
                     {isActive && (
-                      <Dialog>
-                        <DialogTrigger
-                          render={
-                            <Button variant="outline" size="sm">
-                              <UserPlus className="h-4 w-4 mr-1" />
-                              {isAssigned ? 'Change' : 'Assign'}
-                            </Button>
-                          }
-                        />
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>Assign Teacher to {subject.name}</DialogTitle>
-                          </DialogHeader>
-                          <div className="space-y-4 py-4">
-                            <Select value={selectedSubjectId} onValueChange={setSelectedSubjectId}>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select a subject" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {allSubjects.map((s) => (
-                                  <SelectItem key={s.id} value={s.id}>
-                                    {s.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <Select value={selectedTeacherId} onValueChange={setSelectedTeacherId}>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select a teacher" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {teachersLoading ? (
-                                  <SelectItem value="loading" disabled>Loading...</SelectItem>
-                                ) : (
-                                  teachers?.map((t) => (
-                                    <SelectItem key={t.id} value={t.id}>
-                                      {t.full_name}
-                                    </SelectItem>
-                                  ))
-                                )}
-                              </SelectContent>
-                            </Select>
-                            <Button onClick={handleAssign} disabled={isAssigning} className="w-full">
-                              {isAssigning ? 'Assigning...' : 'Assign Teacher'}
-                            </Button>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleOpenAssign(subject.id)}
+                      >
+                        <UserPlus className="h-4 w-4 mr-1" />
+                        {isAssigned ? 'Change' : 'Assign'}
+                      </Button>
                     )}
 
                     {isAssigned && isActive && (
@@ -293,6 +261,48 @@ export function SubjectSelection({ classId, className }: SubjectSelectionProps) 
           </div>
         </CardContent>
       </Card>
+
+      {/* Assignment Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Assign Teacher to Subject</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <Select value={selectedSubjectId} onValueChange={setSelectedSubjectId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a subject" />
+              </SelectTrigger>
+              <SelectContent>
+                {allSubjects.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={selectedTeacherId} onValueChange={setSelectedTeacherId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a teacher" />
+              </SelectTrigger>
+              <SelectContent>
+                {teachersLoading ? (
+                  <SelectItem value="loading" disabled>Loading...</SelectItem>
+                ) : (
+                  teachers?.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.full_name}
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+            <Button onClick={handleAssign} disabled={isAssigning} className="w-full">
+              {isAssigning ? 'Assigning...' : 'Assign Teacher'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -23,9 +23,10 @@ export function useSchoolTeachers() {
           return;
         }
 
+        // ✅ Remove 'email' from select — it doesn't exist in profiles
         const { data: teachers, error: teachersError } = await supabase
           .from('profiles')
-          .select('id, full_name, email, role')
+          .select('id, full_name, role')
           .eq('school_id', schoolId)
           .in('role', ['teacher', 'admin', 'principal'])
           .is('is_deleted', false)
