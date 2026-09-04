@@ -1277,3 +1277,48 @@ export async function getUnassignedSubjectsForClass(
 
   return data || [];
 }
+// ============ ASSESSMENT TEMPLATES ============
+
+// Ensure a school has the 4 default assessment templates
+export async function ensureAssessmentTemplates(
+  supabase: SupabaseClient,
+  schoolId: string
+): Promise<void> {
+  // Check if templates already exist
+  const { data: existing, error: checkError } = await supabase
+    .from('assessments')
+    .select('id')
+    .eq('school_id', schoolId)
+    .eq('is_auto_created', true)
+    .limit(1);
+
+  if (checkError) throw checkError;
+
+  if (existing && existing.length > 0) {
+    return; // Templates already exist
+  }
+
+  // Create the 4 default templates
+  const templates = [
+    { name: 'CA1', type: 'test', max_score: 10, weight: 0.1 },
+    { name: 'CA2', type: 'test', max_score: 10, weight: 0.1 },
+    { name: 'CA3', type: 'test', max_score: 10, weight: 0.1 },
+    { name: 'Exam', type: 'exam', max_score: 70, weight: 0.7 },
+  ];
+
+  const { error: insertError } = await supabase.from('assessments').insert(
+    templates.map((t) => ({
+      school_id: schoolId,
+      name: t.name,
+      type: t.type,
+      term_id: null,
+      class_id: null,
+      subject_id: null,
+      max_score: t.max_score,
+      weight: t.weight,
+      is_auto_created: true,
+    }))
+  );
+
+  if (insertError) throw insertError;
+}

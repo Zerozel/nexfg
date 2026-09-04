@@ -195,7 +195,6 @@ export class SyncOrchestrator {
         inserted: totalInserted,
         updated: totalUpdated,
         failed: totalFailed,
-        //total: pendingRecords.length,
         errors: allErrors,
         batch_results: batchResults,
       };
@@ -263,6 +262,7 @@ export class SyncOrchestrator {
     };
   }
 
+  // ✅ UPDATED: Explicitly pass Authorization header with JWT
   private async sendBatch(batch: SyncBatch): Promise<SyncBatchResult> {
     const payload = {
       scores: batch.records.map((record) => ({
@@ -272,8 +272,19 @@ export class SyncOrchestrator {
       })),
     };
 
+    // Get the current session token explicitly
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+
+    if (!token) {
+      throw new Error("No valid session token found. Please log in again.");
+    }
+
     const { data, error } = await supabase.functions.invoke("scores-bulk", {
       body: payload,
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
     });
 
     if (error) throw new Error(error.message);
@@ -362,4 +373,4 @@ export async function syncScoresForClass(classId: string): Promise<SyncResponse>
     failed: result.failed,
     errors: result.errors,
   };
-}
+} 

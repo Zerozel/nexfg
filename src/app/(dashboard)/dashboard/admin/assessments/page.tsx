@@ -30,6 +30,7 @@ export default function AssessmentsPage() {
   const [filterSubjectId, setFilterSubjectId] = useState<string>('');
   const [filterTermId, setFilterTermId] = useState<string>('');
   const [filterType, setFilterType] = useState<string>('');
+  const [filterGlobal, setFilterGlobal] = useState<string>('all'); // 'all', 'global', 'custom'
   const [showCreate, setShowCreate] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
@@ -150,6 +151,15 @@ export default function AssessmentsPage() {
     }
   };
 
+  // Filter assessments based on type
+  const filteredAssessments = (data?.data || []).filter((assessment: any) => {
+    const isGlobal = !assessment.class_id && !assessment.subject_id && !assessment.term_id;
+    
+    if (filterGlobal === 'global') return isGlobal;
+    if (filterGlobal === 'custom') return !isGlobal;
+    return true; // 'all'
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -176,6 +186,19 @@ export default function AssessmentsPage() {
             className="pl-10"
           />
         </div>
+        
+        {/* ✅ NEW: Global/Custom filter */}
+        <Select value={filterGlobal} onValueChange={setFilterGlobal}>
+          <SelectTrigger className="w-[150px]">
+            <SelectValue placeholder="All Assessments" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Assessments</SelectItem>
+            <SelectItem value="global">🌐 Global (Auto)</SelectItem>
+            <SelectItem value="custom">📋 Custom</SelectItem>
+          </SelectContent>
+        </Select>
+
         <Select value={filterClassId} onValueChange={setFilterClassId}>
           <SelectTrigger className="w-[150px]">
             <SelectValue placeholder="All Classes" />
@@ -223,15 +246,15 @@ export default function AssessmentsPage() {
       </div>
 
       <AssessmentTable
-        assessments={(data?.data || []) as any}
+        assessments={filteredAssessments as any}
         onEdit={(assessment: any) => {
           setSelectedAssessment(assessment);
           setFormData({
             name: assessment.name,
             type: assessment.type as "exam" | "test" | "quiz",
-            term_id: assessment.term_id,
-            class_id: assessment.class_id,
-            subject_id: assessment.subject_id,
+            term_id: assessment.term_id || '',
+            class_id: assessment.class_id || '',
+            subject_id: assessment.subject_id || '',
             max_score: assessment.max_score,
             weight: assessment.weight,
             date: assessment.date || '',

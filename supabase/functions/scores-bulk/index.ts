@@ -1,10 +1,8 @@
 // supabase/functions/scores-bulk/index.ts
 
-// @ts-nocheck - Deno runtime with different module resolution
+// @ts-nocheck
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
-import { validatePayload } from "./validation.ts";
-import { createSupabaseClient, validateRecords, executeBatchUpsert } from "./database.ts";
-import type { SuccessResponse, ErrorResponse, ValidatedRecord } from "./types.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 
 const corsHeaders = {
   "Content-Type": "application/json",
@@ -14,166 +12,149 @@ const corsHeaders = {
 };
 
 serve(async (req: Request) => {
-  const startTime = Date.now();
-
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response(null, { status: 204, headers: corsHeaders });
   }
 
-  // Only accept POST requests
   if (req.method !== "POST") {
     return new Response(
-      JSON.stringify({
-        success: false,
-        message: "Method not allowed. Use POST.",
-      } as ErrorResponse),
+      JSON.stringify({ success: false, message: "Method not allowed" }),
       { status: 405, headers: corsHeaders }
     );
   }
 
-  console.log("scores.bulk.started - Request received");
-
   try {
-    // 1. Check Authentication
+    // 1. Get the Authorization header
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(
-        JSON.stringify({
-          success: false,
-          message: "Unauthorized - Valid JWT required",
-        } as ErrorResponse),
+        JSON.stringify({ success: false, message: "Unauthorized - No token" }),
         { status: 401, headers: corsHeaders }
       );
     }
 
-    // 2. Create Supabase client with auth context
-    let supabase;
-    try {
-      supabase = createSupabaseClient(authHeader);
-    } catch (error) {
-      console.error("Client creation error:", error);
-      return new Response(
-        JSON.stringify({
-          success: false,
-          message: "Internal server error",
-        } as ErrorResponse),
-        { status: 500, headers: corsHeaders }
-      );
-    }
+    // 2. Extract the token
+    const token = authHeader.replace("Bearer ", "");
+    console.log("Token received (first 20 chars):", token.substring(0, 20) + "...");
 
-    // 3. Verify JWT and extract user metadata
-    const { data, error: authError } = await supabase.auth.getUser();
+    // 3. Create a Supabase client with the service role key to validate the token
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      {
+        auth: { persistSession: false },
+      }
+    );
 
-    if (authError || !data.user) {
-      console.error("Auth error:", authError);
+    // 4. Validate the token using the admin client
+    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token);
+
+    if (userError || !user) {
+      console.error("Auth error:", userError);
       return new Response(
-        JSON.stringify({
-          success: false,
+        JSON.stringify({ 
+          success: false, 
           message: "Unauthorized - Invalid token",
-        } as ErrorResponse),
+          error: userError?.message 
+        }),
         { status: 401, headers: corsHeaders }
       );
     }
 
-    const user = data.user;
-
-    // 4. Extract school_id from JWT
     const schoolId = user.app_metadata?.school_id;
+    console.log("User:", user.email, "School:", schoolId);
+
     if (!schoolId) {
       return new Response(
-        JSON.stringify({
-          success: false,
-          message: "Forbidden - Insufficient permissions",
-        } as ErrorResponse),
+        JSON.stringify({ success: false, message: "Forbidden - Missing school_id" }),
         { status: 403, headers: corsHeaders }
       );
     }
 
-    // 5. Parse and validate request body
-    let body: unknown;
-    try {
-      body = await req.json();
-    } catch {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          message: "Invalid JSON in request body",
-        } as ErrorResponse),
-        { status: 400, headers: corsHeaders }
-      );
-    }
-
-    const payloadValidation = validatePayload(body);
-    if (!payloadValidation.valid) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          message: "Invalid request payload",
-          errors: payloadValidation.errors,
-        } as ErrorResponse),
-        { status: 400, headers: corsHeaders }
-      );
-    }
-
-    const { scores } = payloadValidation.data;
-
-    // 6. Prepare validated records with indices
-    const validatedRecords: ValidatedRecord[] = scores.map((entry, index) => ({
-      index,
-      student_id: entry.student_id,
-      assessment_id: entry.assessment_id,
-      score: entry.score,
-    }));
-
-    console.log(`scores.bulk.validated - Validating ${validatedRecords.length} records`);
-
-    // 7. Validate records against database
-    const { valid, failed } = await validateRecords(supabase, validatedRecords, schoolId);
-
-    // 8. Execute batch UPSERT for valid records
-    let inserted = 0;
-    let updated = 0;
-
-    if (valid.length > 0) {
-      const result = await executeBatchUpsert(supabase, valid, schoolId);
-      inserted = result.inserted;
-      updated = result.updated;
-      console.log(`scores.bulk.upserted - Inserted: ${inserted}, Updated: ${updated}`);
-    }
-
-    const total = scores.length;
-
-    console.log(`scores.bulk.completed - Total: ${total}, Inserted: ${inserted}, Updated: ${updated}, Failed: ${failed.length}`);
-
-    // 9. Return response
-    const statusCode = failed.length > 0 ? 207 : 200;
-    const response: SuccessResponse = {
-      success: true,
-      inserted,
-      updated,
-      failed: failed.length,
-      total,
-      errors: failed,
-    };
-
-    const processingTime = Date.now() - startTime;
-    console.log(`Request processed in ${processingTime}ms`);
-
-    return new Response(
-      JSON.stringify(response),
-      { status: statusCode, headers: corsHeaders }
+    // 5. Create a regular client for database operations
+    const supabaseClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      {
+        auth: { persistSession: false },
+        global: { headers: { Authorization: authHeader } },
+      }
     );
 
-  } catch (error) {
-    console.error("scores.bulk.error - Unexpected error:", error);
-    const errorMessage = error instanceof Error ? error.message : "Internal server error";
+    // 6. Parse request body
+    const body = await req.json();
+    const { scores } = body;
+
+    if (!scores || !Array.isArray(scores) || scores.length === 0) {
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          message: "Invalid request payload",
+          errors: ["scores must be a non-empty array"]
+        }),
+        { status: 400, headers: corsHeaders }
+      );
+    }
+
+    // 7. Process scores
+    let inserted = 0;
+    let updated = 0;
+    const errors = [];
+
+    for (const [index, score] of scores.entries()) {
+      if (!score.student_id || !score.assessment_id) {
+        errors.push({
+          index,
+          student_id: score.student_id,
+          assessment_id: score.assessment_id,
+          reason: "Missing student_id or assessment_id"
+        });
+        continue;
+      }
+
+      const { error: upsertError } = await supabaseClient
+        .from("scores")
+        .upsert({
+          school_id: schoolId,
+          student_id: score.student_id,
+          assessment_id: score.assessment_id,
+          score: score.score,
+        }, {
+          onConflict: "school_id, student_id, assessment_id",
+        });
+
+      if (upsertError) {
+        errors.push({
+          index,
+          student_id: score.student_id,
+          assessment_id: score.assessment_id,
+          reason: upsertError.message
+        });
+      } else {
+        inserted++;
+      }
+    }
 
     return new Response(
       JSON.stringify({
+        success: true,
+        inserted,
+        updated,
+        failed: errors.length,
+        total: scores.length,
+        errors,
+      }),
+      { status: errors.length > 0 ? 207 : 200, headers: corsHeaders }
+    );
+
+  } catch (error) {
+    console.error("Error:", error);
+    return new Response(
+      JSON.stringify({
         success: false,
-        message: errorMessage,
-      } as ErrorResponse),
+        message: error.message || "Internal server error",
+      }),
       { status: 500, headers: corsHeaders }
     );
   }
