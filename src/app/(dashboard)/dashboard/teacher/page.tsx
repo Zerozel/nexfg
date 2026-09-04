@@ -6,11 +6,14 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { BookOpen, ArrowRight } from "lucide-react";
+import { BookOpen, ArrowRight, Eye } from "lucide-react";
 
 export default function TeacherDashboardPage() {
   const { data: classes, loading } = useTeacherClasses();
   const router = useRouter();
+
+  // Get the current user's ID to check if they are a Form Teacher
+  // This will be used to show the read-only view for Form Teachers
 
   return (
     <div>
@@ -47,8 +50,7 @@ export default function TeacherDashboardPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-gray-500">
-                  Grade {cls.grade_level}
-                  {cls.section ? ` — Section ${cls.section}` : ""}
+                  {cls.teacher_id ? "Form Teacher" : "Subject Teacher"}
                 </p>
                 <Button
                   variant="link"

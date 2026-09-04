@@ -69,4 +69,4 @@ export function useTeacherSubjects(classId?: string) {
   }, [classId]);
 
   return { data, loading, error };
-}
+} 

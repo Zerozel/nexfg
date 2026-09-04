@@ -8,7 +8,7 @@ import type { Assessment } from '@/types';
 // Phase 6.1: Direct Supabase hook (existing — for class-specific use)
 // ============================================================
 
-export function useAssessments(classId: string) {
+export function useAssessments(classId: string, subjectId?: string) {  // ← NEW: Added subjectId
   const [data, setData] = useState<Assessment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -22,11 +22,18 @@ export function useAssessments(classId: string) {
 
     async function fetchAssessments() {
       try {
-        const { data: assessments, error: fetchError } = await supabase
+        let query = supabase
           .from('assessments')
           .select('*')
           .eq('class_id', classId)
+          .is('is_deleted', false)
           .order('created_at');
+
+        if (subjectId) {  // ← NEW: Filter by subject
+          query = query.eq('subject_id', subjectId);
+        }
+
+        const { data: assessments, error: fetchError } = await query;
 
         if (fetchError) throw fetchError;
         setData(assessments || []);
@@ -40,7 +47,7 @@ export function useAssessments(classId: string) {
     }
 
     fetchAssessments();
-  }, [classId]);
+  }, [classId, subjectId]);  // ← NEW: Added subjectId to dependencies
 
   return { data, loading, error };
 }

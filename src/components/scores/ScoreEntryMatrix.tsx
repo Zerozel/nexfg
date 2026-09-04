@@ -30,24 +30,31 @@ interface ScoreEntryMatrixProps {
   onClassChange: (classId: string) => void;
   onSubjectChange: (subjectId: string) => void;
   subjects?: { id: string; name: string }[];
+  readOnly?: boolean;  // ← NEW
 }
 
 export function ScoreEntryMatrix({
   classes,
   selectedClassId,
+  selectedSubjectId,
   onClassChange,
+  onSubjectChange,
+  subjects = [],
+  readOnly = false,  // ← NEW
 }: ScoreEntryMatrixProps) {
   const { data: students, loading: studentsLoading, error: studentsError } =
     useClassStudents(selectedClassId);
   const { data: assessments, loading: assessmentsLoading } =
-    useAssessments(selectedClassId);
+    useAssessments(selectedClassId, selectedSubjectId);  // ← FIXED: Pass subjectId
 
   console.log('🔍 ScoreEntryMatrix Debug:');
   console.log('  selectedClassId:', selectedClassId);
+  console.log('  selectedSubjectId:', selectedSubjectId);
   console.log('  students:', students);
   console.log('  studentsLoading:', studentsLoading);
   console.log('  assessments:', assessments);
   console.log('  assessmentsLoading:', assessmentsLoading);
+  console.log('  readOnly:', readOnly);  // ← NEW
 
   const cacheKey = STORAGE_KEYS.SCORES(selectedClassId);
   const { value: cache } = useLocalStorage<ClassScoreCache | null>(
@@ -74,10 +81,11 @@ export function ScoreEntryMatrix({
 
   const handleScoreChange = useCallback(
     (studentId: string, assessmentId: string, score: number | null) => {
+      if (readOnly) return;  // ← NEW: Skip if read-only
       upsertScore(selectedClassId, studentId, assessmentId, score);
       setTimeout(refreshPendingCount, 100);
     },
-    [selectedClassId, refreshPendingCount]
+    [selectedClassId, refreshPendingCount, readOnly]  // ← NEW
   );
 
   const isLoading = studentsLoading || assessmentsLoading;
@@ -99,9 +107,14 @@ export function ScoreEntryMatrix({
                 {assessments.length !== 1 ? "s" : ""}
               </Badge>
             )}
+            {readOnly && (  // ← NEW: Read-only badge
+              <Badge variant="outline" className="text-amber-600 border-amber-300">
+                🔒 Read-Only
+              </Badge>
+            )}
           </div>
           <SyncStatusBar
-            pendingCount={pendingCount}
+            pendingCount={readOnly ? 0 : pendingCount}  // ← NEW: No sync in read-only
             isSyncing={isSyncing}
             onSync={sync}
             onCancel={abort}
@@ -170,6 +183,7 @@ export function ScoreEntryMatrix({
                       assessments={assessments}
                       getScore={getScore}
                       onScoreChange={handleScoreChange}
+                      readOnly={readOnly}  // ← NEW: Pass readOnly
                     />
                   ))}
                 </TableBody>
@@ -179,20 +193,22 @@ export function ScoreEntryMatrix({
         )}
 
         {/* Legend */}
-        <div className="flex items-center gap-4 text-xs text-gray-400">
-          <span className="flex items-center gap-1">
-            <span className="w-3 h-3 rounded border border-amber-300 bg-amber-50" />
-            Unsaved
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="w-3 h-3 rounded border border-green-200" />
-            Synced
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="w-3 h-3 rounded border border-red-300 bg-red-50" />
-            Invalid
-          </span>
-        </div>
+        {!readOnly && (  // ← NEW: Hide legend in read-only
+          <div className="flex items-center gap-4 text-xs text-gray-400">
+            <span className="flex items-center gap-1">
+              <span className="w-3 h-3 rounded border border-amber-300 bg-amber-50" />
+              Unsaved
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-3 h-3 rounded border border-green-200" />
+              Synced
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-3 h-3 rounded border border-red-300 bg-red-50" />
+              Invalid
+            </span>
+          </div>
+        )}
       </div>
     </AutoSyncHandler>
   );

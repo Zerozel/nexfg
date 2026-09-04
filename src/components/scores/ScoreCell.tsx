@@ -11,6 +11,7 @@ interface ScoreCellProps {
   value: number | null;
   maxScore: number;
   onChange: (value: number | null) => void;
+  readOnly?: boolean;  // ← NEW
 }
 
 export function ScoreCell({
@@ -19,6 +20,7 @@ export function ScoreCell({
   value,
   maxScore,
   onChange,
+  readOnly = false,  // ← NEW
 }: ScoreCellProps) {
   const [localValue, setLocalValue] = useState<string>(
     value !== null ? String(value) : ""
@@ -40,6 +42,8 @@ export function ScoreCell({
 
   const validateAndSave = useCallback(
     (rawValue: string) => {
+      if (readOnly) return;  // ← NEW: Skip if read-only
+      
       if (rawValue === "") {
         setIsInvalid(false);
         setIsDirty(true);
@@ -57,17 +61,16 @@ export function ScoreCell({
       setIsInvalid(isOutOfRange);
       setIsDirty(true);
 
-      // Don't persist values that fail client-side validation. The cell stays
-      // visibly "invalid" until corrected, so we never queue a score the server
-      // is guaranteed to reject (> max_score or negative).
       if (isOutOfRange) return;
 
       onChange(parsed);
     },
-    [maxScore, onChange]
+    [maxScore, onChange, readOnly]  // ← NEW
   );
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (readOnly) return;  // ← NEW: Skip if read-only
+    
     const rawValue = e.target.value;
     setLocalValue(rawValue);
     setIsDirty(true);
@@ -80,6 +83,7 @@ export function ScoreCell({
   };
 
   const handleBlur = () => {
+    if (readOnly) return;  // ← NEW: Skip if read-only
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     validateAndSave(localValue);
   };
@@ -101,13 +105,15 @@ export function ScoreCell({
         value={localValue}
         onChange={handleChange}
         onBlur={handleBlur}
+        readOnly={readOnly}  // ← NEW: Pass readOnly to input
         className={cn(
           "w-20 text-center transition-colors",
+          readOnly && "bg-gray-50 border-gray-200 text-gray-600",  // ← NEW: Read-only styling
           isDirty && !isInvalid && "border-amber-300 bg-amber-50",
           isInvalid && "border-red-300 bg-red-50",
           !isDirty && !isInvalid && localValue !== "" && "border-green-200"
         )}
-        placeholder="−"
+        placeholder={readOnly ? "" : "−"}  // ← NEW: No placeholder in read-only
         aria-label={`Score for student ${studentId}, assessment ${assessmentId}, max ${maxScore}`}
       />
       {isInvalid && (
