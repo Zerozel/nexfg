@@ -1,4 +1,3 @@
-// src/app/(dashboard)/dashboard/teacher/class/[classId]/page.tsx
 "use client";
 
 import { useParams } from "next/navigation";
@@ -12,13 +11,9 @@ export default function ScoreEntryPage() {
   const classIdParam = params.classId as string;
   const { data: classes, loading } = useTeacherClasses();
   const [selectedSubjectId, setSelectedSubjectId] = useState("");
-  const [selectedClassId, setSelectedClassId] = useState(classIdParam || "");
 
-  useEffect(() => {
-    if (classIdParam) {
-      setSelectedClassId(classIdParam);
-    }
-  }, [classIdParam]);
+  // ✅ Use classIdParam directly without duplicating state
+  const selectedClassId = classIdParam;
 
   if (loading) {
     return (
@@ -33,10 +28,11 @@ export default function ScoreEntryPage() {
     <div>
       <h2 className="text-2xl font-bold text-gray-900 mb-6">Score Entry</h2>
       <ScoreEntryMatrix
+        key={selectedClassId} // ← Force re-mount when class changes
         classes={classes}
         selectedClassId={selectedClassId}
         selectedSubjectId={selectedSubjectId}
-        onClassChange={setSelectedClassId}
+        onClassChange={() => {}} // No-op since we use the URL
         onSubjectChange={setSelectedSubjectId}
       />
     </div>
