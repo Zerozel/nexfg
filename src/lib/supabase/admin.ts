@@ -574,6 +574,33 @@ async function clearCurrentAcademicYear(
 export async function ensureCurrentAcademicYear(
   supabase: SupabaseClient
 ): Promise<AcademicYear> {
+  // ✅ Step 1: Clean up any duplicate current years
+  const { data: duplicates, error: dupError } = await supabase
+    .from('academic_years')
+    .select('id, school_id')
+    .eq('is_current', true)
+    .is('is_deleted', false);
+
+  if (!dupError && duplicates && duplicates.length > 1) {
+    console.log(`Found ${duplicates.length} duplicate current academic years. Cleaning up...`);
+    
+    // Keep the first one, mark others as not current
+    const keepId = duplicates[0].id;
+    const idsToUpdate = duplicates.slice(1).map((d: any) => d.id);
+    
+    const { error: updateError } = await supabase
+      .from('academic_years')
+      .update({ is_current: false, updated_at: new Date().toISOString() })
+      .in('id', idsToUpdate);
+    
+    if (updateError) {
+      console.error('Failed to clean up duplicate academic years:', updateError);
+    } else {
+      console.log(`Cleaned up ${idsToUpdate.length} duplicate academic years`);
+    }
+  }
+
+  // ✅ Step 2: Get the current academic year
   const { data: existing, error: existingError } = await supabase
     .from('academic_years')
     .select('*')
@@ -588,6 +615,7 @@ export async function ensureCurrentAcademicYear(
     return existing as AcademicYear;
   }
 
+  // ✅ Step 3: No current year exists, create one
   const name = generateSessionName();
 
   // Another session with this name may already exist but not be flagged current
