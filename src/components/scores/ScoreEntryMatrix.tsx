@@ -40,13 +40,13 @@ export function ScoreEntryMatrix({
   subjects = [],
   readOnly = false,
 }: ScoreEntryMatrixProps) {
-  // ✅ Add refetch to both hooks
+  // ✅ Pass subjectId to filter scores
   const { 
     data: students, 
     loading: studentsLoading, 
     error: studentsError,
     refetch: refetchStudents 
-  } = useClassStudents(selectedClassId);
+  } = useClassStudents(selectedClassId, { subjectId: selectedSubjectId });
 
   const { 
     data: assessments, 
@@ -85,12 +85,14 @@ export function ScoreEntryMatrix({
 
   const getScore = useCallback(
     (studentId: string, assessmentId: string): number | null => {
+      // ✅ 1. Check localStorage first (pending edits)
       const localScore = getScoresForClass(selectedClassId)?.scores.find(
         (score) =>
           score.student_id === studentId && score.assessment_id === assessmentId
       );
       if (localScore) return localScore.score;
 
+      // ✅ 2. Fall back to database scores (already filtered by subject)
       const student = students.find((item) => item.id === studentId);
       return student?.scores?.[assessmentId] ?? null;
     },
