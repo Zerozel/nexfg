@@ -14,27 +14,36 @@ export function useAssessments(classId: string, subjectId?: string) {
   const [error, setError] = useState<string | null>(null);
 
   const refetch = useCallback(async () => {
-      try {
-        // ✅ Fetch global assessments (is_auto_created = true)
-        // These are the 4 templates: CA1, CA2, CA3, Exam
-        // They are NOT tied to any specific class, subject, or term
-        const { data: assessments, error: fetchError } = await supabase
-          .from('assessments')
-          .select('*')
-          .eq('is_auto_created', true)
-          .is('is_deleted', false)
-          .order('name');
+    try {
+      setLoading(true);
+      setError(null);
 
-        if (fetchError) throw fetchError;
-        setData(assessments || []);
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : 'Failed to fetch assessments'
-        );
-      } finally {
-        setLoading(false);
+      let query = supabase
+        .from('assessments')
+        .select('*')
+        .is('is_deleted', false)
+        .order('name');
+
+      // ✅ If subjectId is provided, filter by it
+      if (subjectId) {
+        query = query.eq('subject_id', subjectId);
+      } else {
+        // ✅ If no subjectId, fall back to global assessments
+        query = query.eq('is_auto_created', true);
       }
-  }, []);
+
+      const { data: assessments, error: fetchError } = await query;
+
+      if (fetchError) throw fetchError;
+      setData(assessments || []);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Failed to fetch assessments'
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [subjectId]);
 
   useEffect(() => {
     refetch();

@@ -719,6 +719,7 @@ export async function listSubjects(
   };
 }
 
+// ✅ UPDATED: Auto-create assessments when a new subject is created
 export async function createSubject(
   supabase: SupabaseClient,
   data: Omit<Subject, 'id' | 'school_id' | 'is_deleted' | 'deleted_at' | 'created_at' | 'updated_at'>
@@ -730,6 +731,10 @@ export async function createSubject(
     .single();
 
   if (error) throw error;
+
+  // ✅ Auto-create assessments for this subject
+  await createAssessmentsForSubject(supabase, subject.id, subject.school_id);
+
   return subject as Subject;
 }
 
@@ -778,6 +783,38 @@ export async function deleteSubject(
     .eq('id', id);
 
   if (error) throw error;
+}
+
+// ✅ NEW: Helper function to create 4 assessments for a subject
+async function createAssessmentsForSubject(
+  supabase: SupabaseClient,
+  subjectId: string,
+  schoolId: string
+): Promise<void> {
+  const templateTypes = [
+    { name: 'CA1', type: 'test', max_score: 10, weight: 0.1 },
+    { name: 'CA2', type: 'test', max_score: 10, weight: 0.1 },
+    { name: 'CA3', type: 'test', max_score: 10, weight: 0.1 },
+    { name: 'Exam', type: 'exam', max_score: 70, weight: 0.7 },
+  ];
+
+  const assessments = templateTypes.map((template) => ({
+    school_id: schoolId,
+    name: template.name,
+    type: template.type,
+    term_id: null,
+    class_id: null,
+    subject_id: subjectId,
+    max_score: template.max_score,
+    weight: template.weight,
+    is_auto_created: true,
+  }));
+
+  const { error } = await supabase.from('assessments').insert(assessments);
+  if (error) {
+    console.error('Failed to create assessments for subject:', error);
+    throw error;
+  }
 }
 
 // ============ CLASS-SUBJECT ASSIGNMENT ============
@@ -1305,14 +1342,15 @@ export async function getUnassignedSubjectsForClass(
 
   return data || [];
 }
+
 // ============ ASSESSMENT TEMPLATES ============
 
-// Ensure a school has the 4 default assessment templates
+// ✅ UPDATED: Ensure a school has subject-specific assessments
 export async function ensureAssessmentTemplates(
   supabase: SupabaseClient,
   schoolId: string
 ): Promise<void> {
-  // Check if templates already exist
+  // Check if templates already exist for any subject
   const { data: existing, error: checkError } = await supabase
     .from('assessments')
     .select('id')
@@ -1326,27 +1364,53 @@ export async function ensureAssessmentTemplates(
     return; // Templates already exist
   }
 
-  // Create the 4 default templates
-  const templates = [
+  // Get all subjects for this school
+  const { data: subjects, error: subjectsError } = await supabase
+    .from('subjects')
+    .select('id, name')
+    .eq('school_id', schoolId)
+    .is('is_deleted', false);
+
+  if (subjectsError) throw subjectsError;
+
+  if (!subjects || subjects.length === 0) {
+    return; // No subjects yet, will be created later
+  }
+
+  // Define the 4 assessment types
+  const templateTypes = [
     { name: 'CA1', type: 'test', max_score: 10, weight: 0.1 },
     { name: 'CA2', type: 'test', max_score: 10, weight: 0.1 },
     { name: 'CA3', type: 'test', max_score: 10, weight: 0.1 },
     { name: 'Exam', type: 'exam', max_score: 70, weight: 0.7 },
   ];
 
-  const { error: insertError } = await supabase.from('assessments').insert(
-    templates.map((t) => ({
-      school_id: schoolId,
-      name: t.name,
-      type: t.type,
-      term_id: null,
-      class_id: null,
-      subject_id: null,
-      max_score: t.max_score,
-      weight: t.weight,
-      is_auto_created: true,
-    }))
-  );
+  // Create assessments for each subject
+  const assessments = [];
+  for (const subject of subjects) {
+    for (const template of templateTypes) {
+      assessments.push({
+        school_id: schoolId,
+        name: `${subject.name} - ${template.name}`,
+        type: template.type,
+        term_id: null,
+        class_id: null,
+        subject_id: subject.id,
+        max_score: template.max_score,
+        weight: template.weight,
+        is_auto_created: true,
+      });
+    }
+  }
 
-  if (insertError) throw insertError;
+  if (assessments.length > 0) {
+    const { error: insertError } = await supabase
+      .from('assessments')
+      .insert(assessments);
+
+    if (insertError) {
+      console.error('Failed to create assessment templates:', insertError);
+      throw insertError;
+    }
+  }
 }
