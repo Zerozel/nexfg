@@ -41,9 +41,9 @@ export default function CompilePage() {
         const { data, error } = await supabase
           .from('terms')
           .select('*')
-          .eq('school_id', schoolId)
+          .eq('school_id', schoolId as string)
           .is('is_deleted', false)
-          .order('created_at', { ascending: true }); // First Term first
+          .order('created_at', { ascending: true });
 
         if (error) throw error;
         setTerms(data || []);
