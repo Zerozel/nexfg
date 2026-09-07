@@ -6,7 +6,7 @@ import type { Class } from '@/types';
 import type { PaginatedResponse } from '@/types/admin';
 
 // ============================================================
-// Phase 6.1: Existing hook — Teacher-specific classes
+// Phase 6.1: Teacher-specific classes (Form Teacher + Subject Teacher)
 // ============================================================
 
 export function useTeacherClasses() {
@@ -17,20 +17,75 @@ export function useTeacherClasses() {
   useEffect(() => {
     async function fetchClasses() {
       try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (!user) return;
+        setLoading(true);
+        setError(null);
 
-        const { data: classes, error: fetchError } = await supabase
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          setError('Not authenticated');
+          setLoading(false);
+          return;
+        }
+
+        const teacherId = user.id;
+        const schoolId = user.app_metadata?.school_id;
+
+        if (!schoolId) {
+          setError('No school associated');
+          setLoading(false);
+          return;
+        }
+
+        // ✅ 1. Get classes where teacher is the Form Teacher
+        const { data: formClasses, error: formError } = await supabase
           .from('classes')
           .select('*')
-          .eq('teacher_id', user.id)
+          .eq('school_id', schoolId)
+          .eq('teacher_id', teacherId)
+          .is('is_deleted', false)
           .order('name');
 
-        if (fetchError) throw fetchError;
-        setData(classes || []);
+        if (formError) throw formError;
+
+        // ✅ 2. Get classes where teacher is a Subject Teacher (via class_subjects)
+        const { data: assignments, error: assignError } = await supabase
+          .from('class_subjects')
+          .select('class_id')
+          .eq('teacher_id', teacherId);
+
+        if (assignError) throw assignError;
+
+        const assignedClassIds = assignments?.map((a: any) => a.class_id) || [];
+
+        // ✅ 3. Fetch those classes
+        let subjectClasses: any[] = [];
+        if (assignedClassIds.length > 0) {
+          const { data: extra, error: extraError } = await supabase
+            .from('classes')
+            .select('*')
+            .in('id', assignedClassIds)
+            .is('is_deleted', false)
+            .order('name');
+
+          if (!extraError && extra) {
+            subjectClasses = extra;
+          }
+        }
+
+        // ✅ 4. Combine and deduplicate
+        const allClasses = [...(formClasses || [])];
+        const seenIds = new Set(allClasses.map((c) => c.id));
+
+        for (const cls of subjectClasses) {
+          if (!seenIds.has(cls.id)) {
+            seenIds.add(cls.id);
+            allClasses.push(cls);
+          }
+        }
+
+        setData(allClasses);
       } catch (err) {
+        console.error('useTeacherClasses error:', err);
         setError(err instanceof Error ? err.message : 'Failed to fetch classes');
       } finally {
         setLoading(false);
