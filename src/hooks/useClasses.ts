@@ -55,7 +55,7 @@ export function useTeacherClasses() {
 
         if (assignError) throw assignError;
 
-        const assignedClassIds = assignments?.map((a: any) => a.class_id) || [];
+        const assignedClassIds = (assignments || []).map((a: any) => a.class_id) as string[];
 
         // ✅ 3. Fetch those classes
         let subjectClasses: any[] = [];
@@ -73,8 +73,8 @@ export function useTeacherClasses() {
         }
 
         // ✅ 4. Combine and deduplicate
-        const allClasses = [...(formClasses || [])];
-        const seenIds = new Set(allClasses.map((c) => c.id));
+        const allClasses: any[] = [...(formClasses || [])];
+        const seenIds = new Set((allClasses as any[]).map((c) => c.id));
 
         for (const cls of subjectClasses) {
           if (!seenIds.has(cls.id)) {
@@ -83,7 +83,7 @@ export function useTeacherClasses() {
           }
         }
 
-        setData(allClasses);
+        setData(allClasses as Class[]);
       } catch (err) {
         console.error('useTeacherClasses error:', err);
         setError(err instanceof Error ? err.message : 'Failed to fetch classes');
