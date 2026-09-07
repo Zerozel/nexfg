@@ -3,30 +3,41 @@
 import { useEffect, useState } from 'react';
 import { CompileTrigger } from '@/components/admin/CompileTrigger';
 import { useAdminClasses } from '@/hooks/useClasses';
-import { useAcademicYears } from '@/hooks/useAcademicYears';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/supabase/client';
 
 export default function CompilePage() {
   const { data: classesData, isLoading: classesLoading } = useAdminClasses({ pageSize: 100 });
-  const { data: academicYears, isLoading: yearsLoading } = useAcademicYears();
   const [terms, setTerms] = useState<any[]>([]);
   const [termsLoading, setTermsLoading] = useState(true);
   const { toast } = useToast();
 
   const classes = classesData?.data || [];
 
-  // Fetch terms
+  // ✅ Fetch ALL terms for the school
   useEffect(() => {
     async function fetchTerms() {
       try {
         setTermsLoading(true);
+        
+        // Get the user's school_id
+        const { data: { user } } = await supabase.auth.getUser();
+        const schoolId = user?.app_metadata?.school_id;
+
+        if (!schoolId) {
+          setTerms([]);
+          setTermsLoading(false);
+          return;
+        }
+
+        // ✅ Fetch ALL terms for this school (not just current)
         const { data, error } = await supabase
           .from('terms')
           .select('*')
-          .eq('is_current', true)
-          .is('is_deleted', false);
+          .eq('school_id', schoolId)
+          .is('is_deleted', false)
+          .order('created_at', { ascending: false });
 
         if (error) throw error;
         setTerms(data || []);
@@ -44,7 +55,7 @@ export default function CompilePage() {
     fetchTerms();
   }, [toast]);
 
-  const isLoading = classesLoading || yearsLoading || termsLoading;
+  const isLoading = classesLoading || termsLoading;
 
   if (isLoading) {
     return (
