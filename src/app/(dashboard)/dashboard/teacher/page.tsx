@@ -6,14 +6,30 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { BookOpen, ArrowRight, Eye } from "lucide-react";
+import { BookOpen, ArrowRight } from "lucide-react";
+import { supabase } from "@/lib/supabase/client";
+import { useState, useEffect } from "react";
 
 export default function TeacherDashboardPage() {
-  const { data: classes, loading } = useTeacherClasses();
+  const { data: classes, loading, error } = useTeacherClasses();
   const router = useRouter();
+  const [teacherId, setTeacherId] = useState<string | null>(null);
 
-  // Get the current user's ID to check if they are a Form Teacher
-  // This will be used to show the read-only view for Form Teachers
+  useEffect(() => {
+    async function getTeacherId() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) setTeacherId(user.id);
+    }
+    getTeacherId();
+  }, []);
+
+  if (error) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-red-500">Error loading classes: {error}</p>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -50,7 +66,8 @@ export default function TeacherDashboardPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-gray-500">
-                  {cls.teacher_id ? "Form Teacher" : "Subject Teacher"}
+                  {/* ✅ Check if the current teacher is the Form Teacher */}
+                  {cls.teacher_id === teacherId ? "Form Teacher" : "Subject Teacher"}
                 </p>
                 <Button
                   variant="link"
