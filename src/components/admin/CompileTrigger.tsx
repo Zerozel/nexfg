@@ -136,7 +136,8 @@ export function CompileTrigger({ classes, terms, onComplete }: CompileTriggerPro
               )}
             </div>
 
-            {job && job.status !== 'idle' && (
+            {/* ✅ FIX: Changed 'idle' to 'pending' */}
+            {job && job.status !== 'pending' && (
               <Progress value={job.progress || 0} className="h-2" />
             )}
 

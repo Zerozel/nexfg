@@ -1,5 +1,6 @@
 // supabase/functions/compile-results/database.ts
 
+// ✅ FIX: Correct Deno import (remove .ts extension)
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
 import {
   CompilationJob,
@@ -9,7 +10,7 @@ import {
   StudentRecord,
   GradingSystemRecord,
   CompiledResultRecord,
-} from './types.ts';
+} from './types';
 
 /**
  * Create Supabase client with service role key

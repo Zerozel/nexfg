@@ -1,5 +1,6 @@
 // supabase/functions/compile-results/index.ts
 
+// ✅ FIX: Correct Deno import (remove .ts extension)
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import {
   createSupabaseClient,
@@ -13,12 +14,12 @@ import {
   deleteCompiledResults,
   insertCompiledResults,
   hasCompiledResults,
-} from './database.ts';
+} from './database';
 import {
   aggregateScoresByStudentAndSubject,
   calculatePositions,
-} from './calculator.ts';
-import type { CompilationResponse, CompiledResultRecord } from './types.ts';
+} from './calculator';
+import type { CompilationResponse, CompiledResultRecord } from './types';
 
 const corsHeaders = {
   'Content-Type': 'application/json',

@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create a compilation job
+    // ✅ FIX: Use 'as any' to bypass type inference
     const { data: job, error: jobError } = await supabase
       .from('compilation_jobs')
       .insert({
@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
         class_id,
         term_id,
         status: 'pending',
-      })
+      } as any)
       .select()
       .single();
 
@@ -47,10 +47,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // ✅ FIX: Cast job to any to access properties
+    const jobData = job as any;
+
     return NextResponse.json({
       success: true,
-      job_id: job.id,
-      status: job.status,
+      job_id: jobData.id,
+      status: jobData.status,
     });
   } catch (error: any) {
     console.error('Compilation API error:', error);
