@@ -11,33 +11,39 @@ export default function CompilePage() {
   const { data: classesData, isLoading: classesLoading } = useAdminClasses({ pageSize: 100 });
   const [terms, setTerms] = useState<any[]>([]);
   const [termsLoading, setTermsLoading] = useState(true);
+  const [schoolId, setSchoolId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const classes = classesData?.data || [];
 
-  // ✅ Fetch ALL terms for the school
+  // ✅ Get the user's school_id on mount
   useEffect(() => {
+    async function getSchoolId() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.app_metadata?.school_id) {
+        setSchoolId(user.app_metadata.school_id);
+      }
+    }
+    getSchoolId();
+  }, []);
+
+  // ✅ Fetch ALL terms for the school (not just current)
+  useEffect(() => {
+    if (!schoolId) {
+      setTerms([]);
+      setTermsLoading(false);
+      return;
+    }
+
     async function fetchTerms() {
       try {
         setTermsLoading(true);
-        
-        // Get the user's school_id
-        const { data: { user } } = await supabase.auth.getUser();
-        const schoolId = user?.app_metadata?.school_id;
-
-        if (!schoolId) {
-          setTerms([]);
-          setTermsLoading(false);
-          return;
-        }
-
-        // ✅ Fetch ALL terms for this school (not just current)
         const { data, error } = await supabase
           .from('terms')
           .select('*')
           .eq('school_id', schoolId)
           .is('is_deleted', false)
-          .order('created_at', { ascending: false });
+          .order('created_at', { ascending: true }); // First Term first
 
         if (error) throw error;
         setTerms(data || []);
@@ -53,7 +59,7 @@ export default function CompilePage() {
       }
     }
     fetchTerms();
-  }, [toast]);
+  }, [schoolId, toast]);
 
   const isLoading = classesLoading || termsLoading;
 
@@ -63,6 +69,25 @@ export default function CompilePage() {
         <Skeleton className="h-8 w-64" />
         <Skeleton className="h-40 w-full" />
         <Skeleton className="h-40 w-full" />
+      </div>
+    );
+  }
+
+  if (terms.length === 0) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Compile Results</h1>
+          <p className="text-muted-foreground">
+            Generate report card data for a class and term.
+          </p>
+        </div>
+        <div className="text-center py-12 border rounded-lg bg-yellow-50">
+          <p className="text-yellow-700">No terms found for this school.</p>
+          <p className="text-sm text-yellow-600 mt-2">
+            Please create terms before compiling results.
+          </p>
+        </div>
       </div>
     );
   }
