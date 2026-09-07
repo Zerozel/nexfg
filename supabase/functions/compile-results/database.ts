@@ -10,7 +10,7 @@ import {
   StudentRecord,
   GradingSystemRecord,
   CompiledResultRecord,
-} from './types';
+} from './types.ts';
 
 /**
  * Create Supabase client with service role key

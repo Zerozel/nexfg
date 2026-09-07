@@ -14,12 +14,12 @@ import {
   deleteCompiledResults,
   insertCompiledResults,
   hasCompiledResults,
-} from './database';
+} from './database.ts';
 import {
   aggregateScoresByStudentAndSubject,
   calculatePositions,
-} from './calculator';
-import type { CompilationResponse, CompiledResultRecord } from './types';
+} from './calculator.ts';
+import type { CompilationResponse, CompiledResultRecord } from './types.ts';
 
 const corsHeaders = {
   'Content-Type': 'application/json',

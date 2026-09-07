@@ -1,7 +1,7 @@
 // supabase/functions/compile-results/calculator.ts
 
 // ✅ FIX: Remove .ts extension from imports
-import { AssessmentRecord, GradingSystemRecord, StudentSubjectAggregate } from './types';
+import { AssessmentRecord, GradingSystemRecord, StudentSubjectAggregate } from './types.ts';
 
 /**
  * Calculate weighted average for a student across subjects
