@@ -26,9 +26,10 @@ import type {
 // client, but when a route uses the service-role key (which bypasses RLS),
 // scoping becomes the application's responsibility.
 //
-// The academic-year and class functions below have been hardened. The remaining
-// functions in this file (students, teachers, subjects, assessments, etc.)
-// still rely on RLS and will be hardened in a follow-up pass.
+// The academic-year, class, and assessment-provisioning functions below have
+// been hardened. The remaining functions in this file (students, teachers,
+// subjects, enrollments, etc.) still rely on RLS and will be hardened in a
+// follow-up pass.
 // ============================================================================
 
 // Resolved client type (createServerSupabase is async)
@@ -824,7 +825,10 @@ export async function listSubjects(
   };
 }
 
-// ✅ UPDATED: Auto-create assessments when a new subject is created
+// ← CHANGED: no longer auto-creates school-wide template assessments.
+// Assessments are now created per-class when a subject is assigned to a class
+// (see ensureClassSubjectAssessments). This removes the orphan-template rows
+// that caused the compile pipeline to find zero scores.
 export async function createSubject(
   supabase: SupabaseClient,
   data: Omit<Subject, 'id' | 'school_id' | 'is_deleted' | 'deleted_at' | 'created_at' | 'updated_at'>
@@ -836,9 +840,6 @@ export async function createSubject(
     .single();
 
   if (error) throw error;
-
-  // ✅ Auto-create assessments for this subject
-  await createAssessmentsForSubject(supabase, subject.id, subject.school_id);
 
   return subject as Subject;
 }
@@ -890,12 +891,74 @@ export async function deleteSubject(
   if (error) throw error;
 }
 
-// ✅ NEW: Helper function to create 4 assessments for a subject
-async function createAssessmentsForSubject(
+// ← REMOVED: createAssessmentsForSubject
+// The old function created school-wide template assessments with class_id=null
+// and term_id=null. That's the design flaw that broke the compile pipeline.
+// Assessments are now provisioned per (class, term, subject) by
+// ensureClassSubjectAssessments below, called from assignClassSubject and
+// assignTeacherToSubject.
+
+// ============================================================================
+// ← NEW: ensureClassSubjectAssessments
+// ----------------------------------------------------------------------------
+// Called whenever a subject is attached to a class. Creates the 4 standard
+// assessments (CA1, CA2, CA3, Exam) × every term in the class's academic year
+// × this subject, all stamped with class_id + term_id + subject_id so the
+// compile pipeline can find them.
+//
+// Idempotent: if an assessment already exists for
+// (class_id, term_id, subject_id, name), it is skipped.
+// ============================================================================
+async function ensureClassSubjectAssessments(
   supabase: SupabaseClient,
-  subjectId: string,
-  schoolId: string
+  schoolId: string,
+  classId: string,
+  subjectId: string
 ): Promise<void> {
+  // 1. Resolve the class's academic year
+  const { data: cls, error: clsError } = await supabase
+    .from('classes')
+    .select('id, academic_year_id')
+    .eq('id', classId)
+    .eq('school_id', schoolId)
+    .is('is_deleted', false)
+    .maybeSingle();
+
+  if (clsError) throw clsError;
+  if (!cls) {
+    throw new Error('Class does not belong to this school');
+  }
+
+  // 2. Fetch all terms for that academic year
+  const { data: terms, error: termsError } = await supabase
+    .from('terms')
+    .select('id, name, "order"')
+    .eq('academic_year_id', cls.academic_year_id)
+    .eq('school_id', schoolId)
+    .is('is_deleted', false)
+    .order('order', { ascending: true });
+
+  if (termsError) throw termsError;
+  if (!terms || terms.length === 0) {
+    throw new Error('No terms found for this academic year');
+  }
+
+  // 3. Which assessments already exist for this class + subject?
+  const { data: existing, error: existingError } = await supabase
+    .from('assessments')
+    .select('id, term_id, name')
+    .eq('school_id', schoolId)
+    .eq('class_id', classId)
+    .eq('subject_id', subjectId)
+    .is('is_deleted', false);
+
+  if (existingError) throw existingError;
+
+  const existingKeys = new Set(
+    (existing || []).map((a: any) => `${a.term_id}:${a.name}`)
+  );
+
+  // 4. Define the 4 assessment templates
   const templateTypes = [
     { name: 'CA1', type: 'test', max_score: 10, weight: 0.1 },
     { name: 'CA2', type: 'test', max_score: 10, weight: 0.1 },
@@ -903,31 +966,76 @@ async function createAssessmentsForSubject(
     { name: 'Exam', type: 'exam', max_score: 70, weight: 0.7 },
   ];
 
-  const assessments = templateTypes.map((template) => ({
-    school_id: schoolId,
-    name: template.name,
-    type: template.type,
-    term_id: null,
-    class_id: null,
-    subject_id: subjectId,
-    max_score: template.max_score,
-    weight: template.weight,
-    is_auto_created: true,
-  }));
+  // 5. Build the cartesian product: term × template
+  const toInsert: any[] = [];
+  for (const term of terms) {
+    for (const template of templateTypes) {
+      const key = `${term.id}:${template.name}`;
+      if (existingKeys.has(key)) continue;
+      toInsert.push({
+        school_id: schoolId,
+        class_id: classId,
+        term_id: term.id,
+        subject_id: subjectId,
+        name: template.name,
+        type: template.type,
+        max_score: template.max_score,
+        weight: template.weight,
+        is_auto_created: true,
+      });
+    }
+  }
 
-  const { error } = await supabase.from('assessments').insert(assessments);
-  if (error) {
-    console.error('Failed to create assessments for subject:', error);
-    throw error;
+  if (toInsert.length === 0) {
+    return; // already fully provisioned
+  }
+
+  const { error: insertError } = await supabase
+    .from('assessments')
+    .insert(toInsert);
+
+  if (insertError) {
+    console.error('Failed to create class-scoped assessments:', insertError);
+    throw insertError;
   }
 }
 
 // ============ CLASS-SUBJECT ASSIGNMENT ============
 
+// ← CHANGED: now takes schoolId, forces school_id on the class_subjects row,
+// and calls ensureClassSubjectAssessments so the compile pipeline has
+// class-scoped assessments to find. Without this, scores were written against
+// school-wide templates and compile always reported "No scores found".
 export async function assignClassSubject(
   supabase: SupabaseClient,
+  schoolId: string,
   data: { class_id: string; subject_id: string; teacher_id: string }
 ): Promise<ClassSubjectAssignment> {
+  // 1. Verify the class belongs to this school (defense in depth)
+  const { data: cls, error: clsError } = await supabase
+    .from('classes')
+    .select('id')
+    .eq('id', data.class_id)
+    .eq('school_id', schoolId)
+    .is('is_deleted', false)
+    .maybeSingle();
+
+  if (clsError) throw clsError;
+  if (!cls) throw new Error('Class does not belong to this school');
+
+  // 2. Verify the subject belongs to this school
+  const { data: subj, error: subjError } = await supabase
+    .from('subjects')
+    .select('id')
+    .eq('id', data.subject_id)
+    .eq('school_id', schoolId)
+    .is('is_deleted', false)
+    .maybeSingle();
+
+  if (subjError) throw subjError;
+  if (!subj) throw new Error('Subject does not belong to this school');
+
+  // 3. Upsert the class_subjects row (existing behavior)
   const { data: assignment, error } = await supabase
     .from('class_subjects')
     .upsert(data, { onConflict: 'class_id,subject_id' })
@@ -935,9 +1043,17 @@ export async function assignClassSubject(
     .single();
 
   if (error) throw error;
+
+  // 4. Provision class+term-scoped assessments for this subject
+  await ensureClassSubjectAssessments(
+    supabase,
+    schoolId,
+    data.class_id,
+    data.subject_id
+  );
+
   return assignment as ClassSubjectAssignment;
 }
-
 
 // ============ ASSESSMENTS ============
 
@@ -1363,10 +1479,38 @@ export async function listTeacherAssignments(
   }));
 }
 
+// ← CHANGED: takes schoolId and calls ensureClassSubjectAssessments so the
+// same provisioning happens regardless of which admin route assigns a
+// subject. Previously this path created assignments without assessments.
 export async function assignTeacherToSubject(
   supabase: SupabaseClient,
+  schoolId: string,
   data: { class_id: string; subject_id: string; teacher_id: string }
 ): Promise<TeacherAssignment> {
+  // Verify the class belongs to this school
+  const { data: cls, error: clsError } = await supabase
+    .from('classes')
+    .select('id')
+    .eq('id', data.class_id)
+    .eq('school_id', schoolId)
+    .is('is_deleted', false)
+    .maybeSingle();
+
+  if (clsError) throw clsError;
+  if (!cls) throw new Error('Class does not belong to this school');
+
+  // Verify the subject belongs to this school
+  const { data: subj, error: subjError } = await supabase
+    .from('subjects')
+    .select('id')
+    .eq('id', data.subject_id)
+    .eq('school_id', schoolId)
+    .is('is_deleted', false)
+    .maybeSingle();
+
+  if (subjError) throw subjError;
+  if (!subj) throw new Error('Subject does not belong to this school');
+
   const { data: assignment, error } = await supabase
     .from('class_subjects')
     .upsert(
@@ -1396,6 +1540,14 @@ export async function assignTeacherToSubject(
     }
     throw error;
   }
+
+  // Provision class+term-scoped assessments
+  await ensureClassSubjectAssessments(
+    supabase,
+    schoolId,
+    data.class_id,
+    data.subject_id
+  );
 
   return {
     id: assignment.id,
@@ -1450,7 +1602,12 @@ export async function getUnassignedSubjectsForClass(
 
 // ============ ASSESSMENT TEMPLATES ============
 
-// ✅ UPDATED: Ensure a school has subject-specific assessments
+// ← DEPRECATED (kept for compatibility): this function created school-wide
+// template assessments with class_id=null and term_id=null. That design caused
+// the compile pipeline to always find zero assessments. New code should rely
+// on ensureClassSubjectAssessments (private helper) via assignClassSubject /
+// assignTeacherToSubject. This function remains callable but is no longer
+// invoked from anywhere in the codebase.
 export async function ensureAssessmentTemplates(
   supabase: SupabaseClient,
   schoolId: string

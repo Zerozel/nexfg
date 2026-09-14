@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase/client';
 
 interface UseClassStudentsOptions {
   termId?: string;
-  subjectId?: string;  // ✅ NEW: Filter scores by subject
+  subjectId?: string;  // Filter scores by subject
 }
 
 interface StudentRow {
@@ -27,7 +27,7 @@ export function useClassStudents(classId: string, options?: UseClassStudentsOpti
   const [error, setError] = useState<string | null>(null);
 
   const refetch = useCallback(async () => {
-    console.log('🔍 useClassStudents: classId =', classId);
+    console.log('🔍 useClassStudents: classId =', classId, 'subjectId =', options?.subjectId, 'termId =', options?.termId);
 
     if (!classId) {
       setData([]);
@@ -40,7 +40,7 @@ export function useClassStudents(classId: string, options?: UseClassStudentsOpti
         setLoading(true);
         setError(null);
 
-        // ✅ 1. Get students in the class
+        // 1. Get students in the class
         const { data: students, error: studentsError } = await supabase
           .from('students')
           .select('id, full_name, admission_number')
@@ -63,14 +63,27 @@ export function useClassStudents(classId: string, options?: UseClassStudentsOpti
         let scoresByStudent: Record<string, Record<string, number | null>> = {};
 
         if (studentIds.length > 0) {
-          // ✅ 2. Get all assessments for the selected subject
+          // 2. Get assessment IDs for this class + subject + term
+          //    ← CHANGED: previously filtered only by subject_id, which
+          //    returned assessments across all 3 terms. Now filters by
+          //    class_id AND term_id (when provided) so only the relevant
+          //    term's assessments are queried and only that term's scores
+          //    come back.
           let assessmentIds: string[] = [];
+
           if (options?.subjectId) {
-            const { data: assessments, error: assessError } = await supabase
+            let assessmentQuery = supabase
               .from('assessments')
               .select('id')
+              .eq('class_id', classId)          // ← ADDED
               .eq('subject_id', options.subjectId)
               .is('is_deleted', false);
+
+            if (options.termId) {
+              assessmentQuery = assessmentQuery.eq('term_id', options.termId); // ← ADDED
+            }
+
+            const { data: assessments, error: assessError } = await assessmentQuery;
 
             if (assessError) {
               console.error('Error fetching assessments for subject:', assessError);
@@ -79,15 +92,25 @@ export function useClassStudents(classId: string, options?: UseClassStudentsOpti
             }
           }
 
-          // ✅ 3. Fetch scores filtered by assessment IDs
+          // 3. Fetch scores filtered by assessment IDs
           let scoresQuery = supabase
             .from('scores')
             .select('student_id, assessment_id, score')
             .in('student_id', studentIds) as any;
 
-          // ✅ If we have assessment IDs, filter by them
           if (assessmentIds.length > 0) {
             scoresQuery = scoresQuery.in('assessment_id', assessmentIds);
+          } else {
+            // No assessments for this class+subject+term → no scores to show.
+            // Return early to avoid pulling unrelated scores.
+            setData(
+              studentRows.map((student) => ({
+                ...student,
+                scores: {},
+              }))
+            );
+            setLoading(false);
+            return;
           }
 
           const { data: scores, error: scoresError } = await scoresQuery as {
@@ -98,7 +121,7 @@ export function useClassStudents(classId: string, options?: UseClassStudentsOpti
           if (scoresError) {
             console.error('useClassStudents scores error:', scoresError);
           } else {
-            // ✅ Build score map
+            // Build score map keyed by assessment_id
             scoresByStudent = (scores || []).reduce(
               (map, score) => {
                 if (!map[score.student_id]) {
@@ -112,7 +135,7 @@ export function useClassStudents(classId: string, options?: UseClassStudentsOpti
           }
         }
 
-        // ✅ 4. Attach scores to students
+        // 4. Attach scores to students
         setData(
           studentRows.map((student) => ({
             ...student,

@@ -1,8 +1,18 @@
+// src/app/api/admin/class-subjects/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerSupabase } from '@/lib/supabase/server';
 import { assignClassSubject } from '@/lib/supabase/admin';
+import { requireSchoolAdmin } from '@/lib/supabase/school-admin-auth';
 import { z } from 'zod';
 import { ZodError } from 'zod';
+
+// ============================================================================
+// ARCHITECTURAL NOTES
+// ----------------------------------------------------------------------------
+// Admin/principal only. Every call into admin.ts receives schoolId.
+// assignClassSubject now provisions class+term-scoped assessments as a
+// side-effect, so this route is one of the two "front doors" that makes the
+// compile pipeline work.
+// ============================================================================
 
 const classSubjectSchema = z.object({
   class_id: z.string().uuid('Invalid class ID'),
@@ -12,12 +22,15 @@ const classSubjectSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createServerSupabase();
+    const guard = await requireSchoolAdmin();
+    if (!guard.authorized) return guard.response;
+    const { supabase, schoolId } = guard;
+
     const body = await request.json();
-    
+
     const validatedData = classSubjectSchema.parse(body);
-    
-    const assignment = await assignClassSubject(supabase, validatedData);
+
+    const assignment = await assignClassSubject(supabase, schoolId, validatedData);
     return NextResponse.json(
       { data: assignment, message: 'Teacher assigned successfully' },
       { status: 201 }

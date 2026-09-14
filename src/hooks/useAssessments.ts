@@ -6,9 +6,13 @@ import type { Assessment } from '@/types';
  
 // ============================================================
 // Phase 6.1: Direct Supabase hook (for teacher score entry)
+// ← CHANGED: now filters by class_id + term_id + subject_id. Previously it
+// filtered by subject_id only, which returned school-wide template
+// assessments (class_id/term_id null). Those are gone now; assessments live
+// per class + term.
 // ============================================================
 
-export function useAssessments(classId: string, subjectId?: string) {
+export function useAssessments(classId: string, subjectId?: string, termId?: string) {
   const [data, setData] = useState<Assessment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -18,18 +22,24 @@ export function useAssessments(classId: string, subjectId?: string) {
       setLoading(true);
       setError(null);
 
+      // Class is always required for class-scoped assessments
+      if (!classId) {
+        setData([]);
+        return;
+      }
+
       let query = supabase
         .from('assessments')
         .select('*')
+        .eq('class_id', classId)
         .is('is_deleted', false)
         .order('name');
 
-      // ✅ If subjectId is provided, filter by it
       if (subjectId) {
         query = query.eq('subject_id', subjectId);
-      } else {
-        // ✅ If no subjectId, fall back to global assessments
-        query = query.eq('is_auto_created', true);
+      }
+      if (termId) {
+        query = query.eq('term_id', termId);
       }
 
       const { data: assessments, error: fetchError } = await query;
@@ -43,7 +53,7 @@ export function useAssessments(classId: string, subjectId?: string) {
     } finally {
       setLoading(false);
     }
-  }, [subjectId]);
+  }, [classId, subjectId, termId]);
 
   useEffect(() => {
     refetch();

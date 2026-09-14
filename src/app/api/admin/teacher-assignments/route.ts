@@ -1,12 +1,23 @@
+// src/app/api/admin/teacher-assignments/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerSupabase } from '@/lib/supabase/server';
 import { listTeacherAssignments, assignTeacherToSubject } from '@/lib/supabase/admin';
+import { requireSchoolAdmin } from '@/lib/supabase/school-admin-auth';
 import { teacherAssignmentSchema } from '@/lib/validations/teacher-assignment.schema';
 import { ZodError } from 'zod';
 
+// ============================================================================
+// ARCHITECTURAL NOTES
+// ----------------------------------------------------------------------------
+// Admin/principal only. POST is the second "front door" that triggers
+// assessment provisioning via assignTeacherToSubject.
+// ============================================================================
+
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createServerSupabase();
+    const guard = await requireSchoolAdmin();
+    if (!guard.authorized) return guard.response;
+    const { supabase } = guard;
+
     const { searchParams } = new URL(request.url);
     const classId = searchParams.get('classId');
 
@@ -24,12 +35,15 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createServerSupabase();
+    const guard = await requireSchoolAdmin();
+    if (!guard.authorized) return guard.response;
+    const { supabase, schoolId } = guard;
+
     const body = await request.json();
 
     const validatedData = teacherAssignmentSchema.parse(body);
 
-    const assignment = await assignTeacherToSubject(supabase, validatedData);
+    const assignment = await assignTeacherToSubject(supabase, schoolId, validatedData);
     return NextResponse.json(
       {
         success: true,
