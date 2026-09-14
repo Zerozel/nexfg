@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useCompileJob } from '@/hooks/useCompileJob';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,6 +22,7 @@ export function CompileTrigger({ classes, terms, onComplete }: CompileTriggerPro
   const [selectedTerm, setSelectedTerm] = useState('');
   const { job, isLoading, error, triggerCompilation, reset } = useCompileJob();
   const { toast } = useToast();
+  const router = useRouter();
 
   const handleCompile = async () => {
     if (!selectedClass || !selectedTerm) {
@@ -39,6 +41,13 @@ export function CompileTrigger({ classes, terms, onComplete }: CompileTriggerPro
     reset();
     setSelectedClass('');
     setSelectedTerm('');
+  };
+
+  // Navigate to the class print page with the class + term we just compiled.
+  // The print page reads classId from the URL path and termId from the query string.
+  const handleViewReportCards = () => {
+    onComplete?.();   // preserve any parent callback (e.g. toast)
+    router.push(`/report-cards/class/${selectedClass}/print?termId=${selectedTerm}`);
   };
 
   const getStatusIcon = () => {
@@ -124,8 +133,12 @@ export function CompileTrigger({ classes, terms, onComplete }: CompileTriggerPro
                 {getStatusIcon()}
                 <span className="font-medium">{getStatusText()}</span>
               </div>
-              {job?.status === 'completed' && onComplete && (
-                <Button variant="outline" size="sm" onClick={onComplete}>
+              {job?.status === 'completed' && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleViewReportCards}
+                >
                   View Report Cards
                 </Button>
               )}
@@ -136,7 +149,6 @@ export function CompileTrigger({ classes, terms, onComplete }: CompileTriggerPro
               )}
             </div>
 
-            {/* ✅ FIX: Changed 'idle' to 'pending' */}
             {job && job.status !== 'pending' && (
               <Progress value={job.progress || 0} className="h-2" />
             )}
