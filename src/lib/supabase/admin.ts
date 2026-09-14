@@ -17,6 +17,20 @@ import type {
   UnenrolledStudent,
 } from '@/types/admin';
 
+// ============================================================================
+// MULTI-TENANT SCOPING NOTES
+// ----------------------------------------------------------------------------
+// Every function in this file that reads or writes tenant-scoped tables MUST
+// be scoped to the caller's school_id. The RLS policies protect against
+// cross-tenant reads/writes when the query goes through an RLS-enforced
+// client, but when a route uses the service-role key (which bypasses RLS),
+// scoping becomes the application's responsibility.
+//
+// The academic-year and class functions below have been hardened. The remaining
+// functions in this file (students, teachers, subjects, assessments, etc.)
+// still rely on RLS and will be hardened in a follow-up pass.
+// ============================================================================
+
 // Resolved client type (createServerSupabase is async)
 type SupabaseClient = any;
 
@@ -363,13 +377,34 @@ export async function listClasses(
   };
 }
 
+// ← CHANGED: added `schoolId` param. Before inserting the new class, verify the
+// academic_year_id actually belongs to the caller's school. Without this check,
+// a client can create a class that points at another tenant's academic year
+// (this is exactly how Rock Foundation's classes became contaminated).
 export async function createClass(
   supabase: SupabaseClient,
+  schoolId: string,
   data: Omit<Class, 'id' | 'school_id' | 'is_deleted' | 'deleted_at' | 'created_at' | 'updated_at' | 'teacher_name'>
 ) {
+  // ← ADDED: ownership check on academic_year_id
+  const { data: academicYear, error: ayError } = await supabase
+    .from('academic_years')
+    .select('id')
+    .eq('id', data.academic_year_id)
+    .eq('school_id', schoolId)
+    .is('is_deleted', false)
+    .maybeSingle();
+
+  if (ayError) throw ayError;
+  if (!academicYear) {
+    throw new Error('Academic year does not belong to this school');
+  }
+
+  // ← CHANGED: force school_id from the caller's session. Never trust the
+  // client to supply the correct school_id.
   const { data: classData, error } = await supabase
     .from('classes')
-    .insert(data)
+    .insert({ ...data, school_id: schoolId })
     .select('*, profiles!classes_teacher_id_fkey(full_name)')
     .single();
 
@@ -400,15 +435,36 @@ export async function getClass(
   } as Class;
 }
 
+// ← CHANGED: added `schoolId` param. If the payload includes a new
+// academic_year_id, verify it belongs to the caller's school. Also scope the
+// update to the caller's school so one tenant cannot modify another's class.
 export async function updateClass(
   supabase: SupabaseClient,
+  schoolId: string,
   id: string,
   data: Partial<Class>
 ) {
+  // ← ADDED: if academic_year_id is being changed, validate ownership
+  if (data.academic_year_id) {
+    const { data: academicYear, error: ayError } = await supabase
+      .from('academic_years')
+      .select('id')
+      .eq('id', data.academic_year_id)
+      .eq('school_id', schoolId)
+      .is('is_deleted', false)
+      .maybeSingle();
+
+    if (ayError) throw ayError;
+    if (!academicYear) {
+      throw new Error('Academic year does not belong to this school');
+    }
+  }
+
   const { data: classData, error } = await supabase
     .from('classes')
     .update({ ...data, updated_at: new Date().toISOString() })
     .eq('id', id)
+    .eq('school_id', schoolId)          // ← ADDED: scope to caller's school
     .is('is_deleted', false)
     .select('*, profiles!classes_teacher_id_fkey(full_name)')
     .single();
@@ -448,12 +504,17 @@ export function generateSessionName(reference: Date = new Date()): string {
   return `${startYear}/${startYear + 1}`;
 }
 
+// ← CHANGED: scoped to schoolId. Previously returned every school's academic
+// years, which is how the ClassForm dropdown ended up offering another
+// tenant's session.
 export async function listAcademicYears(
-  supabase: SupabaseClient
+  supabase: SupabaseClient,
+  schoolId: string
 ): Promise<AcademicYear[]> {
   const { data, error } = await supabase
     .from('academic_years')
     .select('*')
+    .eq('school_id', schoolId)          // ← ADDED
     .is('is_deleted', false)
     .order('name', { ascending: false });
 
@@ -461,19 +522,25 @@ export async function listAcademicYears(
   return (data || []) as AcademicYear[];
 }
 
+// ← CHANGED: now takes schoolId and writes it explicitly into the row.
+// academic_years.school_id is NOT NULL with no default, so this insert would
+// have failed without it. Also scopes clearCurrentAcademicYear to the caller.
 export async function createAcademicYear(
   supabase: SupabaseClient,
+  schoolId: string,
   data: { name: string; start_date?: string | null; end_date?: string | null; is_current?: boolean }
 ): Promise<AcademicYear> {
   // If this session is being marked current, clear the flag on any existing
-  // current session first so the "one current session" invariant holds.
+  // current session *for this school only* so the "one current session per
+  // school" invariant holds.
   if (data.is_current) {
-    await clearCurrentAcademicYear(supabase);
+    await clearCurrentAcademicYear(supabase, schoolId);
   }
 
   const { data: academicYear, error } = await supabase
     .from('academic_years')
     .insert({
+      school_id: schoolId,             // ← ADDED
       name: data.name,
       start_date: data.start_date ?? null,
       end_date: data.end_date ?? null,
@@ -491,14 +558,18 @@ export async function createAcademicYear(
   return academicYear as AcademicYear;
 }
 
+// ← CHANGED: scoped to schoolId so a caller cannot read another school's year
+// by guessing an id.
 export async function getAcademicYear(
   supabase: SupabaseClient,
+  schoolId: string,
   id: string
 ): Promise<AcademicYear> {
   const { data, error } = await supabase
     .from('academic_years')
     .select('*')
     .eq('id', id)
+    .eq('school_id', schoolId)          // ← ADDED
     .is('is_deleted', false)
     .single();
 
@@ -506,20 +577,25 @@ export async function getAcademicYear(
   return data as AcademicYear;
 }
 
+// ← CHANGED: takes schoolId, scopes the update, and passes schoolId to
+// clearCurrentAcademicYear so only this school's current flag is demoted.
 export async function updateAcademicYear(
   supabase: SupabaseClient,
+  schoolId: string,
   id: string,
   data: Partial<Pick<AcademicYear, 'name' | 'start_date' | 'end_date' | 'is_current'>>
 ): Promise<AcademicYear> {
-  // Promote this session to current: demote whichever one currently holds it.
+  // Promote this session to current: demote whichever one currently holds it
+  // for this school.
   if (data.is_current) {
-    await clearCurrentAcademicYear(supabase, id);
+    await clearCurrentAcademicYear(supabase, schoolId, id);
   }
 
   const { data: academicYear, error } = await supabase
     .from('academic_years')
     .update({ ...data, updated_at: new Date().toISOString() })
     .eq('id', id)
+    .eq('school_id', schoolId)          // ← ADDED
     .is('is_deleted', false)
     .select()
     .single();
@@ -533,8 +609,10 @@ export async function updateAcademicYear(
   return academicYear as AcademicYear;
 }
 
+// ← CHANGED: scoped to schoolId so a caller cannot delete another school's year.
 export async function deleteAcademicYear(
   supabase: SupabaseClient,
+  schoolId: string,
   id: string
 ) {
   const { error } = await supabase
@@ -544,19 +622,24 @@ export async function deleteAcademicYear(
       deleted_at: new Date().toISOString(),
       is_current: false,
     })
-    .eq('id', id);
+    .eq('id', id)
+    .eq('school_id', schoolId)          // ← ADDED
+    ;
 
   if (error) throw error;
 }
 
-// Demote the current session (optionally excluding one id we're about to set).
+// ← CHANGED: now takes schoolId so demotion only affects the caller's school.
+// Previously this touched every school's is_current flag in the database.
 async function clearCurrentAcademicYear(
   supabase: SupabaseClient,
+  schoolId: string,
   exceptId?: string
 ) {
   let query = supabase
     .from('academic_years')
     .update({ is_current: false, updated_at: new Date().toISOString() })
+    .eq('school_id', schoolId)          // ← ADDED
     .eq('is_current', true)
     .is('is_deleted', false);
 
@@ -568,16 +651,19 @@ async function clearCurrentAcademicYear(
   if (error) throw error;
 }
 
-// Guarantees a school has a "current" academic session, creating the computed
-// one (e.g. "2024/2025") on first use. Called during onboarding and as a safe
-// fallback when loading the class form. Returns the current session.
+// ← CHANGED: now takes schoolId and every query inside is scoped to it. This
+// was the root cause of the cross-tenant contamination: the old version ran
+// `.eq('is_current', true)` with no school filter, so every school saw the
+// same "first" academic year (Green Wood's).
 export async function ensureCurrentAcademicYear(
-  supabase: SupabaseClient
+  supabase: SupabaseClient,
+  schoolId: string
 ): Promise<AcademicYear> {
-  // ✅ Step 1: Clean up any duplicate current years
+  // ✅ Step 1: Clean up any duplicate current years *for this school only*
   const { data: duplicates, error: dupError } = await supabase
     .from('academic_years')
     .select('id, school_id')
+    .eq('school_id', schoolId)          // ← ADDED
     .eq('is_current', true)
     .is('is_deleted', false);
 
@@ -600,10 +686,11 @@ export async function ensureCurrentAcademicYear(
     }
   }
 
-  // ✅ Step 2: Get the current academic year
+  // ✅ Step 2: Get the current academic year *for this school*
   const { data: existing, error: existingError } = await supabase
     .from('academic_years')
     .select('*')
+    .eq('school_id', schoolId)          // ← ADDED
     .eq('is_current', true)
     .is('is_deleted', false)
     .maybeSingle();
@@ -615,13 +702,15 @@ export async function ensureCurrentAcademicYear(
     return existing as AcademicYear;
   }
 
-  // ✅ Step 3: No current year exists, create one
+  // ✅ Step 3: No current year exists for this school, create one
   const name = generateSessionName();
 
-  // Another session with this name may already exist but not be flagged current
+  // Another session with this name may already exist for this school but not
+  // be flagged current
   const { data: sameName } = await supabase
     .from('academic_years')
     .select('*')
+    .eq('school_id', schoolId)          // ← ADDED
     .eq('name', name)
     .is('is_deleted', false)
     .maybeSingle();
@@ -629,9 +718,9 @@ export async function ensureCurrentAcademicYear(
   let academicYear: AcademicYear;
 
   if (sameName) {
-    academicYear = await updateAcademicYear(supabase, sameName.id, { is_current: true });
+    academicYear = await updateAcademicYear(supabase, schoolId, sameName.id, { is_current: true });
   } else {
-    academicYear = await createAcademicYear(supabase, { name, is_current: true });
+    academicYear = await createAcademicYear(supabase, schoolId, { name, is_current: true });
   }
 
   // Ensure terms exist for this academic year
@@ -643,12 +732,28 @@ export async function ensureCurrentAcademicYear(
 
 // ============ TERMS ============
 
-// Ensure a school has the 3 default terms for a given academic year
+// ← CHANGED: signature unchanged, but the body now verifies the academic year
+// belongs to `schoolId` before inserting terms. This prevents terms from being
+// created under an academic year that belongs to another tenant.
 export async function ensureTermsForAcademicYear(
   supabase: SupabaseClient,
   academicYearId: string,
   schoolId: string
 ): Promise<void> {
+  // ← ADDED: verify the academic year belongs to this school
+  const { data: academicYear, error: ayError } = await supabase
+    .from('academic_years')
+    .select('id')
+    .eq('id', academicYearId)
+    .eq('school_id', schoolId)
+    .is('is_deleted', false)
+    .maybeSingle();
+
+  if (ayError) throw ayError;
+  if (!academicYear) {
+    throw new Error('Academic year does not belong to this school');
+  }
+
   // Check if terms already exist for this academic year
   const { data: existingTerms, error: checkError } = await supabase
     .from('terms')

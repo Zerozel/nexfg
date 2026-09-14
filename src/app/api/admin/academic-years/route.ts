@@ -1,61 +1,53 @@
+// src/app/api/admin/academic-years/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerSupabase } from '@/lib/supabase/server';
-import { createClient as createAdminClient } from '@supabase/supabase-js';
 import {
   listAcademicYears,
   createAcademicYear,
   ensureCurrentAcademicYear,
 } from '@/lib/supabase/admin';
+import { requireSchoolAdmin } from '@/lib/supabase/school-admin-auth';
 import { academicYearSchema } from '@/lib/validations/academic-year.schema';
 import { ZodError } from 'zod';
 
-// Create a service role client that bypasses RLS
-function getServiceClient() {
-  return createAdminClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    }
-  );
-}
+// ============================================================================
+// ARCHITECTURAL NOTES
+// ----------------------------------------------------------------------------
+// This route is admin/principal only. It uses the RLS-enforced client
+// (createServerSupabase, via requireSchoolAdmin) — NOT the service role key.
+// Tenant isolation is enforced at two layers:
+//   1. RLS policies on academic_years
+//   2. Explicit .eq('school_id', schoolId) inside src/lib/supabase/admin.ts
+//
+// Every call into admin.ts passes the caller's schoolId. Do NOT add a
+// service-role client to this file — the previous version did, and that is
+// exactly how a cross-tenant academic_year_id ended up on Rock Foundation's
+// classes.
+// ============================================================================
 
 export async function GET() {
   try {
     console.log('🔍 GET /api/admin/academic-years - Started');
-    
-    // Use service client for read operations to bypass RLS
-    const supabase = getServiceClient();
-    console.log('✅ Service client created');
 
-    // Get the current user to extract school_id
-    const userClient = await createServerSupabase();
-    const { data: { user } } = await userClient.auth.getUser();
-    
-    if (!user) {
-      console.log('❌ No user found');
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    // ← CHANGED: use the shared admin guard. Returns { supabase, user, schoolId }
+    //   or a 401/403 NextResponse. Removes the local school_id extraction that
+    //   was previously done and then discarded.
+    const guard = await requireSchoolAdmin();
+    if (!guard.authorized) return guard.response;
+    const { supabase, schoolId } = guard;
 
-    const schoolId = user.app_metadata?.school_id;
     console.log('👤 User school_id:', schoolId);
-    
-    if (!schoolId) {
-      console.log('❌ No school_id in app_metadata');
-      return NextResponse.json({ error: 'No school associated' }, { status: 403 });
-    }
 
-    // Ensure the school has a current academic year
+    // ← CHANGED: pass schoolId into every admin.ts call.
+    //   Previously: ensureCurrentAcademicYear(supabase)  → could return ANY school's year
+    //   Now:        ensureCurrentAcademicYear(supabase, schoolId)
     console.log('📅 Ensuring current academic year...');
-    await ensureCurrentAcademicYear(supabase);
+    await ensureCurrentAcademicYear(supabase, schoolId);
     console.log('✅ Academic year ensured');
 
-    const data = await listAcademicYears(supabase);
+    // ← CHANGED: pass schoolId so the list is scoped to this school only.
+    const data = await listAcademicYears(supabase, schoolId);
     console.log('📊 Academic years found:', data.length);
-    
+
     return NextResponse.json({ data });
   } catch (error: any) {
     console.error('❌ GET /api/admin/academic-years error:', error);
@@ -67,39 +59,29 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     console.log('🔍 POST /api/admin/academic-years - Started');
-    
+
     const body = await request.json();
     console.log('📦 Request body:', body);
-    
+
     const validatedData = academicYearSchema.parse(body);
     console.log('✅ Validated data:', validatedData);
 
-    // Use service client to bypass RLS
-    const supabase = getServiceClient();
-    console.log('✅ Service client created');
+    // ← CHANGED: same guard pattern as GET.
+    const guard = await requireSchoolAdmin();
+    if (!guard.authorized) return guard.response;
+    const { supabase, schoolId } = guard;
 
-    // Get the current user to extract school_id
-    const userClient = await createServerSupabase();
-    const { data: { user } } = await userClient.auth.getUser();
-    
-    if (!user) {
-      console.log('❌ No user found');
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const schoolId = user.app_metadata?.school_id;
     console.log('👤 User school_id:', schoolId);
-    
-    if (!schoolId) {
-      console.log('❌ No school_id in app_metadata');
-      return NextResponse.json({ error: 'No school associated' }, { status: 403 });
-    }
 
-    // Ensure school_id is set in the data (handled by RLS in the function)
+    // ← CHANGED: pass schoolId into createAcademicYear. admin.ts now writes it
+    //   into the new row explicitly. Previously this insert would fail on the
+    //   NOT NULL constraint (or silently land with the wrong school via RLS on a
+    //   permissive policy). The stale comment "(handled by RLS in the function)"
+    //   was wrong and has been removed.
     console.log('📅 Creating academic year...');
-    const academicYear = await createAcademicYear(supabase, validatedData);
+    const academicYear = await createAcademicYear(supabase, schoolId, validatedData);
     console.log('✅ Academic year created:', academicYear);
-    
+
     return NextResponse.json(
       { data: academicYear, message: 'Academic year created successfully' },
       { status: 201 }

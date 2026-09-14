@@ -1,0 +1,93 @@
+## Build Direction: Compilation System (Session 5)
+
+### The Goal
+Build a serverless compilation system that calculates grades, positions, and averages from raw scores and stores them in `compiled_results` for instant report card generation.
+
+---
+
+### What We're Building
+
+| Component | What It Does | Files |
+| :--- | :--- | :--- |
+| **1. Edge Function** | Reads scores, calculates grades/positions, writes to `compiled_results` | `supabase/functions/compile-results/` |
+| **2. Admin API Route** | Triggers compilation when admin clicks "Compile Results" | `src/app/api/admin/compile/route.ts` |
+| **3. Admin UI** | Button + modal to trigger compilation and show progress | `src/app/dashboard/admin/compile/page.tsx` |
+| **4. Compile Hook** | Manages job creation and polling | `src/hooks/useCompileJob.ts` |
+| **5. Database Trigger** | Calls Edge Function when a `compilation_jobs` row is inserted | Existing trigger to update |
+
+---
+
+### File Structure
+
+```
+supabase/functions/compile-results/
+├── index.ts          # Main handler — orchestrates the flow
+├── types.ts          # Types for jobs, scores, results
+├── calculator.ts     # Weighted averages, grades, positions
+└── database.ts       # DB operations (read scores, write results)
+
+src/
+├── app/
+│   └── api/
+│       └── admin/
+│           └── compile/
+│               └── route.ts          # POST /api/admin/compile
+└── components/
+    └── admin/
+        └── CompileTrigger.tsx        # Button + modal for admin
+```
+
+---
+
+### Build Steps (In Order)
+
+| Step | What to Build | Files |
+| :--- | :--- | :--- |
+| **1** | Edge Function — types | `supabase/functions/compile-results/types.ts` |
+| **2** | Edge Function — database helpers | `supabase/functions/compile-results/database.ts` |
+| **3** | Edge Function — calculator | `supabase/functions/compile-results/calculator.ts` |
+| **4** | Edge Function — main handler | `supabase/functions/compile-results/index.ts` |
+| **5** | Admin API route | `src/app/api/admin/compile/route.ts` |
+| **6** | Compile hook | `src/hooks/useCompileJob.ts` |
+| **7** | Admin UI — trigger button | `src/components/admin/CompileTrigger.tsx` |
+| **8** | Admin page | `src/app/dashboard/admin/compile/page.tsx` |
+
+---
+
+### What the Edge Function Does
+
+```
+Input: { job_id: string }
+  ↓
+1. Fetch job details (class_id, term_id, school_id)
+  ↓
+2. Fetch all scores for that class + term
+  ↓
+3. For each student, for each subject:
+   a. Calculate weighted average (using assessment weights)
+   b. Assign grade (using grading_systems table)
+  ↓
+4. Calculate subject positions (rank within subject)
+  ↓
+5. Calculate overall positions (rank by overall average)
+  ↓
+6. Insert/update compiled_results
+  ↓
+7. Update job status → 'completed' or 'failed'
+```
+
+---
+
+### Success Criteria
+
+| Item | Status |
+| :--- | :--- |
+| Edge Function deployed and working | ⬜ |
+| Admin can trigger compilation | ⬜ |
+| `compiled_results` populated | ⬜ |
+| Report cards show data | ⬜ |
+| Job progress tracked | ⬜ |
+
+---
+
+**Ready to start with Step 1: Edge Function types?**

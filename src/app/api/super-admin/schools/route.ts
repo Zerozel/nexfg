@@ -172,6 +172,29 @@ export async function POST(request: NextRequest) {
     });
     if (sessionError) {
       console.error('Failed to seed initial academic year (non-fatal):', sessionError);
+    } else {
+      // ✅ Get the newly created academic year
+      const { data: newYear } = await supabase
+        .from('academic_years')
+        .select('id')
+        .eq('school_id', school.id)
+        .eq('is_current', true)
+        .single();
+
+      if (newYear) {
+        // ✅ Create the 3 terms manually (as fallback in case trigger didn't fire)
+        console.log('📚 Creating terms for new school...');
+        const { error: termsError } = await supabase.from('terms').insert([
+          { school_id: school.id, academic_year_id: newYear.id, name: 'First Term', is_current: true, order: 1 },
+          { school_id: school.id, academic_year_id: newYear.id, name: 'Second Term', is_current: false, order: 2 },
+          { school_id: school.id, academic_year_id: newYear.id, name: 'Third Term', is_current: false, order: 3 },
+        ]);
+        if (termsError) {
+          console.error('Failed to create terms (non-fatal - trigger may have handled it):', termsError);
+        } else {
+          console.log('✅ Terms created successfully');
+        }
+      }
     }
 
     // ✅ The database trigger `auto_seed_assessments_trigger` will automatically create the 4 assessments
