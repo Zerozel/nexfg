@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { getNavForRole } from "@/config/roles";
+import { useCurrentSchoolName } from "@/hooks/useCurrentSchoolName";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,6 +21,7 @@ import { Menu, ChevronLeft } from "lucide-react";
 export function Sidebar() {
   const { role } = useAuth();
   const pathname = usePathname();
+  const schoolName = useCurrentSchoolName();
   const [collapsed, setCollapsed] = useState(false);
 
   if (!role) return null;
@@ -36,15 +38,20 @@ export function Sidebar() {
       {/* Brand */}
       <div
         className={cn(
-          "flex items-center h-16 px-4 border-b border-gray-100",
+          "flex items-center h-16 px-4 border-b border-gray-100 gap-2",
           collapsed ? "justify-center" : "justify-between"
         )}
       >
         {!collapsed && (
-          <div>
-            <span className="text-lg font-bold text-green-700">NexaForges</span>
+          <div className="min-w-0">
+            <span
+              className="block text-sm font-bold text-gray-900 truncate"
+              title={schoolName || "NexaForges"}
+            >
+              {schoolName || "NexaForges"}
+            </span>
             <span className="block text-xs text-amber-500 font-medium">
-              SMIS
+              NexaForges SMIS
             </span>
           </div>
         )}
@@ -52,7 +59,7 @@ export function Sidebar() {
           variant="ghost"
           size="icon"
           onClick={() => setCollapsed(!collapsed)}
-          className="h-8 w-8"
+          className="h-8 w-8 shrink-0"
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
           <ChevronLeft
@@ -117,7 +124,9 @@ export function Sidebar() {
           </SheetTrigger>
           <SheetContent side="left" className="p-0 w-60">
             <SheetHeader className="p-4 border-b">
-              <SheetTitle className="text-green-700">NexaForges</SheetTitle>
+              <SheetTitle className="text-sm font-bold text-gray-900 truncate">
+                {schoolName || "NexaForges"}
+              </SheetTitle>
             </SheetHeader>
             <nav className="py-4 px-2 space-y-1">
               {navItems.map((item) => {

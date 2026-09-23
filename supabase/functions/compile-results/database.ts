@@ -25,24 +25,47 @@ export function createSupabaseClient() {
 }
 
 /**
- * Get job details
+ * Get job details.
+ *
+ * Retries up to 5 times with 1s delay when the row isn't yet visible.
+ * The trigger fires AFTER INSERT, but the HTTP call can race ahead of the
+ * commit becoming visible to the service-role connection — this retry loop
+ * closes that race window.
  */
 export async function getJob(
   supabase: any,
-  jobId: string
+  jobId: string,
+  maxAttempts = 5,
+  delayMs = 1000
 ): Promise<CompilationJob | null> {
-  const { data, error } = await supabase
-    .from('compilation_jobs')
-    .select('*')
-    .eq('id', jobId)
-    .single();
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const { data, error } = await supabase
+      .from('compilation_jobs')
+      .select('*')
+      .eq('id', jobId)
+      .maybeSingle();
 
-  if (error) {
-    console.error('Error fetching job:', error);
-    return null;
+    if (data) {
+      if (attempt > 1) {
+        console.log(`📊 Job found on attempt ${attempt}`);
+      }
+      return data;
+    }
+
+    if (error) {
+      console.error(`Error fetching job (attempt ${attempt}):`, error);
+    }
+
+    if (attempt < maxAttempts) {
+      console.log(
+        `📊 Job not yet visible (attempt ${attempt}/${maxAttempts}), retrying in ${delayMs}ms...`
+      );
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
   }
 
-  return data;
+  console.error(`📊 Job ${jobId} not found after ${maxAttempts} attempts`);
+  return null;
 }
 
 /**
