@@ -46,7 +46,7 @@ export const ADMIN_NAV: NavItem[] = [
   { label: "Assessments", href: "/dashboard/admin/assessments", roles: ["admin", "principal"] },
   //{ label: "School Website", href: "/dashboard/admin/website", roles: ["admin", "principal"] },
   { label: "Compile Results", href: "/dashboard/admin/compile", roles: ["admin", "principal"] }, 
-  { label: "Report Cards", href: "/report-cards/student/select", roles: ["admin", "principal"] }, // ← ADDED
+  { label: "Reports", href: "/dashboard/admin/reports", roles: ["admin", "principal"] },
   { label: "Billing", href: "/dashboard/admin/billing", roles: ["admin", "principal"] },
   { label: 'School Settings', href: '/dashboard/admin/school-settings', roles: ["admin", "principal"] }, 
 ];

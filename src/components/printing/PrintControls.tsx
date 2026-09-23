@@ -9,10 +9,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Printer, Search, Users } from "lucide-react";
-import { useClassesDropdown } from "@/hooks/useReportCard";
+import { Printer, Users } from "lucide-react";
+import { useClassesDropdownContext } from "@/app/(dashboard)/dashboard/admin/reports/layout";
 
 interface PrintControlsProps {
   onPrintIndividual: (classId: string, termId: string) => void;
@@ -25,25 +24,33 @@ export function PrintControls({
   onPrintClassResult,
   onPrintBatch,
 }: PrintControlsProps) {
-  const { data: dropdownData, isLoading } = useClassesDropdown();
+  // Dropdown data comes from the ReportsLayout provider — one fetch for the
+  // whole section. (Previously this component called useClassesDropdown()
+  // itself, causing a duplicate request.)
+  const { data: dropdownData, isLoading } = useClassesDropdownContext();
   const [selectedClass, setSelectedClass] = useState<string>("");
   const [selectedTerm, setSelectedTerm] = useState<string>("");
-  const [searchQuery, setSearchQuery] = useState("");
 
-  // Auto-select first class and term
+  // Auto-select first class + current term (or newest by start_date).
   useEffect(() => {
-    if (dropdownData) {
-      if (dropdownData.classes.length > 0 && !selectedClass) {
-        setSelectedClass(dropdownData.classes[0].id);
-      }
-      if (dropdownData.terms.length > 0 && !selectedTerm) {
-        const currentTerm = dropdownData.terms.find((t) => t.is_current);
-        setSelectedTerm(
-          currentTerm?.id || dropdownData.terms[0].id
-        );
-      }
+    if (!dropdownData) return;
+
+    if (dropdownData.classes.length > 0 && !selectedClass) {
+      setSelectedClass(dropdownData.classes[0].id);
     }
-  }, [dropdownData]);
+    if (dropdownData.terms.length > 0 && !selectedTerm) {
+      const current = dropdownData.terms.find((t) => t.is_current);
+      setSelectedTerm(current?.id || dropdownData.terms[0].id);
+    }
+  }, [dropdownData, selectedClass, selectedTerm]);
+
+  if (isLoading) {
+    return (
+      <div className="text-center py-6 text-sm text-gray-500">
+        Loading classes and terms...
+      </div>
+    );
+  }
 
   return (
     <div className="print-controls no-print">
@@ -80,26 +87,10 @@ export function PrintControls({
         </Select>
       </div>
 
-      <div className="control-group">
-        <Label htmlFor="search-student">Search Student</Label>
-        <div className="relative">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" />
-          <Input
-            id="search-student"
-            placeholder="Search by name or admission no..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 w-[280px]"
-          />
-        </div>
-      </div>
-
       <div className="control-group" style={{ alignSelf: "flex-end" }}>
         <div className="flex gap-2">
           <Button
-            onClick={() =>
-              onPrintIndividual(selectedClass, selectedTerm)
-            }
+            onClick={() => onPrintIndividual(selectedClass, selectedTerm)}
             disabled={!selectedClass || !selectedTerm}
             variant="default"
             size="sm"
@@ -109,9 +100,7 @@ export function PrintControls({
           </Button>
 
           <Button
-            onClick={() =>
-              onPrintClassResult(selectedClass, selectedTerm)
-            }
+            onClick={() => onPrintClassResult(selectedClass, selectedTerm)}
             disabled={!selectedClass || !selectedTerm}
             variant="outline"
             size="sm"
