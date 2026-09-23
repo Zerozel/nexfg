@@ -60,6 +60,7 @@ export function transformStudentReportData(
     principal_name: rawData.school?.principal_name || null,
     principal_signature_url:
       rawData.school?.principal_signature_url || null,
+    grading_system: rawData.school?.grading_system || null,
   };
 
   const student: StudentInfo = {
@@ -84,35 +85,38 @@ export function transformStudentReportData(
     end_date: rawData.term?.end_date || null,
   };
 
-  // Transform compiled results into subject array
+  // Transform compiled results into subject array (sorted alphabetically).
   const subjects: SubjectResult[] = Array.isArray(
     rawData.compiled_results?.subjects
   )
-    ? rawData.compiled_results.subjects.map((subj: any) => ({
-        id: subj.id || subj.subject_id || "",
-        name: subj.name || subj.subject_name || "Subject",
-        score: typeof subj.score === "number" ? subj.score : 0,
-        grade: subj.grade || formatGrade(subj.score, gradingSystems),
-        subject_position:
-          typeof subj.subject_position === "number"
-            ? subj.subject_position
-            : null,
-        remarks: subj.remarks || getRemarks(subj.score, gradingSystems),
-        class_average:
-          typeof subj.class_average === "number"
-            ? subj.class_average
-            : null,
-        class_highest:
-          typeof subj.class_highest === "number"
-            ? subj.class_highest
-            : null,
-        class_lowest:
-          typeof subj.class_lowest === "number"
-            ? subj.class_lowest
-            : null,
-        weight:
-          typeof subj.weight === "number" ? subj.weight : null,
-      }))
+    ? rawData.compiled_results.subjects
+        .map((subj: any) => ({
+          id: subj.id || subj.subject_id || "",
+          name: subj.name || subj.subject_name || "Subject",
+          score: typeof subj.score === "number" ? subj.score : 0,
+          grade: subj.grade || formatGrade(subj.score, gradingSystems),
+          subject_position:
+            typeof subj.subject_position === "number"
+              ? subj.subject_position
+              : null,
+          remarks: subj.remarks || getRemarks(subj.score, gradingSystems),
+          class_average:
+            typeof subj.class_average === "number"
+              ? subj.class_average
+              : null,
+          class_highest:
+            typeof subj.class_highest === "number"
+              ? subj.class_highest
+              : null,
+          class_lowest:
+            typeof subj.class_lowest === "number"
+              ? subj.class_lowest
+              : null,
+          weight: typeof subj.weight === "number" ? subj.weight : null,
+        }))
+        .sort((a: SubjectResult, b: SubjectResult) =>
+          a.name.localeCompare(b.name)
+        )
     : [];
 
   const overall: OverallResult = {
@@ -157,6 +161,10 @@ export function transformStudentReportData(
     issued_date: rawData.issued_date || new Date().toISOString().split("T")[0],
     teacher_comment: rawData.compiled_results?.teacher_comment || null,
     principal_comment: rawData.compiled_results?.principal_comment || null,
+    has_compiled_results:
+      typeof rawData.has_compiled_results === "boolean"
+        ? rawData.has_compiled_results
+        : subjects.length > 0,
     attendance: rawData.attendance || null,
     affective_traits: rawData.affective_traits || null,
     psychomotor_skills: rawData.psychomotor_skills || null,
@@ -180,6 +188,7 @@ export function transformClassResultData(
     principal_name: rawData.school?.principal_name || null,
     principal_signature_url:
       rawData.school?.principal_signature_url || null,
+    grading_system: rawData.school?.grading_system || null,
   };
 
   const classInfo: ClassInfo = {
@@ -204,36 +213,40 @@ export function transformClassResultData(
         const studentSubjects: SubjectResult[] = Array.isArray(
           studentData.subjects
         )
-          ? studentData.subjects.map((subj: any) => {
-              subjectsSet.add(subj.name || subj.subject_name || "Subject");
-              return {
-                id: subj.id || subj.subject_id || "",
-                name: subj.name || subj.subject_name || "Subject",
-                score:
-                  typeof subj.score === "number" ? subj.score : 0,
-                grade: subj.grade || formatGrade(subj.score, gradingSystems),
-                subject_position:
-                  typeof subj.subject_position === "number"
-                    ? subj.subject_position
-                    : null,
-                remarks:
-                  subj.remarks || getRemarks(subj.score, gradingSystems),
-                class_average:
-                  typeof subj.class_average === "number"
-                    ? subj.class_average
-                    : null,
-                class_highest:
-                  typeof subj.class_highest === "number"
-                    ? subj.class_highest
-                    : null,
-                class_lowest:
-                  typeof subj.class_lowest === "number"
-                    ? subj.class_lowest
-                    : null,
-                weight:
-                  typeof subj.weight === "number" ? subj.weight : null,
-              };
-            })
+          ? studentData.subjects
+              .map((subj: any) => {
+                subjectsSet.add(subj.name || subj.subject_name || "Subject");
+                return {
+                  id: subj.id || subj.subject_id || "",
+                  name: subj.name || subj.subject_name || "Subject",
+                  score:
+                    typeof subj.score === "number" ? subj.score : 0,
+                  grade: subj.grade || formatGrade(subj.score, gradingSystems),
+                  subject_position:
+                    typeof subj.subject_position === "number"
+                      ? subj.subject_position
+                      : null,
+                  remarks:
+                    subj.remarks || getRemarks(subj.score, gradingSystems),
+                  class_average:
+                    typeof subj.class_average === "number"
+                      ? subj.class_average
+                      : null,
+                  class_highest:
+                    typeof subj.class_highest === "number"
+                      ? subj.class_highest
+                      : null,
+                  class_lowest:
+                    typeof subj.class_lowest === "number"
+                      ? subj.class_lowest
+                      : null,
+                  weight:
+                    typeof subj.weight === "number" ? subj.weight : null,
+                };
+              })
+              .sort((a: SubjectResult, b: SubjectResult) =>
+                a.name.localeCompare(b.name)
+              )
           : [];
 
         const studentOverall: OverallResult = {

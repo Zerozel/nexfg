@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState, useCallback } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { PrintControls } from "@/components/printing/PrintControls";
 import { BatchPrintModal } from "@/components/printing/BatchPrintModal";
 import { useClassStudents } from "@/hooks/useStudents";
@@ -9,11 +9,20 @@ import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import type { StudentInfo } from "@/types/printing";
 
-export default function BatchPrintPage() {
+function BatchPrintContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const initialClassId = searchParams.get("classId") || undefined;
+  const initialTermId = searchParams.get("termId") || undefined;
+
   const [showBatchModal, setShowBatchModal] = useState(false);
-  const [selectedClassId, setSelectedClassId] = useState("");
-  const [selectedTermId, setSelectedTermId] = useState("");
+  const [selectedClassId, setSelectedClassId] = useState(
+    initialClassId || ""
+  );
+  const [selectedTermId, setSelectedTermId] = useState(
+    initialTermId || ""
+  );
 
   const { data: classStudents, loading: studentsLoading } =
     useClassStudents(selectedClassId);
@@ -24,6 +33,22 @@ export default function BatchPrintPage() {
     admission_number: s.admission_number ?? null,
     avatar_url: null,
   }));
+
+  // Sync selection to URL whenever PrintControls emits a change.
+  const handleSelectionChange = useCallback(
+    (classId: string, termId: string) => {
+      setSelectedClassId(classId);
+      setSelectedTermId(termId);
+      const params = new URLSearchParams();
+      params.set("classId", classId);
+      params.set("termId", termId);
+      router.replace(
+        `/dashboard/admin/reports/batch?${params.toString()}`,
+        { scroll: false }
+      );
+    },
+    [router]
+  );
 
   const handlePrintIndividual = useCallback(
     (classId: string, termId: string) => {
@@ -74,7 +99,6 @@ export default function BatchPrintPage() {
 
   return (
     <div>
-      {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">
@@ -93,14 +117,15 @@ export default function BatchPrintPage() {
         </Link>
       </div>
 
-      {/* Controls */}
       <PrintControls
         onPrintIndividual={handlePrintIndividual}
         onPrintClassResult={handlePrintClassResult}
         onPrintBatch={handleOpenBatchPrint}
+        onSelectionChange={handleSelectionChange}
+        initialClassId={initialClassId}
+        initialTermId={initialTermId}
       />
 
-      {/* Batch Modal */}
       <BatchPrintModal
         isOpen={showBatchModal}
         onClose={() => setShowBatchModal(false)}
@@ -111,5 +136,20 @@ export default function BatchPrintPage() {
         termId={selectedTermId}
       />
     </div>
+  );
+}
+
+export default function BatchPrintPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="text-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      }
+    >
+      <BatchPrintContent />
+    </Suspense>
   );
 }

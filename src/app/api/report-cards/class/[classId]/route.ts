@@ -37,7 +37,6 @@ export async function GET(
     }
 
     if (role === "teacher") {
-      // class_subjects can hold multiple (class, teacher) rows; limit(1) keeps maybeSingle safe.
       const ctResult = await supabase.from("class_subjects").select("id").eq("class_id", classId).eq("teacher_id", user.id).limit(1).maybeSingle();
       const ocResult = await supabase.from("classes").select("id").eq("id", classId).eq("teacher_id", user.id).maybeSingle();
       if (!ctResult.data && !ocResult.data) {
@@ -65,11 +64,11 @@ export async function GET(
     // Get teacher name
     let teacherName: string | null = null;
     if (classInfo.teacher_id) {
-		const teacherResult: any = await supabase.from("profiles").select("full_name").eq("id", classInfo.teacher_id).maybeSingle();
-		teacherName = teacherResult?.data?.full_name || null;
-	}
+      const teacherResult: any = await supabase.from("profiles").select("full_name").eq("id", classInfo.teacher_id).maybeSingle();
+      teacherName = teacherResult?.data?.full_name || null;
+    }
 
-    // Fetch enrollments (real table is `enrollments`, flagged via is_current)
+    // Fetch enrollments
     const enrollmentsResult = await supabase
       .from("enrollments")
       .select("student_id, students:student_id(id, full_name, admission_number, avatar_url:profile_image_url)")
@@ -78,11 +77,25 @@ export async function GET(
       .eq("is_current", true);
     const enrollments: any[] = enrollmentsResult.data || [];
 
+    const schoolPayload = {
+      id: school.id,
+      name: school.name,
+      logo_url: school.logo_url,
+      motto: school.motto,
+      address: school.address,
+      phone: school.phone,
+      email: school.email,
+      primary_color: school.primary_color || "#2563eb",
+      principal_name: school.principal_name,
+      principal_signature_url: school.principal_signature_url,
+      grading_system: school.grading_system || null,
+    };
+
     if (enrollments.length === 0) {
       return NextResponse.json({
         success: true,
         data: {
-          school: { id: school.id, name: school.name, logo_url: school.logo_url, motto: school.motto, address: school.address, phone: school.phone, email: school.email, primary_color: school.primary_color || "#2563eb", principal_name: school.principal_name, principal_signature_url: school.principal_signature_url },
+          school: schoolPayload,
           class: { id: classInfo.id, name: classInfo.name, teacher_name: teacherName, teacher_id: classInfo.teacher_id },
           term: { id: term.id, name: term.name, academic_session: academicSession || "", start_date: term.start_date, end_date: term.end_date },
           students: [],
@@ -91,7 +104,7 @@ export async function GET(
       });
     }
 
-    // Aggregate compiled results (per-subject rows) into per-student results.
+    // Aggregate compiled results
     const studentIds = enrollments.map((e: any) => e.student_id);
     const resultsMap = await fetchCompiledResultsByStudent(supabase, {
       classId,
@@ -117,7 +130,6 @@ export async function GET(
         total_students: result?.total_students || enrollments.length,
         grade: result?.grade || null,
         remarks: result?.remarks || null,
-        // `enrollments` has no attendance columns; not tracked yet.
         attendance: null,
       };
     });
@@ -127,7 +139,7 @@ export async function GET(
     return NextResponse.json({
       success: true,
       data: {
-        school: { id: school.id, name: school.name, logo_url: school.logo_url, motto: school.motto, address: school.address, phone: school.phone, email: school.email, primary_color: school.primary_color || "#2563eb", principal_name: school.principal_name, principal_signature_url: school.principal_signature_url },
+        school: schoolPayload,
         class: { id: classInfo.id, name: classInfo.name, teacher_name: teacherName, teacher_id: classInfo.teacher_id },
         term: { id: term.id, name: term.name, academic_session: academicSession || "", start_date: term.start_date, end_date: term.end_date },
         students: studentsData,

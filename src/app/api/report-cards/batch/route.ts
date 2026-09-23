@@ -37,7 +37,6 @@ export async function POST(request: NextRequest) {
     }
 
     if (role === "teacher") {
-      // class_subjects can hold multiple (class, teacher) rows; limit(1) keeps maybeSingle safe.
       const ctResult = await supabase.from("class_subjects").select("id").eq("class_id", class_id).eq("teacher_id", user.id).limit(1).maybeSingle();
       const ocResult = await supabase.from("classes").select("id").eq("id", class_id).eq("teacher_id", user.id).maybeSingle();
       if (!ctResult.data && !ocResult.data) {
@@ -64,11 +63,11 @@ export async function POST(request: NextRequest) {
     // Get teacher name
     let teacherName: string | null = null;
     if (classInfo.teacher_id) {
-		const teacherResult: any = await supabase.from("profiles").select("full_name").eq("id", classInfo.teacher_id).maybeSingle();
-		teacherName = teacherResult?.data?.full_name || null;
+      const teacherResult: any = await supabase.from("profiles").select("full_name").eq("id", classInfo.teacher_id).maybeSingle();
+      teacherName = teacherResult?.data?.full_name || null;
     }
 
-    // Fetch enrollments (real table is `enrollments`, flagged via is_current)
+    // Fetch enrollments
     const enrollmentsResult = await supabase
       .from("enrollments")
       .select("student_id, students:student_id(id, full_name, admission_number, avatar_url:profile_image_url)")
@@ -78,7 +77,7 @@ export async function POST(request: NextRequest) {
       .eq("is_current", true);
     const enrollments: any[] = enrollmentsResult.data || [];
 
-    // Aggregate compiled results (per-subject rows) into per-student results.
+    // Aggregate compiled results
     const resultsMap = await fetchCompiledResultsByStudent(supabase, {
       classId: class_id,
       termId: term_id,
@@ -116,19 +115,30 @@ export async function POST(request: NextRequest) {
       success: true,
       data: {
         school: {
-          id: school.id, name: school.name, logo_url: school.logo_url, motto: school.motto,
-          address: school.address, phone: school.phone, email: school.email,
+          id: school.id,
+          name: school.name,
+          logo_url: school.logo_url,
+          motto: school.motto,
+          address: school.address,
+          phone: school.phone,
+          email: school.email,
           primary_color: school.primary_color || "#2563eb",
           principal_name: school.principal_name,
           principal_signature_url: school.principal_signature_url,
+          grading_system: school.grading_system || null,
         },
         class: {
-          id: classInfo.id, name: classInfo.name,
-          teacher_name: teacherName, teacher_id: classInfo.teacher_id,
+          id: classInfo.id,
+          name: classInfo.name,
+          teacher_name: teacherName,
+          teacher_id: classInfo.teacher_id,
         },
         term: {
-          id: term.id, name: term.name, academic_session: academicSession || "",
-          start_date: term.start_date, end_date: term.end_date,
+          id: term.id,
+          name: term.name,
+          academic_session: academicSession || "",
+          start_date: term.start_date,
+          end_date: term.end_date,
         },
         students: studentsData,
       },

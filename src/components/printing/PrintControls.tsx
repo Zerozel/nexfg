@@ -17,32 +17,64 @@ interface PrintControlsProps {
   onPrintIndividual: (classId: string, termId: string) => void;
   onPrintClassResult: (classId: string, termId: string) => void;
   onPrintBatch: (classId: string, termId: string) => void;
+  /**
+   * Optional. Fires whenever the class or term selection changes.
+   * Parent components use this to sync the selection to the URL.
+   */
+  onSelectionChange?: (classId: string, termId: string) => void;
+  /**
+   * Optional. Initial class/term selection. If provided, overrides the
+   * auto-select behavior (which uses the current term and first class).
+   */
+  initialClassId?: string;
+  initialTermId?: string;
 }
 
 export function PrintControls({
   onPrintIndividual,
   onPrintClassResult,
   onPrintBatch,
+  onSelectionChange,
+  initialClassId,
+  initialTermId,
 }: PrintControlsProps) {
   // Dropdown data comes from the ReportsLayout provider — one fetch for the
-  // whole section. (Previously this component called useClassesDropdown()
-  // itself, causing a duplicate request.)
+  // whole section.
   const { data: dropdownData, isLoading } = useClassesDropdownContext();
-  const [selectedClass, setSelectedClass] = useState<string>("");
-  const [selectedTerm, setSelectedTerm] = useState<string>("");
+  const [selectedClass, setSelectedClass] = useState<string>(
+    initialClassId || ""
+  );
+  const [selectedTerm, setSelectedTerm] = useState<string>(
+    initialTermId || ""
+  );
 
-  // Auto-select first class + current term (or newest by start_date).
+  // Auto-select: prefer initial props, then current term + first class.
   useEffect(() => {
     if (!dropdownData) return;
 
-    if (dropdownData.classes.length > 0 && !selectedClass) {
-      setSelectedClass(dropdownData.classes[0].id);
+    if (!selectedClass && dropdownData.classes.length > 0) {
+      setSelectedClass(initialClassId || dropdownData.classes[0].id);
     }
-    if (dropdownData.terms.length > 0 && !selectedTerm) {
-      const current = dropdownData.terms.find((t) => t.is_current);
-      setSelectedTerm(current?.id || dropdownData.terms[0].id);
+
+    if (!selectedTerm && dropdownData.terms.length > 0) {
+      if (initialTermId) {
+        setSelectedTerm(initialTermId);
+      } else {
+        // Prefer the term flagged `is_current`; otherwise fall back to the
+        // first term (the API orders terms by start_date desc, so [0] is
+        // the most recent).
+        const current = dropdownData.terms.find((t) => t.is_current);
+        setSelectedTerm(current?.id || dropdownData.terms[0].id);
+      }
     }
-  }, [dropdownData, selectedClass, selectedTerm]);
+  }, [dropdownData, selectedClass, selectedTerm, initialClassId, initialTermId]);
+
+  // Notify parent of changes so it can sync to URL.
+  useEffect(() => {
+    if (selectedClass && selectedTerm && onSelectionChange) {
+      onSelectionChange(selectedClass, selectedTerm);
+    }
+  }, [selectedClass, selectedTerm, onSelectionChange]);
 
   if (isLoading) {
     return (

@@ -11,6 +11,7 @@ export interface SchoolInfo {
   primary_color: string | null;
   principal_name: string | null;
   principal_signature_url: string | null;
+  grading_system?: GradingSystem | null;
 }
 
 export interface StudentInfo {
@@ -64,7 +65,6 @@ export interface GradingBand {
 /** An ordered list of grading bands. When absent, WAEC defaults are used. */
 export type GradingSystem = GradingBand[];
 
-
 export interface OverallResult {
   average: number;
   position: number;
@@ -84,6 +84,8 @@ export interface IndividualReportCardData {
   issued_date: string;
   teacher_comment: string | null;
   principal_comment: string | null;
+  /** True when the term has at least one compiled subject row for this student. */
+  has_compiled_results?: boolean;
   attendance?: {
     total_days: number;
     present: number;

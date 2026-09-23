@@ -1,12 +1,7 @@
-// src/app/(dashboard)/dashboard/admin/reports/page.tsx
-//
-// Hub page for the Reports / Report Cards section.
-// Shows class/term selectors + three action buttons (via PrintControls) and
-// three descriptive cards for the individual / class / batch print flows.
-
 "use client";
 
-import { useRouter } from "next/navigation";
+import { Suspense, useCallback } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   Card,
@@ -20,11 +15,28 @@ import { PrintControls } from "@/components/printing/PrintControls";
 import { useClassesDropdownContext } from "./layout";
 import { FileText, Table, Users, ArrowLeft } from "lucide-react";
 
-export default function ReportsHubPage() {
+function ReportsHubContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { data, isLoading } = useClassesDropdownContext();
 
-  // Handlers mirror what PrintControls passes upward.
+  // Initial values pulled from the URL — makes the hub refresh-safe.
+  const initialClassId = searchParams.get("classId") || undefined;
+  const initialTermId = searchParams.get("termId") || undefined;
+
+  // Sync selection to URL — no navigation, just a silent URL update.
+  const handleSelectionChange = useCallback(
+    (classId: string, termId: string) => {
+      const params = new URLSearchParams();
+      params.set("classId", classId);
+      params.set("termId", termId);
+      router.replace(`/dashboard/admin/reports?${params.toString()}`, {
+        scroll: false,
+      });
+    },
+    [router]
+  );
+
   const handlePrintIndividual = (classId: string, termId: string) => {
     router.push(
       `/dashboard/admin/reports/student/select?classId=${classId}&termId=${termId}`
@@ -38,7 +50,6 @@ export default function ReportsHubPage() {
   };
 
   const handleOpenBatchPrint = (classId: string, termId: string) => {
-    // Hub-level Batch button routes to the batch page, which opens its own modal.
     router.push(
       `/dashboard/admin/reports/batch?classId=${classId}&termId=${termId}`
     );
@@ -77,9 +88,12 @@ export default function ReportsHubPage() {
             <p className="text-sm text-gray-500">
               Create at least one class before printing report cards.
             </p>
-            <Button className="mt-4" onClick={() => router.push("/dashboard/admin/classes")}>
-				Go to Classes
-			</Button>
+            <Button
+              className="mt-4"
+              onClick={() => router.push("/dashboard/admin/classes")}
+            >
+              Go to Classes
+            </Button>
           </CardContent>
         </Card>
       ) : (
@@ -87,6 +101,9 @@ export default function ReportsHubPage() {
           onPrintIndividual={handlePrintIndividual}
           onPrintClassResult={handlePrintClassResult}
           onPrintBatch={handleOpenBatchPrint}
+          onSelectionChange={handleSelectionChange}
+          initialClassId={initialClassId}
+          initialTermId={initialTermId}
         />
       )}
 
@@ -136,5 +153,20 @@ export default function ReportsHubPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+export default function ReportsHubPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="text-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      }
+    >
+      <ReportsHubContent />
+    </Suspense>
   );
 }

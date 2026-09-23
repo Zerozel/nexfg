@@ -6,7 +6,6 @@ import { PrintFooter } from "./PrintFooter";
 import { SignatureBlock } from "./SignatureBlock";
 import { getOrdinal, getGradeClass } from "@/lib/printing/data-transform";
 
-
 interface ReportCardTemplateProps {
   data: IndividualReportCardData;
 }
@@ -22,6 +21,7 @@ export function ReportCardTemplate({ data }: ReportCardTemplateProps) {
     issued_date,
     teacher_comment,
     principal_comment,
+    has_compiled_results,
     attendance,
     affective_traits,
     psychomotor_skills,
@@ -29,7 +29,6 @@ export function ReportCardTemplate({ data }: ReportCardTemplateProps) {
 
   return (
     <div className="report-card-template">
-
       {/* Watermark */}
       <div className="watermark">{school.name}</div>
 
@@ -57,9 +56,7 @@ export function ReportCardTemplate({ data }: ReportCardTemplateProps) {
           {student.admission_number && (
             <div className="info-group">
               <span className="info-label">Admission Number</span>
-              <span className="info-value">
-                {student.admission_number}
-              </span>
+              <span className="info-value">{student.admission_number}</span>
             </div>
           )}
         </div>
@@ -96,9 +93,7 @@ export function ReportCardTemplate({ data }: ReportCardTemplateProps) {
                   <td className="subject-name">{subject.name}</td>
                   <td className="score">{subject.score.toFixed(1)}</td>
                   <td>
-                    <span
-                      className={`grade ${getGradeClass(subject.grade)}`}
-                    >
+                    <span className={`grade ${getGradeClass(subject.grade)}`}>
                       {subject.grade}
                     </span>
                   </td>
@@ -113,7 +108,9 @@ export function ReportCardTemplate({ data }: ReportCardTemplateProps) {
             ) : (
               <tr>
                 <td colSpan={5} style={{ textAlign: "center", padding: "20px" }}>
-                  No subject results available
+                  {has_compiled_results === false
+                    ? "This term has not been compiled yet. Results will appear after compilation."
+                    : "No subject results available"}
                 </td>
               </tr>
             )}
@@ -124,15 +121,11 @@ export function ReportCardTemplate({ data }: ReportCardTemplateProps) {
       {/* Overall Performance */}
       <div
         className="overall-section"
-        style={{
-          background: school.primary_color || "#2563eb",
-        }}
+        style={{ background: school.primary_color || "#2563eb" }}
       >
         <div className="overall-item">
           <span className="overall-label">Overall Average</span>
-          <span className="overall-value">
-            {overall.average.toFixed(1)}%
-          </span>
+          <span className="overall-value">{overall.average.toFixed(1)}%</span>
         </div>
         <div className="overall-item">
           <span className="overall-label">Grade</span>
@@ -152,21 +145,15 @@ export function ReportCardTemplate({ data }: ReportCardTemplateProps) {
           <h4>Attendance Record</h4>
           <div className="attendance-grid">
             <div className="attendance-item">
-              <div className="attendance-value">
-                {attendance.total_days}
-              </div>
+              <div className="attendance-value">{attendance.total_days}</div>
               <div className="attendance-label">School Days</div>
             </div>
             <div className="attendance-item">
-              <div className="attendance-value">
-                {attendance.present}
-              </div>
+              <div className="attendance-value">{attendance.present}</div>
               <div className="attendance-label">Days Present</div>
             </div>
             <div className="attendance-item">
-              <div className="attendance-value">
-                {attendance.absent}
-              </div>
+              <div className="attendance-value">{attendance.absent}</div>
               <div className="attendance-label">Days Absent</div>
             </div>
           </div>
@@ -215,13 +202,13 @@ export function ReportCardTemplate({ data }: ReportCardTemplateProps) {
         <div className="comments-section avoid-break">
           {teacher_comment && (
             <div className="comment-box">
-              <div className="comment-label">Class Teacher's Comment</div>
+              <div className="comment-label">Class Teacher&apos;s Comment</div>
               <div className="comment-text">{teacher_comment}</div>
             </div>
           )}
           {principal_comment && (
             <div className="comment-box">
-              <div className="comment-label">Principal's Comment</div>
+              <div className="comment-label">Principal&apos;s Comment</div>
               <div className="comment-text">{principal_comment}</div>
             </div>
           )}
