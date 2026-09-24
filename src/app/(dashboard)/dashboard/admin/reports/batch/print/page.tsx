@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Printer, ArrowLeft } from "lucide-react";
@@ -14,6 +14,10 @@ function BatchPrintView() {
   const [reportCards, setReportCards] = useState<IndividualReportCardData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Guard so we only fire the print dialog once per mount, regardless of how
+  // many times React re-renders the component.
+  const hasPrintedRef = useRef(false);
 
   const studentIds = searchParams.getAll("studentIds");
   const termId = searchParams.get("termId") || "";
@@ -97,16 +101,24 @@ function BatchPrintView() {
     };
 
     fetchBatchData();
-  }, [studentIds, termId, classId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
+  // Fire the print dialog exactly once, after data has loaded.
   useEffect(() => {
-    if (reportCards.length > 0 && !isLoading) {
-      const timer = setTimeout(() => {
-        window.print();
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [reportCards, isLoading]);
+    if (hasPrintedRef.current) return;
+    if (isLoading) return;
+    if (reportCards.length === 0) return;
+
+    hasPrintedRef.current = true;
+
+    // Give the browser a moment to paint the cards before opening the dialog.
+    const timer = setTimeout(() => {
+      window.print();
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [isLoading, reportCards.length]);
 
   if (isLoading) {
     return (
