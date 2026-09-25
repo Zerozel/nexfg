@@ -62,6 +62,11 @@ export interface Class {
   deleted_at: string | null;
   created_at: string;
   updated_at: string;
+
+  // Session 1 — arms model fields
+  base_name?: string | null;
+  arms_count?: number;
+  display_order?: number | null;
 }
 
 

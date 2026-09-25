@@ -144,6 +144,74 @@ export function useAdminClasses(params: UseAdminClassesParams = {}) {
   return { data, isLoading, error, refetch: fetchClasses };
 }
 
+// ============================================================
+// Session 1 — Class group (arms) hook
+// ============================================================
+
+export interface ClassArm {
+  id: string;
+  name: string;
+  base_name: string;
+  arms_count: number;
+  display_order: number | null;
+  academic_year_id: string;
+  teacher_id: string | null;
+  teacher_name: string | null;
+}
+
+interface UseClassGroupReturn {
+  arms: ClassArm[];
+  isLoading: boolean;
+  error: string | null;
+  refetch: () => Promise<void>;
+}
+
+/**
+ * Fetches every arm sharing a base_name (e.g. "JSS 1" → JSS 1A, JSS 1B).
+ * Used by the Edit modal so it shows the whole class group rather than a
+ * single arm.
+ */
+export function useClassGroup(baseName: string | null): UseClassGroupReturn {
+  const [arms, setArms] = useState<ClassArm[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchGroup = useCallback(async () => {
+    if (!baseName) {
+      setArms([]);
+      return;
+    }
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(
+        `/api/admin/classes/group/${encodeURIComponent(baseName)}`
+      );
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to fetch class group');
+      }
+      const result = await response.json();
+      setArms(result.data?.arms || []);
+    } catch (err: any) {
+      setError(err.message);
+      setArms([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [baseName]);
+
+  useEffect(() => {
+    fetchGroup();
+  }, [fetchGroup]);
+
+  return { arms, isLoading, error, refetch: fetchGroup };
+}
+
+// ============================================================
+// Class mutations (create/update/delete + group sync)
+// ============================================================
+
 export function useClassMutations() {
   const createClass = async (classData: Partial<Class>) => {
     const response = await fetch('/api/admin/classes', {
@@ -182,5 +250,38 @@ export function useClassMutations() {
     return response.json();
   };
 
-  return { createClass, updateClass, deleteClass };
+  /**
+   * Sync a class group: given a base_name and the desired set of arms
+   * (each with its own teacher), create missing arms, update existing ones,
+   * and soft-delete extras.
+   */
+  const syncClassGroup = async (
+    baseName: string,
+    payload: {
+      academic_year_id: string;
+      arms_count: number;
+      display_order?: number | null;
+      arms: Array<{
+        id?: string;
+        name?: string;
+        teacher_id: string | null;
+      }>;
+    }
+  ) => {
+    const response = await fetch(
+      `/api/admin/classes/group/${encodeURIComponent(baseName)}`,
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      }
+    );
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to sync class group');
+    }
+    return response.json();
+  };
+
+  return { createClass, updateClass, deleteClass, syncClassGroup };
 }
