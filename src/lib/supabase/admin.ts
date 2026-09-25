@@ -353,6 +353,7 @@ export async function listClasses(
     .from('classes')
     .select('*, profiles!classes_teacher_id_fkey(full_name)', { count: 'exact' })
     .is('is_deleted', false)
+    .order('display_order', { ascending: true, nullsFirst: false })
     .order('name', { ascending: true })
     .range(from, to);
 
@@ -378,16 +379,24 @@ export async function listClasses(
   };
 }
 
-// ← CHANGED: added `schoolId` param. Before inserting the new class, verify the
-// academic_year_id actually belongs to the caller's school. Without this check,
-// a client can create a class that points at another tenant's academic year
-// (this is exactly how Rock Foundation's classes became contaminated).
+// ← CHANGED: supports the arms model. When arms_count > 1, creates N class
+// rows under the same base_name, named "<base>A", "<base>B", etc. When
+// arms_count = 1, creates a single class with base_name = name and no suffix.
 export async function createClass(
   supabase: SupabaseClient,
   schoolId: string,
-  data: Omit<Class, 'id' | 'school_id' | 'is_deleted' | 'deleted_at' | 'created_at' | 'updated_at' | 'teacher_name'>
+  data: Omit<
+    Class,
+    | 'id'
+    | 'school_id'
+    | 'is_deleted'
+    | 'deleted_at'
+    | 'created_at'
+    | 'updated_at'
+    | 'teacher_name'
+  > & { arms_count?: number; base_name?: string; display_order?: number }
 ) {
-  // ← ADDED: ownership check on academic_year_id
+  // 1. Ownership check on academic_year_id
   const { data: academicYear, error: ayError } = await supabase
     .from('academic_years')
     .select('id')
@@ -401,19 +410,67 @@ export async function createClass(
     throw new Error('Academic year does not belong to this school');
   }
 
-  // ← CHANGED: force school_id from the caller's session. Never trust the
-  // client to supply the correct school_id.
-  const { data: classData, error } = await supabase
+  const armsCount =
+    data.arms_count && data.arms_count > 0 ? data.arms_count : 1;
+
+  // Base name is what the user typed. Strip any trailing arm letter so we
+  // don't produce "JSS 1A A" when arms_count > 1.
+  const rawName = (data.name || '').trim();
+  const baseName =
+    data.base_name?.trim() ||
+    (armsCount > 1
+      ? rawName.replace(/\s*[A-Z]\s*$/, '').trim() || rawName
+      : rawName);
+
+  // Auto-derive display_order from the numeric part of the base name if not
+  // supplied (e.g. "JSS 1" → 1, "JSS 2" → 2). Used for sorting.
+  const inferredOrder =
+    data.display_order ??
+    (() => {
+      const digits = baseName.replace(/[^0-9]/g, '');
+      const n = digits ? parseInt(digits, 10) : NaN;
+      return Number.isFinite(n) ? n : null;
+    })();
+
+  // 2. Build the rows. Single-arm classes keep the exact name typed.
+  const armLetters = 'ABCDEFGHIJ'.split('');
+  const rows: any[] = [];
+
+  if (armsCount === 1) {
+    rows.push({
+      ...data,
+      name: rawName,
+      base_name: baseName,
+      arms_count: 1,
+      display_order: inferredOrder,
+      school_id: schoolId,
+    });
+  } else {
+    for (let i = 0; i < armsCount; i++) {
+      rows.push({
+        ...data,
+        name: `${baseName}${armLetters[i]}`,
+        base_name: baseName,
+        arms_count: armsCount,
+        display_order: inferredOrder,
+        school_id: schoolId,
+      });
+    }
+  }
+
+  // 3. Insert all arms in one batch.
+  const { data: created, error } = await supabase
     .from('classes')
-    .insert({ ...data, school_id: schoolId })
-    .select('*, profiles!classes_teacher_id_fkey(full_name)')
-    .single();
+    .insert(rows)
+    .select('*, profiles!classes_teacher_id_fkey(full_name)');
 
   if (error) throw error;
 
+  // 4. Return the first row. Existing callers expect a single Class object.
+  const first = created[0];
   return {
-    ...classData,
-    teacher_name: classData.profiles?.full_name || null,
+    ...first,
+    teacher_name: first?.profiles?.full_name || null,
   } as Class;
 }
 
@@ -465,7 +522,7 @@ export async function updateClass(
     .from('classes')
     .update({ ...data, updated_at: new Date().toISOString() })
     .eq('id', id)
-    .eq('school_id', schoolId)          // ← ADDED: scope to caller's school
+    .eq('school_id', schoolId) // ← scope to caller's school
     .is('is_deleted', false)
     .select('*, profiles!classes_teacher_id_fkey(full_name)')
     .single();
