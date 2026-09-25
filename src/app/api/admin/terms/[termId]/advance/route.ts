@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSchoolAdmin } from "@/lib/supabase/school-admin-auth";
 
-/**
- * Advance the current term to the next one in the same academic year.
- */
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ termId: string }> }
@@ -37,9 +34,7 @@ export async function POST(
       );
     }
 
-    // 2. Find the next term. Fetch all terms for the year and pick the next
-    //    by order in JS — chaining .gt("order") with .order("order") breaks
-    //    Supabase's query parser because `order` is a reserved word.
+    // 2. Find the next term by order (JS-side sort)
     const { data: allTerms, error: allTermsError } = await supabase
       .from("terms")
       .select('id, name, "order"')
@@ -64,11 +59,11 @@ export async function POST(
       );
     }
 
-    // 3. Load all active enrollments in the current term
+    // 3. Load active enrollments in the current term.
+    //    NOTE: enrollments has no school_id column — term_id already scopes it.
     const { data: enrollments, error: enrollmentsError } = await supabase
       .from("enrollments")
       .select("student_id, class_id")
-      .eq("school_id", schoolId)
       .eq("term_id", currentTerm.id)
       .eq("is_current", true)
       .eq("is_deleted", false);
@@ -90,7 +85,7 @@ export async function POST(
 
     if (setError) throw setError;
 
-    // 5. Carry forward enrollments.
+    // 5. Carry forward enrollments
     let carried = 0;
     if (enrollments && enrollments.length > 0) {
       const rows = enrollments.map((e: any) => ({
