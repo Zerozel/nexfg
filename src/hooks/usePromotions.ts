@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useCallback } from "react";
 
 export type PromotionOutcome =
   | "promoted"
@@ -27,6 +27,13 @@ export interface PreviewClassGroup {
   students: PreviewStudent[];
 }
 
+export interface ClassOption {
+  id: string;
+  name: string;
+  base_name: string | null;
+  display_order: number | null;
+}
+
 export interface PromotionPreview {
   from_year: { id: string; name: string } | null;
   from_term: { id: string; name: string };
@@ -34,6 +41,7 @@ export interface PromotionPreview {
   to_term: { id: string; name: string } | null;
   promotion_threshold: number;
   classes: PreviewClassGroup[];
+  all_classes: ClassOption[];
 }
 
 export interface ConfirmResult {

@@ -1857,6 +1857,7 @@ export async function moveStudentToClass(
 
 
 
+
 // ============ PROMOTION HELPERS ============
 
 interface NextClassInfo {
@@ -1875,7 +1876,11 @@ interface NextClassInfo {
 async function getNextClassForClass(
   supabase: SupabaseClient,
   schoolId: string,
-  fromClass: { id: string; base_name: string | null; display_order: number | null }
+  fromClass: {
+    id: string;
+    base_name: string | null;
+    display_order: number | null;
+  }
 ): Promise<NextClassInfo | null> {
   if (fromClass.display_order === null) return null;
 
@@ -1890,15 +1895,15 @@ async function getNextClassForClass(
   if (error) throw error;
   if (!data || data.length === 0) return null;
 
-  // Return the first arm of the next class group — that's the fallback target
-  // when the source arm has no matching arm letter in the target group.
+  // Return the first arm of the next class group — used as the fallback
+  // target when the source arm has no matching arm letter.
   return data[0] as NextClassInfo;
 }
 
 /**
  * Map a source arm name (e.g. "JSS 1A") to the target arm name
- * (e.g. "JSS 2A") using the arm letter. Falls back to the first arm of the
- * target group if no letter match is found.
+ * (e.g. "JSS 2A") using the arm letter. Falls back to the first arm of
+ * the target group if no letter match is found.
  */
 async function resolveTargetArmForStudent(
   supabase: SupabaseClient,
@@ -1906,8 +1911,6 @@ async function resolveTargetArmForStudent(
   fromClassName: string,
   targetGroup: NextClassInfo
 ): Promise<NextClassInfo> {
-  // Extract the arm letter from the source class name (single uppercase
-  // letter at the end). If none, use the first arm of the target group.
   const match = fromClassName.match(/([A-Z])$/);
   const armLetter = match ? match[1] : null;
 
@@ -1915,7 +1918,6 @@ async function resolveTargetArmForStudent(
     return targetGroup;
   }
 
-  // Find the target arm with the same letter
   const { data, error } = await supabase
     .from('classes')
     .select('id, name, base_name, arms_count, display_order')
@@ -1956,6 +1958,12 @@ export interface PromotionPreview {
   to_term: { id: string; name: string } | null;
   promotion_threshold: number;
   classes: PreviewClassGroup[];
+  all_classes: {
+    id: string;
+    name: string;
+    base_name: string | null;
+    display_order: number | null;
+  }[];
 }
 
 /**
@@ -2070,7 +2078,8 @@ export async function previewPromotions(
       nextClassCache.set(cls.id, groupTarget);
 
       if (groupTarget) {
-        group.target_class_group_name = groupTarget.base_name || groupTarget.name;
+        group.target_class_group_name =
+          groupTarget.base_name || groupTarget.name;
       }
     }
 
@@ -2085,7 +2094,6 @@ export async function previewPromotions(
       // Last class in the sequence — graduate
       recommendedOutcome = 'graduated';
     } else if (passes) {
-      // Promote to matching arm in target group (or first arm as fallback)
       const targetArm = await resolveTargetArmForStudent(
         supabase,
         schoolId,
@@ -2119,21 +2127,41 @@ export async function previewPromotions(
   const suggestedNextName =
     startYear > 0 ? `${startYear + 1}/${startYear + 2}` : '';
 
+  // 7. Load every class in the school for override dropdowns
+  const { data: allClassesRaw, error: allClassesError } = await supabase
+    .from('classes')
+    .select('id, name, base_name, display_order')
+    .eq('school_id', schoolId)
+    .is('is_deleted', false)
+    .order('display_order', { ascending: true, nullsFirst: false })
+    .order('name', { ascending: true });
+
+  if (allClassesError) throw allClassesError;
+
   return {
     from_year: fromYear,
     from_term: { id: fromTerm.id, name: fromTerm.name },
-    to_year: suggestedNextName
-      ? { id: '', name: suggestedNextName }
-      : null,
-    to_term: null, // resolved on confirm
+    to_year: suggestedNextName ? { id: '', name: suggestedNextName } : null,
+    to_term: null,
     promotion_threshold: promotionThreshold,
     classes: Array.from(grouped.values()),
+    all_classes: (allClassesRaw || []).map((c: any) => ({
+      id: c.id,
+      name: c.name,
+      base_name: c.base_name,
+      display_order: c.display_order,
+    })),
   };
 }
 
 interface ConfirmRow {
   student_id: string;
-  outcome: 'promoted' | 'repeated' | 'withdrawn' | 'transferred' | 'graduated';
+  outcome:
+    | 'promoted'
+    | 'repeated'
+    | 'withdrawn'
+    | 'transferred'
+    | 'graduated';
   to_class_id: string | null;
   average: number;
 }
@@ -2152,8 +2180,9 @@ export interface ConfirmResult {
 
 /**
  * Write progression records and create the next year's enrollments.
- * Assumes the next academic year does not yet exist; creates it and its
- * three terms if needed.
+ * Creates the next academic year and its three terms if needed.
+ * The new year's First Term is NOT marked current — the old Third Term
+ * stays active until the admin explicitly switches.
  */
 export async function confirmPromotions(
   supabase: SupabaseClient,
@@ -2206,7 +2235,7 @@ export async function confirmPromotions(
   } else {
     const created = await createAcademicYear(supabase, schoolId, {
       name: nextYearName,
-      is_current: false, // explicitly not current — Third Term stays active
+      is_current: false, // old Third Term stays active
     });
     nextYearId = created.id;
   }
@@ -2225,9 +2254,27 @@ export async function confirmPromotions(
     .maybeSingle();
 
   if (nextFirstTermError) throw nextFirstTermError;
-  if (!nextFirstTerm) throw new Error('Could not find First Term of next year');
+  if (!nextFirstTerm)
+    throw new Error('Could not find First Term of next year');
 
-  // 6. Write progressions + enrollments
+  // 6. Load source enrollments so we can record from_class_id
+  const { data: sourceEnrollments, error: sourceError } = await supabase
+    .from('enrollments')
+    .select('student_id, class_id')
+    .eq('term_id', from_term_id)
+    .in(
+      'student_id',
+      students.map((s) => s.student_id)
+    );
+
+  if (sourceError) throw sourceError;
+
+  const classByStudent = new Map<string, string>();
+  for (const e of sourceEnrollments || []) {
+    classByStudent.set(e.student_id, e.class_id);
+  }
+
+  // 7. Build progressions + next-year enrollments
   const counts = {
     promoted: 0,
     repeated: 0,
@@ -2242,13 +2289,22 @@ export async function confirmPromotions(
   for (const s of students) {
     counts[s.outcome]++;
 
+    const fromClassId = classByStudent.get(s.student_id);
+    if (!fromClassId) continue; // defensive: skip students with no source enrollment
+
+    // For "repeated" with no target class set, default to source class
+    let toClassId = s.to_class_id;
+    if (s.outcome === 'repeated' && !toClassId) {
+      toClassId = fromClassId;
+    }
+
     progressions.push({
       school_id: schoolId,
       student_id: s.student_id,
       outcome: s.outcome,
       from_academic_year_id: fromYear.id,
       from_term_id: fromTerm.id,
-      from_class_id: null, // populated below
+      from_class_id: fromClassId,
       to_academic_year_id:
         s.outcome === 'promoted' || s.outcome === 'repeated'
           ? nextYearId
@@ -2257,40 +2313,18 @@ export async function confirmPromotions(
         s.outcome === 'promoted' || s.outcome === 'repeated'
           ? nextFirstTerm.id
           : null,
-      to_class_id: s.to_class_id,
+      to_class_id: toClassId,
       average: s.average,
       decided_by: decidedByUserId,
     });
-  }
 
-  // from_class_id: pull from the source enrollment
-  const { data: sourceEnrollments, error: sourceError } = await supabase
-    .from('enrollments')
-    .select('student_id, class_id')
-    .eq('term_id', from_term_id)
-    .in('student_id', students.map((s) => s.student_id));
-
-  if (sourceError) throw sourceError;
-
-  const classByStudent = new Map<string, string>();
-  for (const e of sourceEnrollments || []) {
-    classByStudent.set(e.student_id, e.class_id);
-  }
-
-  for (const p of progressions) {
-    p.from_class_id = classByStudent.get(p.student_id) || null;
-    if (!p.from_class_id) {
-      // Defensive: skip rows we can't attribute
-      continue;
-    }
-    // Only enqueue enrollment for promoted/repeated
     if (
-      (p.outcome === 'promoted' || p.outcome === 'repeated') &&
-      p.to_class_id
+      (s.outcome === 'promoted' || s.outcome === 'repeated') &&
+      toClassId
     ) {
       newEnrollments.push({
-        student_id: p.student_id,
-        class_id: p.to_class_id,
+        student_id: s.student_id,
+        class_id: toClassId,
         term_id: nextFirstTerm.id,
         enrollment_date: new Date().toISOString().split('T')[0],
         is_current: true,
@@ -2298,13 +2332,10 @@ export async function confirmPromotions(
     }
   }
 
-  // Filter progressions to drop incomplete rows
-  const validProgressions = progressions.filter((p) => p.from_class_id);
-
-  if (validProgressions.length > 0) {
+  if (progressions.length > 0) {
     const { error: progError } = await supabase
       .from('student_progression')
-      .insert(validProgressions);
+      .insert(progressions);
     if (progError) throw progError;
   }
 
