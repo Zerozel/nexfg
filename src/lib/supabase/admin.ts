@@ -806,7 +806,7 @@ export async function ensureTermsForAcademicYear(
   academicYearId: string,
   schoolId: string
 ): Promise<void> {
-  // ← ADDED: verify the academic year belongs to this school
+  // Verify the academic year belongs to this school
   const { data: academicYear, error: ayError } = await supabase
     .from('academic_years')
     .select('id')
@@ -820,7 +820,7 @@ export async function ensureTermsForAcademicYear(
     throw new Error('Academic year does not belong to this school');
   }
 
-  // Check if terms already exist for this academic year
+  // If terms already exist for this academic year, do nothing.
   const { data: existingTerms, error: checkError } = await supabase
     .from('terms')
     .select('id')
@@ -828,27 +828,42 @@ export async function ensureTermsForAcademicYear(
     .is('is_deleted', false);
 
   if (checkError) throw checkError;
-
-  // If terms already exist, skip
   if (existingTerms && existingTerms.length > 0) {
     return;
   }
 
-  // Define the 3 default terms
+  // Determine whether this school already has a current term in ANOTHER
+  // academic year. If yes, the new year's First Term starts inactive — the
+  // admin explicitly advances to it later.
+  const { data: existingCurrent, error: existingCurrentError } = await supabase
+    .from('terms')
+    .select('id')
+    .eq('school_id', schoolId)
+    .eq('is_current', true)
+    .is('is_deleted', false)
+    .neq('academic_year_id', academicYearId)
+    .limit(1)
+    .maybeSingle();
+
+  if (existingCurrentError) throw existingCurrentError;
+
+  // If another year already has a current term, don't mark this year's
+  // First Term current — it becomes active when the admin advances to it.
+  const shouldMarkFirstCurrent = !existingCurrent;
+
   const terms = [
     { name: 'First Term', order: 1 },
     { name: 'Second Term', order: 2 },
     { name: 'Third Term', order: 3 },
   ];
 
-  // Insert the 3 terms
   const { error: insertError } = await supabase.from('terms').insert(
     terms.map((term) => ({
       school_id: schoolId,
       academic_year_id: academicYearId,
       name: term.name,
       order: term.order,
-      is_current: term.order === 1, // First term is current by default
+      is_current: shouldMarkFirstCurrent && term.order === 1,
     }))
   );
 

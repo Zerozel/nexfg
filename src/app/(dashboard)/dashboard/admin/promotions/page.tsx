@@ -17,6 +17,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { ArrowRight, Users, AlertTriangle, Check } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import {
@@ -49,6 +57,7 @@ export default function PromotionsPage() {
   const [overrides, setOverrides] = useState<Record<string, OverrideState>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [result, setResult] = useState<{
     promoted: number;
     repeated: number;
@@ -340,176 +349,157 @@ export default function PromotionsPage() {
             </CardHeader>
           </Card>
 
-          {preview.classes.map((group) => {
-            const targetGroupName =
-              group.students[0]?.recommended_to_class_name || null;
+          {preview.classes.map((group) => (
+            <Card key={group.from_class_id}>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  {group.from_class_name}
+                  {group.target_class_group_name && (
+                    <span className="text-sm font-normal text-gray-500">
+                      → {group.target_class_group_name}
+                    </span>
+                  )}
+                </CardTitle>
+                <CardDescription>
+                  {group.students.length} student
+                  {group.students.length !== 1 ? "s" : ""}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Bulk actions */}
+                <div className="flex flex-wrap gap-2 pb-3 border-b">
+                  <Button
+                    size="sm"
+                    variant="default"
+                    onClick={() => bulkOverrideGroup(group, "promoted")}
+                  >
+                    Promote All
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => bulkOverrideGroup(group, "repeated")}
+                  >
+                    Repeat All
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => bulkOverrideGroup(group, "graduated")}
+                  >
+                    Graduate All
+                  </Button>
+                  {classOptions.length > 0 && (
+                    <Select onValueChange={(v) => bulkSetTarget(group, v)}>
+                      <SelectTrigger className="w-[200px]">
+                        <SelectValue placeholder="Set target for all..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {classOptions.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
 
-            // Distinct target class options for this group's promote flow
-            const groupPromoteTargets = new Set<string>();
-            for (const s of group.students) {
-              if (s.recommended_to_class_id) {
-                groupPromoteTargets.add(s.recommended_to_class_id);
-              }
-            }
+                {/* Per-student rows */}
+                <div className="space-y-3">
+                  {group.students.map((s) => {
+                    const override = overrides[s.student_id];
+                    const currentOutcome =
+                      override?.outcome ?? s.recommended_outcome;
+                    const currentTarget =
+                      override?.to_class_id ?? s.recommended_to_class_id;
+                    const showTarget =
+                      currentOutcome === "promoted" ||
+                      currentOutcome === "repeated";
 
-            return (
-              <Card key={group.from_class_id}>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Users className="h-5 w-5" />
-                    {group.from_class_name}
-                    {group.target_class_group_name && (
-                      <span className="text-sm font-normal text-gray-500">
-                        → {group.target_class_group_name}
-                      </span>
-                    )}
-                  </CardTitle>
-                  <CardDescription>
-                    {group.students.length} student
-                    {group.students.length !== 1 ? "s" : ""}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* Bulk actions */}
-                  <div className="flex flex-wrap gap-2 pb-3 border-b">
-                    <Button
-                      size="sm"
-                      variant="default"
-                      onClick={() => bulkOverrideGroup(group, "promoted")}
-                    >
-                      Promote All
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => bulkOverrideGroup(group, "repeated")}
-                    >
-                      Repeat All
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => bulkOverrideGroup(group, "graduated")}
-                    >
-                      Graduate All
-                    </Button>
-                    {classOptions.length > 0 && (
-                      <Select
-                        onValueChange={(v) => bulkSetTarget(group, v)}
+                    return (
+                      <div
+                        key={s.student_id}
+                        className="grid grid-cols-1 md:grid-cols-4 gap-3 items-center border-b pb-3"
                       >
-                        <SelectTrigger className="w-[200px]">
-                          <SelectValue placeholder="Set target for all..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {classOptions.map((c) => (
-                            <SelectItem key={c.id} value={c.id}>
-                              {c.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  </div>
-
-                  {/* Per-student rows */}
-                  <div className="space-y-3">
-                    {group.students.map((s) => {
-                      const override = overrides[s.student_id];
-                      const currentOutcome =
-                        override?.outcome ?? s.recommended_outcome;
-                      const currentTarget =
-                        override?.to_class_id ?? s.recommended_to_class_id;
-                      const showTarget =
-                        currentOutcome === "promoted" ||
-                        currentOutcome === "repeated";
-
-                      return (
-                        <div
-                          key={s.student_id}
-                          className="grid grid-cols-1 md:grid-cols-4 gap-3 items-center border-b pb-3"
-                        >
-                          <div>
-                            <div className="font-medium">{s.full_name}</div>
-                            <div className="text-xs text-gray-500">
-                              {s.admission_number || "—"} · Avg{" "}
-                              {s.average.toFixed(1)}
-                            </div>
+                        <div>
+                          <div className="font-medium">{s.full_name}</div>
+                          <div className="text-xs text-gray-500">
+                            {s.admission_number || "—"} · Avg{" "}
+                            {s.average.toFixed(1)}
                           </div>
-                          <div>
+                        </div>
+                        <div>
+                          <Select
+                            value={currentOutcome}
+                            onValueChange={(v) =>
+                              handleOverride(s.student_id, "outcome", v)
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="promoted">
+                                Promote
+                              </SelectItem>
+                              <SelectItem value="repeated">Repeat</SelectItem>
+                              <SelectItem value="graduated">
+                                Graduate
+                              </SelectItem>
+                              <SelectItem value="withdrawn">
+                                Withdraw
+                              </SelectItem>
+                              <SelectItem value="transferred">
+                                Transfer
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          {showTarget && (
                             <Select
-                              value={currentOutcome}
+                              value={currentTarget || ""}
                               onValueChange={(v) =>
-                                handleOverride(s.student_id, "outcome", v)
+                                handleOverride(s.student_id, "to_class_id", v)
                               }
                             >
                               <SelectTrigger>
-                                <SelectValue />
+                                <SelectValue placeholder="Target class" />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="promoted">
-                                  Promote
-                                </SelectItem>
-                                <SelectItem value="repeated">Repeat</SelectItem>
-                                <SelectItem value="graduated">
-                                  Graduate
-                                </SelectItem>
-                                <SelectItem value="withdrawn">
-                                  Withdraw
-                                </SelectItem>
-                                <SelectItem value="transferred">
-                                  Transfer
-                                </SelectItem>
+                                {classOptions.map((c) => (
+                                  <SelectItem key={c.id} value={c.id}>
+                                    {c.name}
+                                  </SelectItem>
+                                ))}
                               </SelectContent>
                             </Select>
-                          </div>
-                          <div>
-                            {showTarget && (
-                              <Select
-                                value={currentTarget || ""}
-                                onValueChange={(v) =>
-                                  handleOverride(
-                                    s.student_id,
-                                    "to_class_id",
-                                    v
-                                  )
-                                }
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Target class" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {classOptions.map((c) => (
-                                    <SelectItem key={c.id} value={c.id}>
-                                      {c.name}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            )}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {currentOutcome === "promoted" &&
-                              `→ ${
-                                classNameById.get(currentTarget || "") || "—"
-                              }`}
-                            {currentOutcome === "repeated" &&
-                              `Repeat ${
-                                classNameById.get(currentTarget || "") ||
-                                group.from_class_name
-                              }`}
-                            {currentOutcome === "graduated" &&
-                              "Final class — graduate"}
-                            {currentOutcome === "withdrawn" && "Withdrawn"}
-                            {currentOutcome === "transferred" && "Transferred"}
-                          </div>
+                          )}
                         </div>
-                      );
-                    })}
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+                        <div className="text-xs text-gray-500">
+                          {currentOutcome === "promoted" &&
+                            `→ ${
+                              classNameById.get(currentTarget || "") || "—"
+                            }`}
+                          {currentOutcome === "repeated" &&
+                            `Repeat ${
+                              classNameById.get(currentTarget || "") ||
+                              group.from_class_name
+                            }`}
+                          {currentOutcome === "graduated" &&
+                            "Final class — graduate"}
+                          {currentOutcome === "withdrawn" && "Withdrawn"}
+                          {currentOutcome === "transferred" && "Transferred"}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
 
           <Card>
             <CardContent className="flex items-center justify-between py-6">
@@ -518,13 +508,64 @@ export default function PromotionsPage() {
                 This will create a new academic year and enroll students in
                 their new classes.
               </div>
-              <Button onClick={handleConfirm} disabled={isConfirming}>
-                {isConfirming ? "Confirming..." : "Confirm Promotions"}
+              <Button
+                onClick={() => setShowConfirmDialog(true)}
+                disabled={isConfirming}
+              >
+                Confirm Promotions
               </Button>
             </CardContent>
           </Card>
         </>
       )}
+
+      {/* Confirm dialog */}
+      <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm promotions?</DialogTitle>
+            <DialogDescription>
+              This will:
+              <ul className="list-disc ml-5 mt-2 space-y-1">
+                <li>
+                  Create the next academic year if it doesn&apos;t exist
+                </li>
+                <li>
+                  Record each student&apos;s outcome (promoted / repeated /
+                  graduated / etc.)
+                </li>
+                <li>
+                  Enroll promoted and repeated students in their target
+                  classes
+                </li>
+                <li>
+                  Keep the old year&apos;s Third Term active — the new
+                  year&apos;s First Term is NOT marked current until you
+                  switch manually on the Sessions page
+                </li>
+              </ul>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowConfirmDialog(false)}
+              disabled={isConfirming}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={async () => {
+                setShowConfirmDialog(false);
+                await handleConfirm();
+              }}
+              disabled={isConfirming}
+            >
+              {isConfirming ? "Confirming..." : "Yes, Confirm Promotions"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
