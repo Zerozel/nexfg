@@ -32,33 +32,15 @@
     padding: 0;
   }
 
-  /* Ensure white backgrounds print */
   * {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
-  /* The wrapper around each card in a batch — force a page break before
-     every card after the first, and keep each card together on its page. */
-  .page-break {
-    page-break-before: always;
-    break-before: page;
-  }
-
-  /* Each report card prints as one unbroken block. If the content is too
-     tall for a single A4 page, the browser will start a new page but must
-     keep the card's internal sections together. */
+  /* Each report card is a self-contained block — never split it. */
   .report-card-template {
     page-break-inside: avoid;
     break-inside: avoid;
-    page-break-after: always;
-    break-after: page;
-  }
-
-  /* Don't add an extra blank page after the last card. */
-  .report-card-template:last-of-type {
-    page-break-after: auto;
-    break-after: auto;
   }
 
   /* Class result sheet — same unbroken treatment. */
@@ -67,24 +49,14 @@
     break-inside: avoid;
   }
 
-  .page-break-after {
-    page-break-after: always;
-    break-after: page;
-  }
-
-  /* Avoid breaking inside individual sections. */
+  /* Keep internal sections whole. */
   .avoid-break,
   .signature-block,
   .comments-section,
   .attendance-section,
   .additional-sections,
   .overall-section,
-  .subject-table-container {
-    page-break-inside: avoid;
-    break-inside: avoid;
-  }
-
-  /* Keep the header + title together with the start of the table. */
+  .subject-table-container,
   .school-header,
   .report-card-title,
   .student-info {
@@ -92,7 +64,18 @@
     break-inside: avoid;
   }
 
-  /* Avoid breaking after headings. */
+  /* Never split a table row. */
+  .subject-table tr {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* Repeat table headers across pages. */
+  .subject-table thead {
+    display: table-header-group;
+  }
+
+  /* Keep headings with what follows them. */
   h1,
   h2,
   h3,
@@ -103,19 +86,8 @@
     break-after: avoid;
   }
 
-  /* The subject table should never be split mid-row. */
-  .subject-table tr {
-    page-break-inside: avoid;
-    break-inside: avoid;
-  }
-
-  /* Table headers should repeat when a table spans multiple pages. */
-  .subject-table thead {
-    display: table-header-group;
-  }
-
-  /* Table footer (if any) should repeat. */
-  .subject-table tfoot {
-    display: table-footer-group;
+  /* Watermark stays put. */
+  .watermark {
+    position: fixed;
   }
 }

@@ -154,7 +154,14 @@ function BatchPrintView() {
         {reportCards.map((reportCard, index) => (
           <div
             key={reportCard.student.id}
-            className={index > 0 ? "page-break" : ""}
+            style={
+              index > 0
+                ? {
+                    pageBreakBefore: "always",
+                    breakBefore: "page",
+                  }
+                : undefined
+            }
           >
             <ReportCardTemplate data={reportCard} />
           </div>
