@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabase } from '@/lib/supabase/server';
-import { listStudents, createStudent } from '@/lib/supabase/admin';
+import {
+  listStudents,
+  createStudent,
+  ensureStudentEnrollment,
+} from '@/lib/supabase/admin';
 import { studentSchema } from '@/lib/validations/student.schema';
 import { ZodError } from 'zod';
 
@@ -10,7 +14,6 @@ async function generateAdmissionNumber(
   schoolId: string,
   enrollmentYear: number
 ): Promise<string> {
-  // Get school slug
   const { data: school, error: schoolError } = await supabase
     .from('schools')
     .select('slug')
@@ -19,7 +22,6 @@ async function generateAdmissionNumber(
 
   if (schoolError || !school) {
     console.error('Failed to fetch school slug:', schoolError);
-    // Fallback: use a generic format
     const random = Math.random().toString(36).substring(2, 8).toUpperCase();
     return `SCH-${enrollmentYear}-${random}`;
   }
@@ -27,7 +29,6 @@ async function generateAdmissionNumber(
   const slug = school.slug.toUpperCase();
   const yearPrefix = enrollmentYear.toString();
 
-  // Get the highest sequence number for this school and year
   const { data: existing, error: existingError } = await supabase
     .from('students')
     .select('admission_number')
@@ -38,7 +39,6 @@ async function generateAdmissionNumber(
 
   if (existingError) {
     console.error('Failed to fetch existing admission numbers:', existingError);
-    // Fallback: use random
     const random = Math.random().toString(36).substring(2, 8).toUpperCase();
     return `${slug}-${yearPrefix}-${random}`;
   }
@@ -78,7 +78,6 @@ export async function POST(request: NextRequest) {
     const supabase = await createServerSupabase();
     const body = await request.json();
 
-    // Get the current user to extract school_id
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -94,7 +93,6 @@ export async function POST(request: NextRequest) {
     const validatedData = studentSchema.parse(body);
     console.log('Validated data:', JSON.stringify(validatedData, null, 2));
 
-    // Sanitize data before insertion - ensure empty strings become null
     const sanitized = Object.fromEntries(
       Object.entries(validatedData).map(([key, value]) => [
         key,
@@ -102,7 +100,6 @@ export async function POST(request: NextRequest) {
       ])
     );
 
-    // ✅ FIX: Ensure enrollment_year is a number
     let enrollmentYear = sanitized.enrollment_year;
     if (typeof enrollmentYear === 'string') {
       enrollmentYear = parseInt(enrollmentYear, 10);
@@ -111,7 +108,6 @@ export async function POST(request: NextRequest) {
       enrollmentYear = new Date().getFullYear();
     }
 
-    // Generate admission_number based on school and enrollment year
     const admissionNumber = await generateAdmissionNumber(
       supabase,
       schoolId,
@@ -120,11 +116,27 @@ export async function POST(request: NextRequest) {
 
     sanitized.admission_number = admissionNumber;
     sanitized.school_id = schoolId;
-    sanitized.enrollment_year = enrollmentYear; // Ensure it's stored as a number
+    sanitized.enrollment_year = enrollmentYear;
 
     console.log('Sanitized data with admission_number:', JSON.stringify(sanitized, null, 2));
 
     const student = await createStudent(supabase, sanitized as any);
+
+    // Sync the enrollments table so report cards / class sheets / batch print
+    // can find this student. `students.class_id` alone is not enough.
+    if (student.class_id) {
+      try {
+        await ensureStudentEnrollment(supabase, student.id, student.class_id);
+      } catch (enrollError) {
+        // Don't fail the whole request if enrollment fails — log and let the
+        // student creation succeed. A backfill can be run later if needed.
+        console.error(
+          `Failed to create enrollment for student ${student.id}:`,
+          enrollError
+        );
+      }
+    }
+
     return NextResponse.json(
       { data: student, message: 'Student created successfully' },
       { status: 201 }

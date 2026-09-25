@@ -1676,3 +1676,116 @@ export async function ensureAssessmentTemplates(
     }
   }
 }
+
+
+// ============ STUDENT ENROLLMENT HELPERS ============
+//
+// These keep the `enrollments` table in sync with `students.class_id`.
+// - `students.class_id` is the source of truth for "who is in this class"
+//   (used by the compile pipeline and the student list).
+// - `enrollments` is the source of truth for "who was in this class in which
+//   term" (used by report cards, class sheets, and batch print).
+//
+// Every code path that creates or moves a student MUST go through these
+// helpers, or the two tables drift apart.
+
+/**
+ * Resolve the current term for a class's academic year.
+ * Returns null if the class or its current term can't be determined.
+ */
+async function getCurrentTermForClass(
+  supabase: SupabaseClient,
+  classId: string
+): Promise<string | null> {
+  const { data: cls, error: clsError } = await supabase
+    .from('classes')
+    .select('academic_year_id')
+    .eq('id', classId)
+    .is('is_deleted', false)
+    .maybeSingle();
+
+  if (clsError) throw clsError;
+  if (!cls?.academic_year_id) return null;
+
+  const { data: term, error: termError } = await supabase
+    .from('terms')
+    .select('id')
+    .eq('academic_year_id', cls.academic_year_id)
+    .eq('is_current', true)
+    .is('is_deleted', false)
+    .maybeSingle();
+
+  if (termError) throw termError;
+  return term?.id || null;
+}
+
+/**
+ * Ensure the student has an active enrollment for the current term of
+ * `classId`. Safe to call repeatedly — no-op if an enrollment already exists.
+ */
+export async function ensureStudentEnrollment(
+  supabase: SupabaseClient,
+  studentId: string,
+  classId: string
+): Promise<void> {
+  if (!studentId || !classId) return;
+
+  const termId = await getCurrentTermForClass(supabase, classId);
+  if (!termId) {
+    console.warn(
+      `ensureStudentEnrollment: no current term for class ${classId}; skipping`
+    );
+    return;
+  }
+
+  // The unique constraint is (student_id, term_id), so a student can only be
+  // enrolled in one class per term. If a row exists for this term already,
+  // update its class_id to the new class (this covers the "student was
+  // enrolled, then their class changed" case). Otherwise insert.
+  const { data: existing, error: existingError } = await supabase
+    .from('enrollments')
+    .select('id, class_id, is_current')
+    .eq('student_id', studentId)
+    .eq('term_id', termId)
+    .maybeSingle();
+
+  if (existingError) throw existingError;
+
+  if (existing) {
+    if (existing.class_id !== classId || !existing.is_current) {
+      const { error: updateError } = await supabase
+        .from('enrollments')
+        .update({
+          class_id: classId,
+          is_current: true,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existing.id);
+      if (updateError) throw updateError;
+    }
+    return;
+  }
+
+  const { error: insertError } = await supabase
+    .from('enrollments')
+    .insert({
+      student_id: studentId,
+      class_id: classId,
+      term_id: termId,
+      enrollment_date: new Date().toISOString().split('T')[0],
+      is_current: true,
+    });
+
+  if (insertError) throw insertError;
+}
+
+/**
+ * Move a student from their current class to a new one for the current term.
+ */
+export async function moveStudentToClass(
+  supabase: SupabaseClient,
+  studentId: string,
+  newClassId: string
+): Promise<void> {
+  await ensureStudentEnrollment(supabase, studentId, newClassId);
+}
