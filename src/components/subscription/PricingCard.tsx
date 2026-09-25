@@ -1,15 +1,13 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { Check } from 'lucide-react';
+import { Check, Sparkles } from 'lucide-react';
 
 interface PricingCardProps {
   name: string;
   price: number;
   sessionPrice?: number;
-  /** Optional — defaults to 'term'. */
   billingCycle?: 'term' | 'session';
-  /** Optional — falls back to the derived cycle label. Kept for legacy callers. */
   period?: string;
   students: string;
   staff: string;
@@ -35,13 +33,21 @@ export function PricingCard({
   isLoading,
 }: PricingCardProps) {
   const cycle = billingCycle ?? 'term';
-  const displayed =
-    cycle === 'session' && sessionPrice ? sessionPrice : price;
+  const isSession = cycle === 'session' && !!sessionPrice;
+
+  const displayed = isSession ? sessionPrice! : price;
   const periodLabel = period ?? (cycle === 'session' ? 'session' : 'term');
+
+  // Only compute the discount when we have a session price.
+  const fullSessionPrice = price * 3;
+  const discount = sessionPrice ? fullSessionPrice - sessionPrice : 0;
+  const discountPercent = sessionPrice
+    ? Math.round((discount / fullSessionPrice) * 100)
+    : 0;
 
   return (
     <div
-      className={`relative rounded-2xl border p-6 flex flex-col ${
+      className={`relative rounded-2xl border p-6 flex flex-col bg-white ${
         isCurrent ? 'border-2 shadow-lg' : 'border-gray-200 shadow-sm'
       }`}
       style={isCurrent ? { borderColor: primaryColor } : {}}
@@ -54,27 +60,56 @@ export function PricingCard({
           Current Plan
         </span>
       )}
-      <div className="mb-6">
+
+      {/* Discount badge — only shows in session mode when there's a saving */}
+      {isSession && discount > 0 && (
+        <span className="absolute -top-3 right-4 inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700 border border-green-200">
+          <Sparkles className="h-3 w-3" />
+          Save ₦{discount.toLocaleString()} ({discountPercent}%)
+        </span>
+      )}
+
+      <div className="mb-6 pt-2">
         <h3 className="text-xl font-bold mb-1">{name}</h3>
-        <div className="flex items-baseline gap-1">
+
+        <div className="flex items-baseline gap-2">
           <span className="text-3xl font-bold">
             ₦{displayed.toLocaleString()}
           </span>
           <span className="text-gray-500">/{periodLabel}</span>
         </div>
-        {cycle === 'term' && sessionPrice && (
-          <p className="text-xs text-gray-400 mt-1">
-            Or ₦{sessionPrice.toLocaleString()} per session (save ₦
-            {(price * 3 - sessionPrice).toLocaleString()})
+
+        {/* Session mode: show the original (3× term) price struck through */}
+        {isSession && discount > 0 && (
+          <p className="text-sm text-gray-400 mt-1">
+            <span className="line-through">
+              ₦{fullSessionPrice.toLocaleString()}
+            </span>{' '}
+            <span className="text-green-600 font-medium">
+              · Covers all 3 terms
+            </span>
           </p>
         )}
-        {cycle === 'session' && (
-          <p className="text-xs text-gray-400 mt-1">Covers all three terms</p>
+
+        {/* Term mode: tease the session discount */}
+        {!isSession && sessionPrice && discount > 0 && (
+          <p className="text-xs text-gray-500 mt-2">
+            Or{' '}
+            <strong className="text-gray-700">
+              ₦{sessionPrice.toLocaleString()}/session
+            </strong>{' '}
+            —{' '}
+            <span className="text-green-600 font-medium">
+              save ₦{discount.toLocaleString()} ({discountPercent}%)
+            </span>
+          </p>
         )}
-        <p className="text-sm text-gray-500 mt-2">
+
+        <p className="text-sm text-gray-500 mt-3">
           {students} students · {staff} staff
         </p>
       </div>
+
       <ul className="space-y-3 mb-8 flex-1">
         {features.map((f) => (
           <li key={f} className="flex items-start gap-2 text-sm">
@@ -86,6 +121,7 @@ export function PricingCard({
           </li>
         ))}
       </ul>
+
       <Button
         onClick={onSubscribe}
         disabled={isCurrent || isLoading}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSubscription } from '@/hooks/useSubscription';
 import { SubscriptionStatusView } from '@/components/subscription/SubscriptionStatus';
 import { PricingCard } from '@/components/subscription/PricingCard';
@@ -17,6 +17,7 @@ export default function BillingPage() {
     history,
     isLoading,
     error,
+    refetch,
     subscribeAndRedirect,
     upgradeAndRedirect,
     cancelSubscription,
@@ -24,9 +25,55 @@ export default function BillingPage() {
   const { toast } = useToast();
   const [actionLoading, setActionLoading] = useState(false);
   const [billingCycle, setBillingCycle] = useState<BillingCycle>('term');
+  const hasAutoVerified = useRef(false);
 
   const hasPaidPlan =
     !!status && status.tier !== 'free' && status.tier !== 'trial';
+
+  // Auto-resolve stale pending payments. If Paystack has actually processed a
+  // pending payment, its webhook may have been missed; calling verify() here
+  // upgrades it to success and activates the subscription. Runs once per mount
+  // so we don't spam the API.
+  useEffect(() => {
+    if (hasAutoVerified.current) return;
+    if (isLoading) return;
+    hasAutoVerified.current = true;
+
+    const cutoff = Date.now() - 48 * 60 * 60 * 1000; // 48 hours
+    const stalePendings = history.filter(
+      (h) =>
+        h.status === 'pending' &&
+        new Date(h.created_at).getTime() > cutoff
+    );
+
+    if (stalePendings.length === 0) return;
+
+    let cancelled = false;
+    (async () => {
+      let anyResolved = false;
+      for (const p of stalePendings) {
+        try {
+          const res = await fetch(
+            `/api/subscriptions/verify?reference=${encodeURIComponent(p.reference)}`
+          );
+          if (cancelled) return;
+          const data = await res.json();
+          if (data.success || data.status === 'failed') {
+            anyResolved = true;
+          }
+        } catch {
+          // Silently ignore — a failed auto-verify is non-fatal
+        }
+      }
+      if (!cancelled && anyResolved) {
+        await refetch();
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isLoading, history, refetch]);
 
   const handleChoosePlan = async (planKey: string) => {
     setActionLoading(true);
@@ -93,7 +140,7 @@ export default function BillingPage() {
       )}
 
       <div id="billing-plans" className="space-y-4 scroll-mt-6">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-3">
           <h2 className="text-lg font-semibold">
             {hasPaidPlan ? 'Change Plan' : 'Choose a Plan'}
           </h2>
