@@ -1,7 +1,7 @@
 // components/dashboard/Sidebar.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
@@ -23,6 +23,13 @@ export function Sidebar() {
   const pathname = usePathname();
   const schoolName = useCurrentSchoolName();
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Close the mobile drawer whenever the route changes, so the user lands on
+  // the page they tapped without having to dismiss the drawer first.
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
 
   if (!role) return null;
 
@@ -116,7 +123,7 @@ export function Sidebar() {
 
       {/* Mobile sidebar */}
       <div className="md:hidden fixed top-4 left-4 z-50">
-        <Sheet>
+        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
           <SheetTrigger asChild>
             <Button variant="outline" size="icon" className="shadow-md">
               <Menu className="h-4 w-4" />
@@ -135,6 +142,7 @@ export function Sidebar() {
                   <Link
                     key={item.href}
                     href={item.href}
+                    onClick={() => setMobileOpen(false)}
                     className={cn(
                       "flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors",
                       isActive
