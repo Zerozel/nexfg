@@ -273,33 +273,41 @@ export default function SchoolSettingsPage() {
       )}
 
       {/*
-        Tabs layout: the tab bar is a full-width bar sitting above the tab
-        content. The content fills the space directly below with no vertical
-        gap. On mobile the tab bar scrolls horizontally so all tabs stay
-        reachable without cramming.
+        Tabs layout: the tab bar sits ABOVE the content.
+
+        Force a column layout two ways:
+          1. `orientation="horizontal"` sets data-orientation on the root,
+             which triggers `data-horizontal:flex-col` in the base component.
+          2. `!flex !flex-col` overrides any residual row-direction flex so
+             the layout stacks even if the data-attribute selector doesn't fire.
+        `gap-0` removes the default 8px gap so content sits flush under the bar.
       */}
-      <Tabs defaultValue="profile" className="w-full gap-0">
+      <Tabs
+        defaultValue="profile"
+        orientation="horizontal"
+        className="w-full !flex !flex-col gap-0"
+      >
         {/* Full-width tab bar */}
         <div className="border-b">
           <TabsList
             variant="line"
-            className="w-full h-auto p-0 gap-0 rounded-none bg-transparent justify-start overflow-x-auto flex-nowrap"
+            className="!flex w-full h-auto p-0 gap-0 rounded-none bg-transparent justify-start overflow-x-auto flex-nowrap"
           >
             <TabsTrigger
               value="profile"
-              className="flex-shrink-0 rounded-none border-b-2 border-transparent data-[active]:border-primary data-[active]:text-foreground px-4 py-3 text-sm font-medium"
+              className="flex-shrink-0 rounded-none border-b-2 border-transparent data-[active]:border-primary data-[active]:text-foreground px-4 py-3 text-sm font-medium whitespace-nowrap"
             >
               Profile
             </TabsTrigger>
             <TabsTrigger
               value="branding"
-              className="flex-shrink-0 rounded-none border-b-2 border-transparent data-[active]:border-primary data-[active]:text-foreground px-4 py-3 text-sm font-medium"
+              className="flex-shrink-0 rounded-none border-b-2 border-transparent data-[active]:border-primary data-[active]:text-foreground px-4 py-3 text-sm font-medium whitespace-nowrap"
             >
               Branding
             </TabsTrigger>
             <TabsTrigger
               value="documents"
-              className="flex-shrink-0 rounded-none border-b-2 border-transparent data-[active]:border-primary data-[active]:text-foreground px-4 py-3 text-sm font-medium"
+              className="flex-shrink-0 rounded-none border-b-2 border-transparent data-[active]:border-primary data-[active]:text-foreground px-4 py-3 text-sm font-medium whitespace-nowrap"
             >
               Documents
             </TabsTrigger>
@@ -317,14 +325,14 @@ export default function SchoolSettingsPage() {
             </TabsTrigger>
             <TabsTrigger
               value="social"
-              className="flex-shrink-0 rounded-none border-b-2 border-transparent data-[active]:border-primary data-[active]:text-foreground px-4 py-3 text-sm font-medium"
+              className="flex-shrink-0 rounded-none border-b-2 border-transparent data-[active]:border-primary data-[active]:text-foreground px-4 py-3 text-sm font-medium whitespace-nowrap"
             >
               Social
             </TabsTrigger>
           </TabsList>
         </div>
 
-        {/* Content directly below the bar — no gap */}
+        {/* Content directly below the bar */}
         <TabsContent value="profile" className="mt-6">
           <Card>
             <CardHeader>
