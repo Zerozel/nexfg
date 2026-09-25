@@ -39,12 +39,13 @@ export const TEACHER_NAV: NavItem[] = [
 
 export const ADMIN_NAV: NavItem[] = [
   { label: "Dashboard", href: "/dashboard/admin", roles: ["admin", "principal"] },
-  { label: "Sessions", href: "/dashboard/admin/sessions", roles: ["admin", "principal"] },
-  { label: "Students", href: "/dashboard/admin/students", roles: ["admin", "principal"] },
   { label: "Teachers", href: "/dashboard/admin/teachers", roles: ["admin", "principal"] },
   { label: "Classes", href: "/dashboard/admin/classes", roles: ["admin", "principal"] },
+  { label: "Students", href: "/dashboard/admin/students", roles: ["admin", "principal"] },
   { label: "Subjects", href: "/dashboard/admin/subjects", roles: ["admin", "principal"] },
   { label: "Assessments", href: "/dashboard/admin/assessments", roles: ["admin", "principal"] },
+  { label: "Sessions", href: "/dashboard/admin/sessions", roles: ["admin", "principal"] },
+  { label: "Promotions", href: "/dashboard/admin/promotions", roles: ["admin", "principal"] },
   //{ label: "School Website", href: "/dashboard/admin/website", roles: ["admin", "principal"] },
   { label: "Compile Results", href: "/dashboard/admin/compile", roles: ["admin", "principal"] }, 
   { label: "Reports", href: "/dashboard/admin/reports", roles: ["admin", "principal"] },

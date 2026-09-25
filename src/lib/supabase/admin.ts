@@ -1854,3 +1854,472 @@ export async function moveStudentToClass(
 ): Promise<void> {
   await ensureStudentEnrollment(supabase, studentId, newClassId);
 }
+
+
+
+// ============ PROMOTION HELPERS ============
+
+interface NextClassInfo {
+  id: string;
+  name: string;
+  base_name: string | null;
+  arms_count: number;
+  display_order: number | null;
+}
+
+/**
+ * Resolve the "next class" for a given class by display_order.
+ * Returns null if the class is the last one (e.g. JSS 3) — those students
+ * are proposed as "graduated".
+ */
+async function getNextClassForClass(
+  supabase: SupabaseClient,
+  schoolId: string,
+  fromClass: { id: string; base_name: string | null; display_order: number | null }
+): Promise<NextClassInfo | null> {
+  if (fromClass.display_order === null) return null;
+
+  const { data, error } = await supabase
+    .from('classes')
+    .select('id, name, base_name, arms_count, display_order')
+    .eq('school_id', schoolId)
+    .eq('display_order', fromClass.display_order + 1)
+    .is('is_deleted', false)
+    .order('name', { ascending: true });
+
+  if (error) throw error;
+  if (!data || data.length === 0) return null;
+
+  // Return the first arm of the next class group — that's the fallback target
+  // when the source arm has no matching arm letter in the target group.
+  return data[0] as NextClassInfo;
+}
+
+/**
+ * Map a source arm name (e.g. "JSS 1A") to the target arm name
+ * (e.g. "JSS 2A") using the arm letter. Falls back to the first arm of the
+ * target group if no letter match is found.
+ */
+async function resolveTargetArmForStudent(
+  supabase: SupabaseClient,
+  schoolId: string,
+  fromClassName: string,
+  targetGroup: NextClassInfo
+): Promise<NextClassInfo> {
+  // Extract the arm letter from the source class name (single uppercase
+  // letter at the end). If none, use the first arm of the target group.
+  const match = fromClassName.match(/([A-Z])$/);
+  const armLetter = match ? match[1] : null;
+
+  if (!armLetter) {
+    return targetGroup;
+  }
+
+  // Find the target arm with the same letter
+  const { data, error } = await supabase
+    .from('classes')
+    .select('id, name, base_name, arms_count, display_order')
+    .eq('school_id', schoolId)
+    .eq('base_name', targetGroup.base_name)
+    .ilike('name', `%${armLetter}`)
+    .is('is_deleted', false)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw error;
+
+  return (data as NextClassInfo) || targetGroup;
+}
+
+interface PreviewStudent {
+  student_id: string;
+  full_name: string;
+  admission_number: string | null;
+  average: number;
+  recommended_outcome: 'promoted' | 'repeated' | 'graduated';
+  recommended_to_class_id: string | null;
+  recommended_to_class_name: string | null;
+}
+
+interface PreviewClassGroup {
+  from_class_id: string;
+  from_class_name: string;
+  from_class_base_name: string | null;
+  target_class_group_name: string | null;
+  students: PreviewStudent[];
+}
+
+export interface PromotionPreview {
+  from_year: { id: string; name: string } | null;
+  from_term: { id: string; name: string };
+  to_year: { id: string; name: string } | null;
+  to_term: { id: string; name: string } | null;
+  promotion_threshold: number;
+  classes: PreviewClassGroup[];
+}
+
+/**
+ * Compute a promotion preview: for every student enrolled in the source
+ * term, propose an outcome and target class. No writes.
+ */
+export async function previewPromotions(
+  supabase: SupabaseClient,
+  schoolId: string,
+  params: { from_term_id: string }
+): Promise<PromotionPreview> {
+  const { from_term_id } = params;
+
+  // 1. Load source term + academic year
+  const { data: fromTerm, error: fromTermError } = await supabase
+    .from('terms')
+    .select('id, name, academic_year_id')
+    .eq('id', from_term_id)
+    .eq('school_id', schoolId)
+    .is('is_deleted', false)
+    .maybeSingle();
+
+  if (fromTermError) throw fromTermError;
+  if (!fromTerm) throw new Error('Source term not found');
+
+  const { data: fromYear, error: fromYearError } = await supabase
+    .from('academic_years')
+    .select('id, name')
+    .eq('id', fromTerm.academic_year_id)
+    .maybeSingle();
+
+  if (fromYearError) throw fromYearError;
+
+  // 2. Load school threshold
+  const { data: school, error: schoolError } = await supabase
+    .from('schools')
+    .select('promotion_threshold')
+    .eq('id', schoolId)
+    .maybeSingle();
+
+  if (schoolError) throw schoolError;
+  const promotionThreshold = Number(school?.promotion_threshold ?? 40);
+
+  // 3. Load all enrollments in this term, joined to student + class
+  const { data: enrollments, error: enrollError } = await supabase
+    .from('enrollments')
+    .select(
+      'student_id, class_id, students:student_id(id, full_name, admission_number), classes:class_id(id, name, base_name, display_order, arms_count)'
+    )
+    .eq('term_id', from_term_id)
+    .eq('is_current', true)
+    .eq('is_deleted', false);
+
+  if (enrollError) throw enrollError;
+
+  // 4. Load compiled_results averages for the term (keyed by student_id)
+  const { data: compiled, error: compiledError } = await supabase
+    .from('compiled_results')
+    .select('student_id, score')
+    .eq('term_id', from_term_id);
+
+  if (compiledError) throw compiledError;
+
+  const avgByStudent = new Map<string, { sum: number; count: number }>();
+  for (const row of compiled || []) {
+    const s = row.student_id as string;
+    const score = Number(row.score) || 0;
+    const cur = avgByStudent.get(s) || { sum: 0, count: 0 };
+    cur.sum += score;
+    cur.count += 1;
+    avgByStudent.set(s, cur);
+  }
+
+  const averageFor = (studentId: string): number => {
+    const agg = avgByStudent.get(studentId);
+    if (!agg || agg.count === 0) return 0;
+    return Math.round((agg.sum / agg.count) * 100) / 100;
+  };
+
+  // 5. Group by source class. For each class, resolve the target group.
+  const grouped = new Map<string, PreviewClassGroup>();
+  const nextClassCache = new Map<string, NextClassInfo | null>();
+
+  for (const e of enrollments || []) {
+    const cls = Array.isArray(e.classes) ? e.classes[0] : e.classes;
+    const stu = Array.isArray(e.students) ? e.students[0] : e.students;
+    if (!cls || !stu) continue;
+
+    if (!grouped.has(cls.id)) {
+      grouped.set(cls.id, {
+        from_class_id: cls.id,
+        from_class_name: cls.name,
+        from_class_base_name: cls.base_name,
+        target_class_group_name: null,
+        students: [],
+      });
+    }
+
+    const group = grouped.get(cls.id)!;
+
+    // Resolve target class for this source class
+    let target: NextClassInfo | null;
+    if (nextClassCache.has(cls.id)) {
+      target = nextClassCache.get(cls.id)!;
+    } else {
+      const groupTarget = await getNextClassForClass(supabase, schoolId, {
+        id: cls.id,
+        base_name: cls.base_name,
+        display_order: cls.display_order,
+      });
+      target = groupTarget;
+      nextClassCache.set(cls.id, groupTarget);
+
+      if (groupTarget) {
+        group.target_class_group_name = groupTarget.base_name || groupTarget.name;
+      }
+    }
+
+    const average = averageFor(e.student_id);
+    const passes = average >= promotionThreshold;
+
+    let recommendedOutcome: 'promoted' | 'repeated' | 'graduated';
+    let recommendedToClassId: string | null = null;
+    let recommendedToClassName: string | null = null;
+
+    if (!target) {
+      // Last class in the sequence — graduate
+      recommendedOutcome = 'graduated';
+    } else if (passes) {
+      // Promote to matching arm in target group (or first arm as fallback)
+      const targetArm = await resolveTargetArmForStudent(
+        supabase,
+        schoolId,
+        cls.name,
+        target
+      );
+      recommendedOutcome = 'promoted';
+      recommendedToClassId = targetArm.id;
+      recommendedToClassName = targetArm.name;
+    } else {
+      // Repeat: stay in the same class
+      recommendedOutcome = 'repeated';
+      recommendedToClassId = cls.id;
+      recommendedToClassName = cls.name;
+    }
+
+    group.students.push({
+      student_id: stu.id,
+      full_name: stu.full_name,
+      admission_number: stu.admission_number || null,
+      average,
+      recommended_outcome: recommendedOutcome,
+      recommended_to_class_id: recommendedToClassId,
+      recommended_to_class_name: recommendedToClassName,
+    });
+  }
+
+  // 6. Compute suggested target year name
+  const currentYearName = fromYear?.name || '';
+  const startYear = parseInt(currentYearName.split('/')[0] || '0', 10);
+  const suggestedNextName =
+    startYear > 0 ? `${startYear + 1}/${startYear + 2}` : '';
+
+  return {
+    from_year: fromYear,
+    from_term: { id: fromTerm.id, name: fromTerm.name },
+    to_year: suggestedNextName
+      ? { id: '', name: suggestedNextName }
+      : null,
+    to_term: null, // resolved on confirm
+    promotion_threshold: promotionThreshold,
+    classes: Array.from(grouped.values()),
+  };
+}
+
+interface ConfirmRow {
+  student_id: string;
+  outcome: 'promoted' | 'repeated' | 'withdrawn' | 'transferred' | 'graduated';
+  to_class_id: string | null;
+  average: number;
+}
+
+export interface ConfirmResult {
+  promoted: number;
+  repeated: number;
+  withdrawn: number;
+  transferred: number;
+  graduated: number;
+  next_year_id: string;
+  next_year_name: string;
+  next_term_id: string;
+  next_term_name: string;
+}
+
+/**
+ * Write progression records and create the next year's enrollments.
+ * Assumes the next academic year does not yet exist; creates it and its
+ * three terms if needed.
+ */
+export async function confirmPromotions(
+  supabase: SupabaseClient,
+  schoolId: string,
+  decidedByUserId: string,
+  payload: {
+    from_term_id: string;
+    students: ConfirmRow[];
+  }
+): Promise<ConfirmResult> {
+  const { from_term_id, students } = payload;
+
+  // 1. Load source term + year
+  const { data: fromTerm, error: fromTermError } = await supabase
+    .from('terms')
+    .select('id, name, academic_year_id')
+    .eq('id', from_term_id)
+    .eq('school_id', schoolId)
+    .maybeSingle();
+
+  if (fromTermError) throw fromTermError;
+  if (!fromTerm) throw new Error('Source term not found');
+
+  const { data: fromYear, error: fromYearError } = await supabase
+    .from('academic_years')
+    .select('id, name')
+    .eq('id', fromTerm.academic_year_id)
+    .maybeSingle();
+
+  if (fromYearError) throw fromYearError;
+  if (!fromYear) throw new Error('Source academic year not found');
+
+  // 2. Derive next year name
+  const startYear = parseInt(fromYear.name.split('/')[0] || '0', 10);
+  if (!startYear) throw new Error('Cannot parse current academic year name');
+  const nextYearName = `${startYear + 1}/${startYear + 2}`;
+
+  // 3. Find or create the next academic year
+  let nextYearId: string;
+  const { data: existingNext } = await supabase
+    .from('academic_years')
+    .select('id')
+    .eq('school_id', schoolId)
+    .eq('name', nextYearName)
+    .is('is_deleted', false)
+    .maybeSingle();
+
+  if (existingNext) {
+    nextYearId = existingNext.id;
+  } else {
+    const created = await createAcademicYear(supabase, schoolId, {
+      name: nextYearName,
+      is_current: false, // explicitly not current — Third Term stays active
+    });
+    nextYearId = created.id;
+  }
+
+  // 4. Ensure terms exist for the next year
+  await ensureTermsForAcademicYear(supabase, nextYearId, schoolId);
+
+  // 5. Find the First Term of the next year
+  const { data: nextFirstTerm, error: nextFirstTermError } = await supabase
+    .from('terms')
+    .select('id, name')
+    .eq('academic_year_id', nextYearId)
+    .eq('school_id', schoolId)
+    .eq('order', 1)
+    .is('is_deleted', false)
+    .maybeSingle();
+
+  if (nextFirstTermError) throw nextFirstTermError;
+  if (!nextFirstTerm) throw new Error('Could not find First Term of next year');
+
+  // 6. Write progressions + enrollments
+  const counts = {
+    promoted: 0,
+    repeated: 0,
+    withdrawn: 0,
+    transferred: 0,
+    graduated: 0,
+  };
+
+  const progressions: any[] = [];
+  const newEnrollments: any[] = [];
+
+  for (const s of students) {
+    counts[s.outcome]++;
+
+    progressions.push({
+      school_id: schoolId,
+      student_id: s.student_id,
+      outcome: s.outcome,
+      from_academic_year_id: fromYear.id,
+      from_term_id: fromTerm.id,
+      from_class_id: null, // populated below
+      to_academic_year_id:
+        s.outcome === 'promoted' || s.outcome === 'repeated'
+          ? nextYearId
+          : null,
+      to_term_id:
+        s.outcome === 'promoted' || s.outcome === 'repeated'
+          ? nextFirstTerm.id
+          : null,
+      to_class_id: s.to_class_id,
+      average: s.average,
+      decided_by: decidedByUserId,
+    });
+  }
+
+  // from_class_id: pull from the source enrollment
+  const { data: sourceEnrollments, error: sourceError } = await supabase
+    .from('enrollments')
+    .select('student_id, class_id')
+    .eq('term_id', from_term_id)
+    .in('student_id', students.map((s) => s.student_id));
+
+  if (sourceError) throw sourceError;
+
+  const classByStudent = new Map<string, string>();
+  for (const e of sourceEnrollments || []) {
+    classByStudent.set(e.student_id, e.class_id);
+  }
+
+  for (const p of progressions) {
+    p.from_class_id = classByStudent.get(p.student_id) || null;
+    if (!p.from_class_id) {
+      // Defensive: skip rows we can't attribute
+      continue;
+    }
+    // Only enqueue enrollment for promoted/repeated
+    if (
+      (p.outcome === 'promoted' || p.outcome === 'repeated') &&
+      p.to_class_id
+    ) {
+      newEnrollments.push({
+        student_id: p.student_id,
+        class_id: p.to_class_id,
+        term_id: nextFirstTerm.id,
+        enrollment_date: new Date().toISOString().split('T')[0],
+        is_current: true,
+      });
+    }
+  }
+
+  // Filter progressions to drop incomplete rows
+  const validProgressions = progressions.filter((p) => p.from_class_id);
+
+  if (validProgressions.length > 0) {
+    const { error: progError } = await supabase
+      .from('student_progression')
+      .insert(validProgressions);
+    if (progError) throw progError;
+  }
+
+  if (newEnrollments.length > 0) {
+    const { error: enrollError } = await supabase
+      .from('enrollments')
+      .insert(newEnrollments);
+    if (enrollError) throw enrollError;
+  }
+
+  return {
+    ...counts,
+    next_year_id: nextYearId,
+    next_year_name: nextYearName,
+    next_term_id: nextFirstTerm.id,
+    next_term_name: nextFirstTerm.name,
+  };
+}
