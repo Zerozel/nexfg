@@ -3,18 +3,6 @@ import { requireSchoolAdmin } from "@/lib/supabase/school-admin-auth";
 
 /**
  * Advance the current term to the next one in the same academic year.
- *
- * Effects (in a single logical transaction):
- *   1. Marks the current term is_current = false
- *   2. Marks the next term (by `order`) is_current = true
- *   3. For every active enrollment in the current term, creates a matching
- *      enrollment in the next term with the same class_id — so students
- *      "carry forward" into the new term automatically.
- *
- * Idempotent: re-running against an already-advanced term is a no-op for the
- * enrollment copy (the unique constraint prevents duplicates), but we still
- * guard against double-advancing by requiring the input termId to be the
- * current term.
  */
 export async function POST(
   request: NextRequest,
@@ -27,26 +15,20 @@ export async function POST(
     if (!guard.authorized) return guard.response;
     const { supabase, schoolId } = guard;
 
-    // 1. Load the source term, verify it belongs to this school and is current
+    // 1. Load the source term
     const { data: currentTerm, error: termError } = await supabase
       .from("terms")
-      .select("id, name, \"order\", academic_year_id, is_current, is_deleted")
+      .select('id, name, "order", academic_year_id, is_current, is_deleted')
       .eq("id", termId)
       .eq("school_id", schoolId)
       .maybeSingle();
 
     if (termError) throw termError;
     if (!currentTerm) {
-      return NextResponse.json(
-        { error: "Term not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Term not found" }, { status: 404 });
     }
     if (currentTerm.is_deleted) {
-      return NextResponse.json(
-        { error: "Term is deleted" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Term is deleted" }, { status: 400 });
     }
     if (!currentTerm.is_current) {
       return NextResponse.json(
@@ -55,19 +37,23 @@ export async function POST(
       );
     }
 
-    // 2. Find the next term in the same academic year
-    const { data: nextTerm, error: nextError } = await supabase
+    // 2. Find the next term. Fetch all terms for the year and pick the next
+    //    by order in JS — chaining .gt("order") with .order("order") breaks
+    //    Supabase's query parser because `order` is a reserved word.
+    const { data: allTerms, error: allTermsError } = await supabase
       .from("terms")
-      .select("id, name, \"order\"")
+      .select('id, name, "order"')
       .eq("academic_year_id", currentTerm.academic_year_id)
       .eq("school_id", schoolId)
-      .gt("order", currentTerm.order)
-      .is("is_deleted", false)
-      .order("order", { ascending: true })
-      .limit(1)
-      .maybeSingle();
+      .is("is_deleted", false);
 
-    if (nextError) throw nextError;
+    if (allTermsError) throw allTermsError;
+
+    const nextTerm =
+      (allTerms || [])
+        .filter((t: any) => t.order > currentTerm.order)
+        .sort((a: any, b: any) => a.order - b.order)[0] || null;
+
     if (!nextTerm) {
       return NextResponse.json(
         {
@@ -90,9 +76,6 @@ export async function POST(
     if (enrollmentsError) throw enrollmentsError;
 
     // 4. Flip the current flags.
-    //    The partial unique index on (academic_year_id) WHERE is_current = true
-    //    guarantees only one current term per year — so we must clear the old
-    //    term before setting the new one.
     const { error: clearError } = await supabase
       .from("terms")
       .update({ is_current: false, updated_at: new Date().toISOString() })
@@ -107,9 +90,7 @@ export async function POST(
 
     if (setError) throw setError;
 
-    // 5. Carry forward enrollments. Insert with ignore-duplicates semantics
-    //    because the unique (student_id, term_id) constraint means some may
-    //    already exist if the advance was partially run before.
+    // 5. Carry forward enrollments.
     let carried = 0;
     if (enrollments && enrollments.length > 0) {
       const rows = enrollments.map((e: any) => ({
@@ -120,7 +101,6 @@ export async function POST(
         is_current: true,
       }));
 
-      // Fetch existing enrollments in the target term so we skip them.
       const { data: existingNext, error: existingError } = await supabase
         .from("enrollments")
         .select("student_id")

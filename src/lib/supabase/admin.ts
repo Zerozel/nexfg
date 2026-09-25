@@ -379,9 +379,10 @@ export async function listClasses(
   };
 }
 
-// ← CHANGED: supports the arms model. When arms_count > 1, creates N class
-// rows under the same base_name, named "<base>A", "<base>B", etc. When
-// arms_count = 1, creates a single class with base_name = name and no suffix.
+// ← CHANGED: supports the arms model with per-arm teachers.
+// When arms_count > 1, creates N class rows, each with its own teacher from
+// `arm_teachers` (keyed by arm letter "A", "B", ...). When arms_count = 1,
+// the single row uses `arm_teachers["A"]` (or `teacher_id` as fallback).
 export async function createClass(
   supabase: SupabaseClient,
   schoolId: string,
@@ -394,7 +395,12 @@ export async function createClass(
     | 'created_at'
     | 'updated_at'
     | 'teacher_name'
-  > & { arms_count?: number; base_name?: string; display_order?: number }
+  > & {
+    arms_count?: number;
+    base_name?: string;
+    display_order?: number;
+    arm_teachers?: Record<string, string | null>;
+  }
 ) {
   // 1. Ownership check on academic_year_id
   const { data: academicYear, error: ayError } = await supabase
@@ -432,33 +438,36 @@ export async function createClass(
       return Number.isFinite(n) ? n : null;
     })();
 
-  // 2. Build the rows. Single-arm classes keep the exact name typed.
   const armLetters = 'ABCDEFGHIJ'.split('');
+  const armTeachers = data.arm_teachers || {};
   const rows: any[] = [];
 
   if (armsCount === 1) {
+    // Single-arm: use arm_teachers["A"] if given, else fall back to teacher_id
     rows.push({
-      ...data,
+      academic_year_id: data.academic_year_id,
       name: rawName,
       base_name: baseName,
       arms_count: 1,
       display_order: inferredOrder,
       school_id: schoolId,
+      teacher_id: armTeachers['A'] ?? data.teacher_id ?? null,
     });
   } else {
     for (let i = 0; i < armsCount; i++) {
+      const letter = armLetters[i];
       rows.push({
-        ...data,
-        name: `${baseName}${armLetters[i]}`,
+        academic_year_id: data.academic_year_id,
+        name: `${baseName}${letter}`,
         base_name: baseName,
         arms_count: armsCount,
         display_order: inferredOrder,
         school_id: schoolId,
+        teacher_id: armTeachers[letter] ?? null,
       });
     }
   }
 
-  // 3. Insert all arms in one batch.
   const { data: created, error } = await supabase
     .from('classes')
     .insert(rows)
@@ -466,7 +475,6 @@ export async function createClass(
 
   if (error) throw error;
 
-  // 4. Return the first row. Existing callers expect a single Class object.
   const first = created[0];
   return {
     ...first,

@@ -16,6 +16,7 @@ interface ClassFormProps {
     arms_count?: number;
     academic_year_id?: string;
     teacher_id?: string | null;
+    arm_teachers?: Record<string, string | null>;
   };
   onChange: (field: string, value: any) => void;
   academicYears?: { id: string; name: string }[];
@@ -29,13 +30,20 @@ export function ClassForm({
   teachers = [],
 }: ClassFormProps) {
   const armsCount = data.arms_count ?? 1;
+  const armTeachers = data.arm_teachers ?? {};
+  const armLetters = 'ABCDEFGHIJ'.split('').slice(0, armsCount);
 
-  const armsPreview =
-    armsCount > 1 && data.name
-      ? Array.from({ length: armsCount }, (_, i) =>
-          `${data.name}${'ABCDEFGHIJ'[i]}`
-        ).join(', ')
-      : null;
+  const baseName = (data.name || '').trim();
+  const previewNames =
+    armsCount > 1 && baseName
+      ? armLetters.map((l) => `${baseName}${l}`)
+      : baseName
+      ? [baseName]
+      : [];
+
+  const setArmTeacher = (letter: string, teacherId: string | null) => {
+    onChange('arm_teachers', { ...armTeachers, [letter]: teacherId });
+  };
 
   return (
     <div className="space-y-4">
@@ -48,8 +56,7 @@ export function ClassForm({
           placeholder="e.g., JSS 1"
         />
         <p className="text-xs text-gray-500">
-          Do not include arm letters (A, B, C). Arms are generated
-          automatically below.
+          Do not include arm letters (A, B, C). Arms are generated below.
         </p>
       </div>
 
@@ -70,11 +77,6 @@ export function ClassForm({
             ))}
           </SelectContent>
         </Select>
-        {armsPreview && (
-          <p className="text-xs text-gray-500">
-            Will create: <strong>{armsPreview}</strong>
-          </p>
-        )}
       </div>
 
       <div className="space-y-2">
@@ -96,27 +98,40 @@ export function ClassForm({
         </Select>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="teacher_id">Class Teacher</Label>
-        <Select
-          value={data.teacher_id || 'none'}
-          onValueChange={(value) =>
-            onChange('teacher_id', value === 'none' ? null : value)
-          }
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Select class teacher" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">No teacher</SelectItem>
-            {teachers.map((t) => (
-              <SelectItem key={t.id} value={t.id}>
-                {t.full_name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      {/* Per-arm teacher selectors */}
+      {previewNames.length > 0 && (
+        <div className="space-y-3 pt-2 border-t">
+          <Label>Class Teachers per Arm</Label>
+          {previewNames.map((armName, idx) => {
+            const letter = armLetters[idx];
+            return (
+              <div key={letter} className="flex items-center gap-3">
+                <span className="w-24 text-sm font-medium text-gray-700 shrink-0">
+                  {armName}
+                </span>
+                <Select
+                  value={armTeachers[letter] || 'none'}
+                  onValueChange={(value) =>
+                    setArmTeacher(letter, value === 'none' ? null : value)
+                  }
+                >
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder="Select class teacher" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No teacher</SelectItem>
+                    {teachers.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>
+                        {t.full_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
