@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Card,
@@ -17,7 +17,14 @@ import { BrandingForm } from '@/components/admin/school-settings/BrandingForm';
 import { WebsiteContentForm } from '@/components/admin/school-settings/WebsiteContentForm';
 import { SocialLinksForm } from '@/components/admin/school-settings/SocialLinksForm';
 import { SignatureUpload } from '@/components/admin/school-settings/SignatureUpload';
-import { Loader2, Copy, ExternalLink, Check } from 'lucide-react';
+import {
+  Loader2,
+  Copy,
+  ExternalLink,
+  Check,
+  AlertTriangle,
+  Clock,
+} from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function SchoolSettingsPage() {
@@ -204,34 +211,39 @@ export default function SchoolSettingsPage() {
         </p>
       </div>
 
-      {/* School URL card — shown prominently at the top for onboarding */}
+      {/* School URL card */}
       {publicUrl && (
         <Card className="border-blue-200 bg-blue-50/50">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center justify-between">
+            <CardTitle className="text-base flex flex-wrap items-center justify-between gap-2">
               <span>Your School Website</span>
-              {data?.website_enabled ? (
-                <Badge className="bg-green-100 text-green-700 hover:bg-green-100">
-                  Live
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+                  <Clock className="h-3 w-3 mr-1" />
+                  Preview
                 </Badge>
-              ) : (
-                <Badge variant="outline" className="text-gray-600">
-                  Not Published
-                </Badge>
-              )}
+                {data?.website_enabled ? (
+                  <Badge className="bg-green-100 text-green-700 hover:bg-green-100">
+                    Live
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-gray-600">
+                    Not Published
+                  </Badge>
+                )}
+              </div>
             </CardTitle>
             <CardDescription>
-              {data?.website_enabled
-                ? 'Your public website is live and shareable.'
-                : 'Enable website content below to publish your public site.'}
+              Your public website URL. Content and features are in preview
+              while we finish the audit.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-              <code className="flex-1 rounded-md border bg-white px-3 py-2 text-sm font-mono truncate">
+              <code className="flex-1 min-w-0 rounded-md border bg-white px-3 py-2 text-sm font-mono truncate">
                 {publicUrl}
               </code>
-              <div className="flex gap-2">
+              <div className="flex gap-2 shrink-0">
                 <Button
                   variant="outline"
                   size="sm"
@@ -262,25 +274,51 @@ export default function SchoolSettingsPage() {
         </Card>
       )}
 
-      <Tabs defaultValue="profile">
-        {/* Responsive tabs: 2 columns on mobile, 5 on desktop */}
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-5 h-auto">
-          <TabsTrigger value="profile" className="text-xs sm:text-sm">
-            Profile
-          </TabsTrigger>
-          <TabsTrigger value="branding" className="text-xs sm:text-sm">
-            Branding
-          </TabsTrigger>
-          <TabsTrigger value="documents" className="text-xs sm:text-sm">
-            Documents
-          </TabsTrigger>
-          <TabsTrigger value="content" className="text-xs sm:text-sm">
-            Website
-          </TabsTrigger>
-          <TabsTrigger value="social" className="text-xs sm:text-sm">
-            Social
-          </TabsTrigger>
-        </TabsList>
+      <Tabs defaultValue="profile" className="w-full">
+        {/* Line-variant tabs — scroll horizontally on mobile */}
+        <div className="w-full overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+          <TabsList
+            variant="line"
+            className="w-full justify-start border-b rounded-none h-auto p-0 gap-0"
+          >
+            <TabsTrigger
+              value="profile"
+              className="rounded-none border-b-2 border-transparent data-[active]:border-primary px-4 py-3 text-sm font-medium"
+            >
+              Profile
+            </TabsTrigger>
+            <TabsTrigger
+              value="branding"
+              className="rounded-none border-b-2 border-transparent data-[active]:border-primary px-4 py-3 text-sm font-medium"
+            >
+              Branding
+            </TabsTrigger>
+            <TabsTrigger
+              value="documents"
+              className="rounded-none border-b-2 border-transparent data-[active]:border-primary px-4 py-3 text-sm font-medium"
+            >
+              Documents
+            </TabsTrigger>
+            <TabsTrigger
+              value="content"
+              className="rounded-none border-b-2 border-transparent data-[active]:border-primary px-4 py-3 text-sm font-medium whitespace-nowrap"
+            >
+              Website
+              <Badge
+                variant="outline"
+                className="ml-2 text-[10px] bg-amber-50 text-amber-700 border-amber-200 py-0 px-1.5 hidden sm:inline-flex"
+              >
+                Soon
+              </Badge>
+            </TabsTrigger>
+            <TabsTrigger
+              value="social"
+              className="rounded-none border-b-2 border-transparent data-[active]:border-primary px-4 py-3 text-sm font-medium"
+            >
+              Social
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="profile" className="mt-6">
           <Card>
@@ -355,13 +393,33 @@ export default function SchoolSettingsPage() {
         </TabsContent>
 
         <TabsContent value="content" className="mt-6">
+          {/* Preview warning */}
+          <Card className="border-amber-200 bg-amber-50/50 mb-4">
+            <CardContent className="flex items-start gap-3 py-4">
+              <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div className="text-sm">
+                <p className="font-medium text-amber-900">
+                  Website feature — coming soon
+                </p>
+                <p className="text-amber-800 mt-0.5">
+                  Editing website content is available in preview while we
+                  complete the audit. Changes you make here may not be
+                  publicly visible yet.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle>Website Content</CardTitle>
               <CardDescription>
                 Edit the hero section, about text, and video gallery shown on
                 your public website at{' '}
-                {data?.slug ? `${data.slug}.nexaforges.me` : 'your subdomain'}.
+                {data?.slug
+                  ? `${data.slug}.nexaforges.me`
+                  : 'your subdomain'}
+                .
               </CardDescription>
             </CardHeader>
             <CardContent>
