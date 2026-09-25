@@ -49,18 +49,39 @@ export async function POST(
         .filter((t: any) => t.order > currentTerm.order)
         .sort((a: any, b: any) => a.order - b.order)[0] || null;
 
+    // End of academic year: structured response, not an error.
     if (!nextTerm) {
+      const { data: currentYear, error: yearError } = await supabase
+        .from("academic_years")
+        .select("id, name")
+        .eq("id", currentTerm.academic_year_id)
+        .maybeSingle();
+
+      if (yearError) throw yearError;
+
+      const startYear = parseInt(
+        (currentYear?.name || "").split("/")[0] || "0",
+        10
+      );
+      const suggestedNextName =
+        startYear > 0 ? `${startYear + 1}/${startYear + 2}` : "";
+
       return NextResponse.json(
         {
-          error:
-            "No next term exists in this academic year. Create the next academic year and promote students instead.",
+          success: false,
+          code: "END_OF_YEAR",
+          message: "This is the last term of the academic year.",
+          data: {
+            current_year: currentYear,
+            current_term: { id: currentTerm.id, name: currentTerm.name },
+            suggested_next_year_name: suggestedNextName,
+          },
         },
-        { status: 400 }
+        { status: 200 }
       );
     }
 
     // 3. Load active enrollments in the current term.
-    //    NOTE: enrollments has no school_id column — term_id already scopes it.
     const { data: enrollments, error: enrollmentsError } = await supabase
       .from("enrollments")
       .select("student_id, class_id")
@@ -100,7 +121,10 @@ export async function POST(
         .from("enrollments")
         .select("student_id")
         .eq("term_id", nextTerm.id)
-        .in("student_id", rows.map((r) => r.student_id));
+        .in(
+          "student_id",
+          rows.map((r) => r.student_id)
+        );
 
       if (existingError) throw existingError;
 

@@ -30,12 +30,20 @@ interface Term {
   academic_year_name: string;
 }
 
+interface EndOfYearInfo {
+  current_year: { id: string; name: string } | null;
+  current_term: { id: string; name: string };
+  suggested_next_year_name: string;
+}
+
 export default function SessionsPage() {
   const { toast } = useToast();
   const [terms, setTerms] = useState<Term[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdvancing, setIsAdvancing] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [showEndOfYear, setShowEndOfYear] = useState(false);
+  const [endOfYearInfo, setEndOfYearInfo] = useState<EndOfYearInfo | null>(null);
 
   const loadTerms = useCallback(async () => {
     setIsLoading(true);
@@ -48,7 +56,9 @@ export default function SessionsPage() {
 
       const { data, error } = await supabase
         .from("terms")
-        .select("id, name, \"order\", is_current, academic_year_id, academic_years:academic_year_id(name)")
+        .select(
+          'id, name, "order", is_current, academic_year_id, academic_years:academic_year_id(name)'
+        )
         .eq("school_id", schoolId)
         .is("is_deleted", false)
         .order("academic_year_id", { ascending: false })
@@ -97,9 +107,19 @@ export default function SessionsPage() {
         { method: "POST" }
       );
       const result = await response.json();
-      if (!response.ok) {
+
+      // End of academic year: show a different dialog.
+      if (result.code === "END_OF_YEAR") {
+        setShowConfirm(false);
+        setEndOfYearInfo(result.data);
+        setShowEndOfYear(true);
+        return;
+      }
+
+      if (!response.ok || !result.success) {
         throw new Error(result.error || "Failed to advance term");
       }
+
       toast({
         title: "Term advanced",
         description: `${result.data.from_term.name} → ${result.data.to_term.name} (${result.data.students_carried_forward} students carried forward)`,
@@ -203,13 +223,51 @@ export default function SessionsPage() {
         </Card>
       )}
 
+      {/* End-of-year action — visible when there's a current term but no next */}
+      {currentTerm && !nextTerm && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5" />
+              End of {currentTerm.academic_year_name}
+            </CardTitle>
+            <CardDescription>
+              You&apos;re at the last term of this academic year. Open the
+              next academic year and promote students to continue.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              variant="outline"
+              onClick={async () => {
+                setIsAdvancing(true);
+                try {
+                  const response = await fetch(
+                    `/api/admin/terms/${currentTerm.id}/advance`,
+                    { method: "POST" }
+                  );
+                  const result = await response.json();
+                  if (result.code === "END_OF_YEAR") {
+                    setEndOfYearInfo(result.data);
+                    setShowEndOfYear(true);
+                  }
+                } finally {
+                  setIsAdvancing(false);
+                }
+              }}
+              disabled={isAdvancing}
+            >
+              Continue to Next Academic Year
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {/* All terms */}
       <Card>
         <CardHeader>
           <CardTitle>All Terms</CardTitle>
-          <CardDescription>
-            Terms are organized by academic year.
-          </CardDescription>
+          <CardDescription>Terms are organized by academic year.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -227,18 +285,13 @@ export default function SessionsPage() {
                 </div>
                 <div className="space-y-1 pl-6">
                   {yearTerms.map((t) => (
-                    <div
-                      key={t.id}
-                      className="flex items-center gap-2 text-sm"
-                    >
+                    <div key={t.id} className="flex items-center gap-2 text-sm">
                       {t.is_current ? (
                         <Check className="h-4 w-4 text-green-600" />
                       ) : (
                         <span className="h-4 w-4" />
                       )}
-                      <span
-                        className={t.is_current ? "font-semibold" : ""}
-                      >
+                      <span className={t.is_current ? "font-semibold" : ""}>
                         {t.name}
                         {t.is_current && (
                           <span className="ml-2 text-xs text-green-600">
@@ -259,18 +312,12 @@ export default function SessionsPage() {
       <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              Advance to {nextTerm?.name}?
-            </DialogTitle>
+            <DialogTitle>Advance to {nextTerm?.name}?</DialogTitle>
             <DialogDescription>
               This will:
               <ul className="list-disc ml-5 mt-2 space-y-1">
-                <li>
-                  Set {currentTerm?.name} as inactive
-                </li>
-                <li>
-                  Set {nextTerm?.name} as the current term
-                </li>
+                <li>Set {currentTerm?.name} as inactive</li>
+                <li>Set {nextTerm?.name} as the current term</li>
                 <li>
                   Carry forward all students in their existing classes into{" "}
                   {nextTerm?.name}
@@ -289,6 +336,59 @@ export default function SessionsPage() {
             </Button>
             <Button onClick={handleAdvance} disabled={isAdvancing}>
               {isAdvancing ? "Advancing..." : "Advance Term"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* End-of-year dialog */}
+      <Dialog open={showEndOfYear} onOpenChange={setShowEndOfYear}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              End of {endOfYearInfo?.current_year?.name || "academic year"}
+            </DialogTitle>
+            <DialogDescription>
+              You&apos;ve reached the end of the academic year. There&apos;s no
+              next term in this year — the next step is to open the following
+              academic year and promote students.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-3 text-sm text-gray-600 space-y-2">
+            <p>
+              <strong>Current year:</strong>{" "}
+              {endOfYearInfo?.current_year?.name || "—"}
+            </p>
+            <p>
+              <strong>Current term:</strong>{" "}
+              {endOfYearInfo?.current_term.name}
+            </p>
+            {endOfYearInfo?.suggested_next_year_name && (
+              <p>
+                <strong>Suggested next year:</strong>{" "}
+                {endOfYearInfo.suggested_next_year_name}
+              </p>
+            )}
+            <p className="text-amber-600">
+              {endOfYearInfo?.current_term.name} remains active until you
+              explicitly switch to the new academic year. Promotion is
+              handled on a separate page.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowEndOfYear(false)}
+            >
+              Close
+            </Button>
+            <Button
+              onClick={() => {
+                setShowEndOfYear(false);
+                window.location.href = "/dashboard/admin/promotions";
+              }}
+            >
+              Go to Promotions
             </Button>
           </DialogFooter>
         </DialogContent>

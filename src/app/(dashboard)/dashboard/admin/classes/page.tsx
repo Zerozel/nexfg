@@ -5,7 +5,6 @@ import {
   useAdminClasses,
   useClassMutations,
   useClassGroup,
-  type ClassArm,
 } from '@/hooks/useClasses';
 import { useTeachers } from '@/hooks/useTeachers';
 import { useAcademicYears } from '@/hooks/useAcademicYears';
@@ -43,20 +42,25 @@ export default function ClassesPage() {
   const [editBaseName, setEditBaseName] = useState<string | null>(null);
   const [editArmsCount, setEditArmsCount] = useState<number>(1);
   const [editAcademicYearId, setEditAcademicYearId] = useState<string>('');
-  const [editArmTeachers, setEditArmTeachers] = useState<Record<string, string | null>>({});
+  const [editArmTeachers, setEditArmTeachers] = useState<
+    Record<string, string | null>
+  >({});
 
   const { toast } = useToast();
   const { data, isLoading, refetch } = useAdminClasses({ page, search });
   const { data: teachersData } = useTeachers({ pageSize: 100 });
   const { data: academicYears } = useAcademicYears();
-  const { createClass, updateClass, deleteClass, syncClassGroup } = useClassMutations();
+  const { createClass, deleteClass, syncClassGroup } = useClassMutations();
 
   // Load the whole group when editing
   const { arms: editArms, isLoading: editArmsLoading } = useClassGroup(editBaseName);
 
-  // Once the group is loaded, seed the local edit state
+  // Seed edit state from the fetched group. Depends on editArms.length so it
+  // fires once the group has loaded — the earlier version short-circuited on
+  // the first render (editArms empty) and never re-ran.
   useEffect(() => {
-    if (!editBaseName || !showEdit || editArms.length === 0) return;
+    if (!showEdit || !editBaseName) return;
+    if (editArms.length === 0) return;
 
     setEditArmsCount(editArms.length);
     setEditAcademicYearId(editArms[0].academic_year_id);
@@ -64,10 +68,11 @@ export default function ClassesPage() {
     const teachers: Record<string, string | null> = {};
     const letters = 'ABCDEFGHIJ';
     editArms.forEach((arm, i) => {
-      teachers[letters[i]] = arm.teacher_id;
+      teachers[letters[i]] = arm.teacher_id ?? null;
     });
     setEditArmTeachers(teachers);
-  }, [editBaseName, editArms, showEdit]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editArms.length, editBaseName, showEdit]);
 
   const teachers =
     teachersData?.data?.map((t) => ({ id: t.id, full_name: t.full_name })) || [];
@@ -94,7 +99,11 @@ export default function ClassesPage() {
       setFormData({});
       refetch();
     } catch (error: any) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -136,7 +145,11 @@ export default function ClassesPage() {
       setEditBaseName(null);
       refetch();
     } catch (error: any) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -152,7 +165,11 @@ export default function ClassesPage() {
       setSelectedClass(null);
       refetch();
     } catch (error: any) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -196,7 +213,7 @@ export default function ClassesPage() {
         searchPlaceholder="Search classes..."
       />
 
-      {/* CREATE — unchanged, uses ClassForm */}
+      {/* CREATE — uses ClassForm */}
       <CreateModal
         open={showCreate}
         onOpenChange={setShowCreate}
