@@ -7,9 +7,13 @@ import { daysFor, type BillingCycle } from '@/lib/paystack/plans';
  * Confirms the outcome of a Paystack transaction for the returning user AND
  * activates the subscription if the webhook hasn't already done so.
  *
- * The webhook remains the authoritative path, but this endpoint is a fallback
- * so a slow/unreachable webhook can never leave a paid school stuck on pending.
- * Idempotent: if the payment is already marked successful, no writes happen.
+ * Rules:
+ *   - Paystack says 'success'  → payment becomes 'success', school activates.
+ *   - Paystack says 'failed' or 'reversed' → payment becomes 'failed'.
+ *   - Any other state ('abandoned', 'ongoing', 'pending', unknown) → do
+ *     nothing. The payment stays pending; it may resolve later via webhook or
+ *     a subsequent verify call. We never downgrade a payment on ambiguity.
+ *   - Idempotent — re-running on a success is a no-op.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -22,10 +26,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Missing reference' }, { status: 400 });
     }
 
-    // Confirm ownership
     const { data: payment } = await supabase
       .from('subscription_payments')
-      .select('id, status, plan, billing_cycle, amount')
+      .select('id, status, plan, billing_cycle')
       .eq('reference', reference)
       .eq('school_id', schoolId)
       .maybeSingle();
@@ -35,68 +38,93 @@ export async function GET(request: NextRequest) {
     }
 
     const result = await verifyTransaction(reference);
-    const paidOk = result.status && result.data?.status === 'success';
+    const paystackStatus = result.data?.status ?? 'unknown';
 
-    if (!paidOk) {
-      return NextResponse.json({
-        success: false,
-        status: result.data?.status ?? 'unknown',
-        reference,
-      });
-    }
+    // Terminal failure states — safe to mark failed.
+    const terminalFailures = new Set(['failed', 'reversed']);
+    // Terminal success state.
+    const isSuccess = result.status && paystackStatus === 'success';
 
-    // Idempotency: only activate once.
-    if (payment.status === 'success') {
+    if (isSuccess) {
+      // Ensure the payment row is flipped to success FIRST.
+      if (payment.status !== 'success') {
+        const { error: paymentUpdateError } = await supabase
+          .from('subscription_payments')
+          .update({
+            status: 'success',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', payment.id);
+
+        if (paymentUpdateError) {
+          console.error('[verify] payment update failed:', paymentUpdateError);
+          throw paymentUpdateError;
+        }
+      }
+
+      // Then activate the school — only if it isn't already active on this
+      // plan, so we don't push the expiry forward on every page load.
+      const { data: school } = await supabase
+        .from('schools')
+        .select('subscription_status, subscription_tier')
+        .eq('id', schoolId)
+        .maybeSingle();
+
+      const needsActivation =
+        !school ||
+        school.subscription_status !== 'active' ||
+        school.subscription_tier !== payment.plan;
+
+      if (needsActivation) {
+        const cycle: BillingCycle =
+          payment.billing_cycle === 'session' ? 'session' : 'term';
+        const days = daysFor(cycle);
+        const expiresAt = new Date(
+          Date.now() + days * 24 * 60 * 60 * 1000
+        ).toISOString();
+
+        const customer = result.data?.customer;
+
+        const { error: schoolUpdateError } = await supabase
+          .from('schools')
+          .update({
+            subscription_status: 'active',
+            subscription_tier: payment.plan,
+            subscription_expires_at: expiresAt,
+            ...(customer?.customer_code
+              ? { paystack_customer_code: customer.customer_code }
+              : {}),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', schoolId);
+
+        if (schoolUpdateError) throw schoolUpdateError;
+      }
+
       return NextResponse.json({
         success: true,
         status: 'success',
         reference,
-        already_activated: true,
       });
     }
 
-    // Fallback activation: mark payment success, extend the school.
-    const cycle: BillingCycle =
-      payment.billing_cycle === 'session' ? 'session' : 'term';
-    const days = daysFor(cycle);
+    // Terminal failure — mark the payment failed, but only if it wasn't
+    // already marked success (never downgrade).
+    if (terminalFailures.has(paystackStatus) && payment.status !== 'success') {
+      await supabase
+        .from('subscription_payments')
+        .update({
+          status: 'failed',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', payment.id);
+    }
 
-    const { error: updatePaymentError } = await supabase
-      .from('subscription_payments')
-      .update({ status: 'success', updated_at: new Date().toISOString() })
-      .eq('id', payment.id);
-
-    if (updatePaymentError) throw updatePaymentError;
-
-    const customer = result.data?.customer;
-    const expiresAt = new Date(
-      Date.now() + days * 24 * 60 * 60 * 1000
-    ).toISOString();
-
-    const { error: updateSchoolError } = await supabase
-      .from('schools')
-      .update({
-        subscription_status: 'active',
-        subscription_tier: payment.plan,
-        subscription_expires_at: expiresAt,
-        ...(customer?.customer_code
-          ? { paystack_customer_code: customer.customer_code }
-          : {}),
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', schoolId);
-
-    if (updateSchoolError) throw updateSchoolError;
-
-    console.log(
-      `[verify] Fallback-activated subscription for school ${schoolId}, ref ${reference}, cycle=${cycle}`
-    );
-
+    // Any other state (abandoned, ongoing, pending, unknown) — leave as is.
     return NextResponse.json({
-      success: true,
-      status: 'success',
+      success: false,
+      status: paystackStatus,
       reference,
-      activated: true,
-      expires_at: expiresAt,
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unexpected error';

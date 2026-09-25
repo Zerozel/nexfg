@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { verifyWebhookSignature } from '@/lib/paystack/webhook';
-import { SUBSCRIPTION_PLANS, daysFor, type BillingCycle } from '@/lib/paystack/plans';
+import {
+  SUBSCRIPTION_PLANS,
+  daysFor,
+  type BillingCycle,
+} from '@/lib/paystack/plans';
 import type { PaystackWebhookEvent } from '@/lib/paystack/types';
 
 export async function POST(request: NextRequest) {
@@ -22,7 +26,9 @@ export async function POST(request: NextRequest) {
     );
 
     const { event: eventType, data } = event;
-    console.log(`[webhook] received ${eventType} ref=${data.reference}`);
+    console.log(
+      `[webhook] ${eventType} ref=${data.reference} school=${data.metadata?.school_id}`
+    );
 
     if (eventType === 'charge.success') {
       const { reference, metadata, customer, subscription } = data;
@@ -32,49 +38,85 @@ export async function POST(request: NextRequest) {
         metadata?.billing_cycle === 'session' ? 'session' : 'term';
 
       if (schoolId && plan && SUBSCRIPTION_PLANS[plan]) {
+        // Load the payment row first — if it isn't there, we can't attribute
+        // the charge and we log loudly rather than silently activating.
         const { data: payment } = await supabase
           .from('subscription_payments')
-          .select('status')
+          .select('id, status, school_id')
           .eq('reference', reference)
           .maybeSingle();
 
-        if (!payment || payment.status !== 'success') {
-          await supabase
-            .from('subscription_payments')
-            .update({
-              status: 'success',
-              billing_cycle: cycle,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('reference', reference);
-
-          const days = daysFor(cycle);
-          const expiresAt = new Date(
-            Date.now() + days * 24 * 60 * 60 * 1000
-          ).toISOString();
-
-          await supabase
-            .from('schools')
-            .update({
-              subscription_status: 'active',
-              subscription_tier: plan,
-              subscription_expires_at: expiresAt,
-              ...(customer?.customer_code
-                ? { paystack_customer_code: customer.customer_code }
-                : {}),
-              ...(subscription?.subscription_code
-                ? { paystack_subscription_code: subscription.subscription_code }
-                : {}),
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', schoolId);
-
-          console.log(
-            `[webhook] activated ${plan} (${cycle}) for school ${schoolId} until ${expiresAt}`
+        if (!payment) {
+          console.warn(
+            `[webhook] no payment row for ref=${reference} — school not activated`
           );
-        } else {
-          console.log(`[webhook] ref ${reference} already success, skipping`);
+          return NextResponse.json(
+            { received: true, warning: 'no payment row' },
+            { status: 200 }
+          );
         }
+
+        // Only proceed if the payment belongs to the claimed school.
+        if (payment.school_id !== schoolId) {
+          console.warn(
+            `[webhook] payment/school mismatch ref=${reference} claimed=${schoolId} actual=${payment.school_id}`
+          );
+          return NextResponse.json({ received: true }, { status: 200 });
+        }
+
+        // Idempotency: if already success, do nothing.
+        if (payment.status === 'success') {
+          console.log(`[webhook] ref=${reference} already success`);
+          return NextResponse.json({ received: true }, { status: 200 });
+        }
+
+        // 1. Update the payment row FIRST.
+        const { error: paymentUpdateError } = await supabase
+          .from('subscription_payments')
+          .update({
+            status: 'success',
+            billing_cycle: cycle,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', payment.id);
+
+        if (paymentUpdateError) {
+          console.error('[webhook] payment update failed:', paymentUpdateError);
+          throw paymentUpdateError;
+        }
+
+        // 2. Now activate the school.
+        const days = daysFor(cycle);
+        const expiresAt = new Date(
+          Date.now() + days * 24 * 60 * 60 * 1000
+        ).toISOString();
+
+        const { error: schoolUpdateError } = await supabase
+          .from('schools')
+          .update({
+            subscription_status: 'active',
+            subscription_tier: plan,
+            subscription_expires_at: expiresAt,
+            ...(customer?.customer_code
+              ? { paystack_customer_code: customer.customer_code }
+              : {}),
+            ...(subscription?.subscription_code
+              ? {
+                  paystack_subscription_code: subscription.subscription_code,
+                }
+              : {}),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', schoolId);
+
+        if (schoolUpdateError) {
+          console.error('[webhook] school update failed:', schoolUpdateError);
+          throw schoolUpdateError;
+        }
+
+        console.log(
+          `[webhook] activated ${plan} (${cycle}) for school ${schoolId} until ${expiresAt}`
+        );
       } else {
         console.warn(
           `[webhook] charge.success missing school/plan ref=${reference}`
@@ -84,10 +126,24 @@ export async function POST(request: NextRequest) {
 
     if (eventType === 'charge.failed') {
       const { reference } = data;
-      await supabase
+      // Only mark failed if the payment isn't already success — a late
+      // charge.failed event must never downgrade a confirmed payment.
+      const { data: existing } = await supabase
         .from('subscription_payments')
-        .update({ status: 'failed', updated_at: new Date().toISOString() })
-        .eq('reference', reference);
+        .select('status')
+        .eq('reference', reference)
+        .maybeSingle();
+
+      if (existing && existing.status !== 'success') {
+        await supabase
+          .from('subscription_payments')
+          .update({ status: 'failed', updated_at: new Date().toISOString() })
+          .eq('reference', reference);
+      } else if (!existing) {
+        console.warn(
+          `[webhook] charge.failed for unknown ref=${reference} — no row to update`
+        );
+      }
     }
 
     if (
