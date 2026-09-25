@@ -1,6 +1,6 @@
 // Canonical subscription enums — the single source of truth used across the
-// app (billing UI, super-admin management, API validation). `free` and `trial`
-// are lifecycle tiers; `starter`/`growth`/`premium` are the purchasable plans.
+// app (billing UI, super-admin management, API validation).
+
 export type SubscriptionTier =
   | 'free'
   | 'trial'
@@ -14,9 +14,14 @@ export type SubscriptionStatusValue =
   | 'expired'
   | 'inactive';
 
+export type BillingCycle = 'term' | 'session';
+
 export interface SubscriptionPlan {
   name: string;
+  /** Price per term (NGN). */
   price: number;
+  /** Price per academic session (NGN). Optional — falls back to 3× price. */
+  session_price?: number;
   period: string;
   students: string;
   staff: string;
@@ -28,6 +33,10 @@ export interface SubscriptionStatus {
   status: SubscriptionStatusValue;
   tier: SubscriptionTier;
   expires_at: string | null;
+  /** 'term' or 'session' — the cycle of the most recent successful payment. */
+  billing_cycle: BillingCycle | null;
+  /** Number of days until expiry (negative if already expired). */
+  days_until_expiry: number | null;
   usage: { students: number; staff: number };
   limits: { students: number; staff: number };
 }
@@ -39,5 +48,6 @@ export interface PaymentHistoryEntry {
   status: string;
   reference: string;
   plan: string;
+  billing_cycle: BillingCycle | null;
   created_at: string;
 }

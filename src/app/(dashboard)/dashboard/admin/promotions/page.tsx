@@ -47,13 +47,20 @@ interface OverrideState {
   to_class_id: string | null;
 }
 
+// Store the term id alongside the preview, so confirm doesn't depend on a
+// mutable state variable that could be reset between preview and confirm.
+interface PreviewWithTerm {
+  termId: string;
+  data: PromotionPreview;
+}
+
 export default function PromotionsPage() {
   const { toast } = useToast();
   const { previewPromotions, confirmPromotions } = usePromotionMutations();
 
   const [terms, setTerms] = useState<Term[]>([]);
   const [selectedTermId, setSelectedTermId] = useState<string>("");
-  const [preview, setPreview] = useState<PromotionPreview | null>(null);
+  const [preview, setPreview] = useState<PreviewWithTerm | null>(null);
   const [overrides, setOverrides] = useState<Record<string, OverrideState>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
@@ -70,6 +77,8 @@ export default function PromotionsPage() {
 
   // Load terms
   useEffect(() => {
+    let cancelled = false;
+
     async function load() {
       const {
         data: { user },
@@ -87,6 +96,8 @@ export default function PromotionsPage() {
         .order("academic_year_id", { ascending: false })
         .order("order", { ascending: true });
 
+      if (cancelled) return;
+
       const mapped: Term[] = (data || []).map((t: any) => ({
         id: t.id,
         name: t.name,
@@ -98,26 +109,46 @@ export default function PromotionsPage() {
       }));
       setTerms(mapped);
 
+      // Pick the most recent academic year by name (not by UUID), then the
+      // highest-order term within it.
       if (mapped.length > 0) {
-        const latestYear = mapped[0].academic_year_id;
+        const yearNames = Array.from(
+          new Set(mapped.map((t) => t.academic_year_name))
+        ).sort((a, b) => b.localeCompare(a));
+        const latestYearName = yearNames[0];
+
         const lastTerm = mapped
-          .filter((t) => t.academic_year_id === latestYear)
+          .filter((t) => t.academic_year_name === latestYearName)
           .sort((a, b) => b.order - a.order)[0];
-        setSelectedTermId(lastTerm.id);
+
+        if (lastTerm) {
+          setSelectedTermId(lastTerm.id);
+        }
       }
     }
     load();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const handlePreview = async () => {
-    if (!selectedTermId) return;
+    if (!selectedTermId) {
+      toast({
+        title: "No term selected",
+        description: "Please select a term before previewing.",
+        variant: "destructive",
+      });
+      return;
+    }
     setIsLoading(true);
     setPreview(null);
     setOverrides({});
     setResult(null);
     try {
       const data = await previewPromotions(selectedTermId);
-      setPreview(data);
+      setPreview({ termId: selectedTermId, data });
     } catch (err: any) {
       toast({
         title: "Error",
@@ -129,13 +160,11 @@ export default function PromotionsPage() {
     }
   };
 
-  // Every class the school has — so the override dropdown always has options.
   const classOptions = useMemo(() => {
     if (!preview) return [];
-    return preview.all_classes || [];
+    return preview.data.all_classes || [];
   }, [preview]);
 
-  // Map id → name for displaying target class labels
   const classNameById = useMemo(() => {
     const map = new Map<string, string>();
     for (const c of classOptions) map.set(c.id, c.name);
@@ -162,7 +191,6 @@ export default function PromotionsPage() {
     }));
   };
 
-  // Bulk: apply an outcome to every student in a class group
   const bulkOverrideGroup = (
     group: PromotionPreview["classes"][number],
     outcome: PromotionOutcome
@@ -182,7 +210,6 @@ export default function PromotionsPage() {
     });
   };
 
-  // Bulk: set the same target class for every promoted/repeated student in a group
   const bulkSetTarget = (
     group: PromotionPreview["classes"][number],
     targetClassId: string
@@ -204,30 +231,58 @@ export default function PromotionsPage() {
   };
 
   const handleConfirm = async () => {
-    if (!preview) return;
+    if (!preview) {
+      toast({
+        title: "No preview loaded",
+        description: "Please preview promotions before confirming.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Read the term id from the stored preview, not from selectedTermId,
+    // so a state change between preview and confirm can't break the call.
+    const termId = preview.termId;
+    if (!termId) {
+      toast({
+        title: "Missing term",
+        description: "Cannot confirm without a source term. Preview again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const rows = preview.data.classes.flatMap((group) =>
+      group.students.map((s) => {
+        const override = overrides[s.student_id];
+        const outcome = override?.outcome ?? s.recommended_outcome;
+        let toClassId = override?.to_class_id ?? s.recommended_to_class_id;
+
+        if (outcome === "repeated" && !toClassId) {
+          toClassId = group.from_class_id;
+        }
+
+        return {
+          student_id: s.student_id,
+          outcome,
+          to_class_id: toClassId,
+          average: s.average,
+        };
+      })
+    );
+
+    if (rows.length === 0) {
+      toast({
+        title: "No students to promote",
+        description: "The preview contains no students.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsConfirming(true);
     try {
-      const rows = preview.classes.flatMap((group) =>
-        group.students.map((s) => {
-          const override = overrides[s.student_id];
-          const outcome = override?.outcome ?? s.recommended_outcome;
-          let toClassId = override?.to_class_id ?? s.recommended_to_class_id;
-
-          // Defensive: if repeated and no target set, default to source class
-          if (outcome === "repeated" && !toClassId) {
-            toClassId = group.from_class_id;
-          }
-
-          return {
-            student_id: s.student_id,
-            outcome,
-            to_class_id: toClassId,
-            average: s.average,
-          };
-        })
-      );
-
-      const res = await confirmPromotions(selectedTermId, rows);
+      const res = await confirmPromotions(termId, rows);
       setResult(res);
       setPreview(null);
       setOverrides({});
@@ -336,20 +391,20 @@ export default function PromotionsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <ArrowRight className="h-5 w-5" />
-                {preview.from_year?.name} {preview.from_term.name} →{" "}
-                {preview.to_year?.name || "Next year"} First Term
+                {preview.data.from_year?.name} {preview.data.from_term.name} →{" "}
+                {preview.data.to_year?.name || "Next year"} First Term
               </CardTitle>
               <CardDescription>
                 Promotion threshold:{" "}
-                <strong>{preview.promotion_threshold}</strong>. Students at or
-                above are recommended to promote; below are recommended to
-                repeat. Use the bulk buttons to apply an outcome to a whole
+                <strong>{preview.data.promotion_threshold}</strong>. Students
+                at or above are recommended to promote; below are recommended
+                to repeat. Use the bulk buttons to apply an outcome to a whole
                 class at once, or override individual students below.
               </CardDescription>
             </CardHeader>
           </Card>
 
-          {preview.classes.map((group) => (
+          {preview.data.classes.map((group) => (
             <Card key={group.from_class_id}>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">

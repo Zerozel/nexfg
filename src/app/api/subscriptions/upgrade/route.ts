@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSchoolAdmin } from '@/lib/supabase/school-admin-auth';
 import { initializeTransaction } from '@/lib/paystack/client';
-import { SUBSCRIPTION_PLANS } from '@/lib/paystack/plans';
+import { SUBSCRIPTION_PLANS, priceFor, type BillingCycle } from '@/lib/paystack/plans';
 
 export async function POST(request: NextRequest) {
   try {
@@ -9,26 +9,46 @@ export async function POST(request: NextRequest) {
     if (!guard.authorized) return guard.response;
     const { supabase, user, schoolId } = guard;
 
-    const { plan } = await request.json();
+    const body = await request.json();
+    const { plan, billing_cycle } = body as {
+      plan: string;
+      billing_cycle?: BillingCycle;
+    };
 
     const planConfig = SUBSCRIPTION_PLANS[plan];
     if (!planConfig) {
       return NextResponse.json({ error: 'Invalid plan' }, { status: 400 });
     }
 
+    const cycle: BillingCycle =
+      billing_cycle === 'session' ? 'session' : 'term';
+
+    const amount = priceFor(plan, cycle);
+
     const reference = `nexa-upgrade-${Date.now()}-${Math.random()
       .toString(36)
       .substring(2, 8)}`;
 
+    // Prefer the env var; fall back to the request origin so a missing
+    // NEXT_PUBLIC_APP_URL can never send users to Paystack's default page.
+    const appUrl =
+      process.env.NEXT_PUBLIC_APP_URL ||
+      `${request.nextUrl.protocol}//${request.nextUrl.host}`;
+
     // An upgrade is a fresh Paystack checkout. The tier only actually changes
-    // once payment is confirmed via the charge.success webhook — never
-    // optimistically, so an abandoned checkout can't grant a paid tier for free.
+    // once payment is confirmed via the charge.success webhook (or the verify
+    // fallback) — never optimistically.
     const result = await initializeTransaction({
       email: user.email!,
-      amount: planConfig.price,
+      amount,
       reference,
-      metadata: { school_id: schoolId, plan, upgrade: true },
-      callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/payment/success?reference=${reference}`,
+      metadata: {
+        school_id: schoolId,
+        plan,
+        billing_cycle: cycle,
+        upgrade: true,
+      },
+      callback_url: `${appUrl}/payment/success?reference=${reference}`,
     });
 
     if (!result.status) {
@@ -40,9 +60,10 @@ export async function POST(request: NextRequest) {
       .insert({
         school_id: schoolId,
         reference,
-        amount: planConfig.price,
+        amount,
         currency: 'NGN',
         plan,
+        billing_cycle: cycle,
         status: 'pending',
       });
 

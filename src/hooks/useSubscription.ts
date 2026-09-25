@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { SubscriptionStatus, PaymentHistoryEntry } from '@/types/subscription';
 
+type BillingCycle = 'term' | 'session';
+
 export function useSubscription() {
   const [status, setStatus] = useState<SubscriptionStatus | null>(null);
   const [history, setHistory] = useState<PaymentHistoryEntry[]>([]);
@@ -31,21 +33,20 @@ export function useSubscription() {
   }, []);
 
   useEffect(() => {
-    // Intentional mount-time load of the current subscription + payment history.
-    // fetchStatus flips isLoading synchronously; that's the desired initial
-    // spinner behaviour, so the set-state-in-effect guard is opted out here.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchStatus();
   }, [fetchStatus]);
 
-
-  // Kicks off Paystack checkout and hands back the hosted authorization URL. The
-  // caller is responsible for redirecting the browser there (see redirectTo...).
-  const initializePayment = async (plan: string) => {
+  // Kicks off Paystack checkout and hands back the hosted authorization URL.
+  // The caller is responsible for redirecting the browser there.
+  const initializePayment = async (
+    plan: string,
+    billingCycle: BillingCycle = 'term'
+  ) => {
     const res = await fetch('/api/subscriptions/initialize', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ plan }),
+      body: JSON.stringify({ plan, billing_cycle: billingCycle }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
@@ -60,11 +61,14 @@ export function useSubscription() {
     return data;
   };
 
-  const upgradePlan = async (plan: string) => {
+  const upgradePlan = async (
+    plan: string,
+    billingCycle: BillingCycle = 'term'
+  ) => {
     const res = await fetch('/api/subscriptions/upgrade', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ plan }),
+      body: JSON.stringify({ plan, billing_cycle: billingCycle }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
@@ -74,15 +78,21 @@ export function useSubscription() {
     return data as { authorization_url: string; reference: string };
   };
 
-  // Convenience helpers: start checkout for a (new or upgraded) plan and send the
-  // browser straight to Paystack's hosted payment page.
-  const subscribeAndRedirect = async (plan: string) => {
-    const { authorization_url } = await initializePayment(plan);
+  // Convenience helpers: start checkout for a (new or upgraded) plan and send
+  // the browser straight to Paystack's hosted payment page.
+  const subscribeAndRedirect = async (
+    plan: string,
+    billingCycle: BillingCycle = 'term'
+  ) => {
+    const { authorization_url } = await initializePayment(plan, billingCycle);
     if (authorization_url) window.location.href = authorization_url;
   };
 
-  const upgradeAndRedirect = async (plan: string) => {
-    const { authorization_url } = await upgradePlan(plan);
+  const upgradeAndRedirect = async (
+    plan: string,
+    billingCycle: BillingCycle = 'term'
+  ) => {
+    const { authorization_url } = await upgradePlan(plan, billingCycle);
     if (authorization_url) window.location.href = authorization_url;
   };
 
@@ -99,4 +109,3 @@ export function useSubscription() {
     upgradeAndRedirect,
   };
 }
-

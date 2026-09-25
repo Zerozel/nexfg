@@ -6,8 +6,10 @@ import { SubscriptionStatusView } from '@/components/subscription/SubscriptionSt
 import { PricingCard } from '@/components/subscription/PricingCard';
 import { SUBSCRIPTION_PLANS } from '@/lib/paystack/plans';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { Loader2 } from 'lucide-react';
+import type { BillingCycle } from '@/types/subscription';
 
 export default function BillingPage() {
   const {
@@ -21,9 +23,8 @@ export default function BillingPage() {
   } = useSubscription();
   const { toast } = useToast();
   const [actionLoading, setActionLoading] = useState(false);
+  const [billingCycle, setBillingCycle] = useState<BillingCycle>('term');
 
-  // A school on a purchased plan that is currently active/expired uses the
-  // "upgrade" flow; anyone still on free/trial uses the initial subscribe flow.
   const hasPaidPlan =
     !!status && status.tier !== 'free' && status.tier !== 'trial';
 
@@ -31,14 +32,13 @@ export default function BillingPage() {
     setActionLoading(true);
     try {
       if (hasPaidPlan) {
-        await upgradeAndRedirect(planKey);
+        await upgradeAndRedirect(planKey, billingCycle);
       } else {
-        await subscribeAndRedirect(planKey);
+        await subscribeAndRedirect(planKey, billingCycle);
       }
-      // On success the browser is redirected to Paystack, so we don't reset
-      // loading here — it stays disabled until navigation occurs.
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Something went wrong';
+      const message =
+        err instanceof Error ? err.message : 'Something went wrong';
       toast({ title: 'Error', description: message, variant: 'destructive' });
       setActionLoading(false);
     }
@@ -50,14 +50,14 @@ export default function BillingPage() {
       await cancelSubscription();
       toast({ title: 'Subscription cancelled' });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Something went wrong';
+      const message =
+        err instanceof Error ? err.message : 'Something went wrong';
       toast({ title: 'Error', description: message, variant: 'destructive' });
     } finally {
       setActionLoading(false);
     }
   };
 
-  // "Upgrade" from the status card just scrolls the user to the plan grid.
   const scrollToPlans = () => {
     document
       .getElementById('billing-plans')
@@ -93,16 +93,42 @@ export default function BillingPage() {
       )}
 
       <div id="billing-plans" className="space-y-4 scroll-mt-6">
-        <h2 className="text-lg font-semibold">
-          {hasPaidPlan ? 'Change Plan' : 'Choose a Plan'}
-        </h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">
+            {hasPaidPlan ? 'Change Plan' : 'Choose a Plan'}
+          </h2>
+          <div className="inline-flex rounded-lg border p-1 bg-gray-50">
+            <button
+              onClick={() => setBillingCycle('term')}
+              className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                billingCycle === 'term'
+                  ? 'bg-white shadow-sm text-gray-900'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Per Term
+            </button>
+            <button
+              onClick={() => setBillingCycle('session')}
+              className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                billingCycle === 'session'
+                  ? 'bg-white shadow-sm text-gray-900'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Per Session
+            </button>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {Object.entries(SUBSCRIPTION_PLANS).map(([key, plan]) => (
             <PricingCard
               key={key}
               name={plan.name}
               price={plan.price}
-              period={plan.period}
+              sessionPrice={plan.session_price}
+              billingCycle={billingCycle}
               students={plan.students}
               staff={plan.staff}
               features={plan.features}
@@ -129,7 +155,17 @@ export default function BillingPage() {
                   className="flex items-center justify-between py-3 text-sm"
                 >
                   <div>
-                    <p className="font-medium capitalize">{entry.plan}</p>
+                    <p className="font-medium capitalize">
+                      {entry.plan}
+                      {entry.billing_cycle && (
+                        <span className="text-gray-400 font-normal ml-2">
+                          (per{' '}
+                          {entry.billing_cycle === 'session'
+                            ? 'session'
+                            : 'term'})
+                        </span>
+                      )}
+                    </p>
                     <p className="text-muted-foreground">
                       {new Date(entry.created_at).toLocaleDateString()} ·{' '}
                       {entry.reference}
@@ -144,8 +180,8 @@ export default function BillingPage() {
                         entry.status === 'success'
                           ? 'text-green-600'
                           : entry.status === 'failed'
-                            ? 'text-red-600'
-                            : 'text-muted-foreground'
+                          ? 'text-red-600'
+                          : 'text-muted-foreground'
                       }
                     >
                       {entry.status}

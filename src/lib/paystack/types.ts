@@ -27,6 +27,8 @@ export interface PaystackVerifyResponse {
 export interface PaystackEventMetadata {
   school_id?: string;
   plan?: string;
+  /** 'term' | 'session' */
+  billing_cycle?: string;
   upgrade?: boolean;
 }
 
@@ -39,16 +41,11 @@ export interface PaystackWebhookEvent {
     status: string;
     customer: {
       email: string;
-      // Paystack's stable identifier for the customer. Persisted so lifecycle
-      // events (disable/expire), which don't carry our metadata, can be matched
-      // back to a school.
       customer_code?: string;
     };
     metadata?: PaystackEventMetadata;
     plan?: { id: number; name: string; plan_code?: string };
-    // Present on subscription.* events.
     subscription_code?: string;
-    // Present on charge.success when the transaction created a subscription.
     subscription?: { subscription_code: string; status: string };
   };
 }
