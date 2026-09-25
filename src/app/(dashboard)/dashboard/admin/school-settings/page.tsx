@@ -1,32 +1,66 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { useSchoolSettings } from '@/hooks/useSchoolSettings';
 import { SchoolProfileForm } from '@/components/admin/school-settings/SchoolProfileForm';
 import { BrandingForm } from '@/components/admin/school-settings/BrandingForm';
 import { WebsiteContentForm } from '@/components/admin/school-settings/WebsiteContentForm';
 import { SocialLinksForm } from '@/components/admin/school-settings/SocialLinksForm';
 import { SignatureUpload } from '@/components/admin/school-settings/SignatureUpload';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Copy, ExternalLink, Check } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function SchoolSettingsPage() {
-  const { data, isLoading: isFetching, updateSettings, uploadImage, refetch } = useSchoolSettings();
+  const {
+    data,
+    isLoading: isFetching,
+    updateSettings,
+    uploadImage,
+    refetch,
+  } = useSchoolSettings();
   const [isSaving, setIsSaving] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   // Profile state
-  const [profile, setProfile] = useState({ name: '', email: '', phone: '', address: '', motto: '' });
+  const [profile, setProfile] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    address: '',
+    motto: '',
+  });
 
   // Branding state
-  const [branding, setBranding] = useState({ primary_color: '#2563eb', font: 'Inter', logo_url: null as string | null });
+  const [branding, setBranding] = useState({
+    primary_color: '#2563eb',
+    font: 'Inter',
+    logo_url: null as string | null,
+  });
 
   // Content state
-  const [content, setContent] = useState({ hero_title: '', hero_subtitle: '', about_text: '', gallery: [] as { url: string; type: string }[] });
+  const [content, setContent] = useState({
+    hero_title: '',
+    hero_subtitle: '',
+    about_text: '',
+    gallery: [] as { url: string; type: string }[],
+  });
 
   // Social state
-  const [social, setSocial] = useState({ facebook: '', twitter: '', instagram: '' });
+  const [social, setSocial] = useState({
+    facebook: '',
+    twitter: '',
+    instagram: '',
+  });
 
   // Sync state from fetched data
   useEffect(() => {
@@ -69,24 +103,22 @@ export default function SchoolSettingsPage() {
     }
   };
 
-  const handleSaveProfile = () => {
-    return handleSave({
+  const handleSaveProfile = () =>
+    handleSave({
       name: profile.name,
       email: profile.email || null,
       phone: profile.phone || null,
       address: profile.address || null,
       motto: profile.motto || null,
     });
-  };
 
-  const handleSaveBranding = () => {
-    return handleSave({
+  const handleSaveBranding = () =>
+    handleSave({
       website_theme: {
         primary_color: branding.primary_color,
         font: branding.font,
       },
     });
-  };
 
   const handleUploadLogo = async (file: File): Promise<string> => {
     try {
@@ -105,8 +137,8 @@ export default function SchoolSettingsPage() {
     handleSave({ logo_url: null });
   };
 
-  const handleSaveContent = () => {
-    return handleSave({
+  const handleSaveContent = () =>
+    handleSave({
       website_content: {
         hero_title: content.hero_title || null,
         hero_subtitle: content.hero_subtitle || null,
@@ -114,17 +146,15 @@ export default function SchoolSettingsPage() {
         gallery: content.gallery,
       },
     });
-  };
 
-  const handleSaveSocial = () => {
-    return handleSave({
+  const handleSaveSocial = () =>
+    handleSave({
       social_links: {
         facebook: social.facebook || null,
         twitter: social.twitter || null,
         instagram: social.instagram || null,
       },
     });
-  };
 
   const handleUploadSignature = async (file: File): Promise<string> => {
     try {
@@ -140,6 +170,21 @@ export default function SchoolSettingsPage() {
 
   const handleRemoveSignature = () => {
     handleSave({ principal_signature_url: null });
+  };
+
+  const publicUrl = data?.slug
+    ? `https://${data.slug}.nexaforges.me`
+    : null;
+
+  const handleCopy = async () => {
+    if (!publicUrl) return;
+    try {
+      await navigator.clipboard.writeText(publicUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error('Failed to copy link');
+    }
   };
 
   if (isFetching) {
@@ -159,25 +204,99 @@ export default function SchoolSettingsPage() {
         </p>
       </div>
 
+      {/* School URL card — shown prominently at the top for onboarding */}
+      {publicUrl && (
+        <Card className="border-blue-200 bg-blue-50/50">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center justify-between">
+              <span>Your School Website</span>
+              {data?.website_enabled ? (
+                <Badge className="bg-green-100 text-green-700 hover:bg-green-100">
+                  Live
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="text-gray-600">
+                  Not Published
+                </Badge>
+              )}
+            </CardTitle>
+            <CardDescription>
+              {data?.website_enabled
+                ? 'Your public website is live and shareable.'
+                : 'Enable website content below to publish your public site.'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              <code className="flex-1 rounded-md border bg-white px-3 py-2 text-sm font-mono truncate">
+                {publicUrl}
+              </code>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCopy}
+                  className="flex-1 sm:flex-none"
+                >
+                  {copied ? (
+                    <>
+                      <Check className="mr-2 h-4 w-4" /> Copied
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="mr-2 h-4 w-4" /> Copy
+                    </>
+                  )}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => window.open(publicUrl, '_blank')}
+                  className="flex-1 sm:flex-none"
+                >
+                  <ExternalLink className="mr-2 h-4 w-4" /> Visit
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Tabs defaultValue="profile">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="profile">Profile</TabsTrigger>
-          <TabsTrigger value="branding">Branding</TabsTrigger>
-          <TabsTrigger value="content">Content</TabsTrigger>
-          <TabsTrigger value="social">Social</TabsTrigger>
-          <TabsTrigger value="signature">Signature</TabsTrigger>
+        {/* Responsive tabs: 2 columns on mobile, 5 on desktop */}
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-5 h-auto">
+          <TabsTrigger value="profile" className="text-xs sm:text-sm">
+            Profile
+          </TabsTrigger>
+          <TabsTrigger value="branding" className="text-xs sm:text-sm">
+            Branding
+          </TabsTrigger>
+          <TabsTrigger value="documents" className="text-xs sm:text-sm">
+            Documents
+          </TabsTrigger>
+          <TabsTrigger value="content" className="text-xs sm:text-sm">
+            Website
+          </TabsTrigger>
+          <TabsTrigger value="social" className="text-xs sm:text-sm">
+            Social
+          </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="profile">
+        <TabsContent value="profile" className="mt-6">
           <Card>
             <CardHeader>
               <CardTitle>School Profile</CardTitle>
-              <CardDescription>Update your school's contact information and motto.</CardDescription>
+              <CardDescription>
+                Update your school&apos;s contact information and motto. This
+                appears on report cards and your public website.
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <SchoolProfileForm
                 data={profile}
-                onChange={(field: string, value: string) => setProfile((prev) => ({ ...prev, [field]: value }))}
+                onChange={(field: string, value: string) =>
+                  setProfile((prev) => ({ ...prev, [field]: value }))
+                }
                 onSave={handleSaveProfile}
                 isLoading={isSaving}
               />
@@ -185,16 +304,21 @@ export default function SchoolSettingsPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="branding">
+        <TabsContent value="branding" className="mt-6">
           <Card>
             <CardHeader>
               <CardTitle>Branding</CardTitle>
-              <CardDescription>Customize your school's colors, font, and logo.</CardDescription>
+              <CardDescription>
+                Customize your school&apos;s colors, font, and logo. Used on
+                report cards, the dashboard, and your public website.
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <BrandingForm
                 data={branding}
-                onChange={(field: string, value: string) => setBranding((prev) => ({ ...prev, [field]: value }))}
+                onChange={(field: string, value: string) =>
+                  setBranding((prev) => ({ ...prev, [field]: value }))
+                }
                 onSave={handleSaveBranding}
                 onUploadLogo={handleUploadLogo}
                 onRemoveLogo={handleRemoveLogo}
@@ -204,17 +328,51 @@ export default function SchoolSettingsPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="content">
+        <TabsContent value="documents" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Documents</CardTitle>
+              <CardDescription>
+                Upload official signatures and seals used on printed report
+                cards, transcripts, and letters.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-sm font-semibold mb-2">
+                    Principal&apos;s Signature
+                  </h3>
+                  <SignatureUpload
+                    signatureUrl={data?.principal_signature_url || null}
+                    onUpload={handleUploadSignature}
+                    onRemove={handleRemoveSignature}
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="content" className="mt-6">
           <Card>
             <CardHeader>
               <CardTitle>Website Content</CardTitle>
-              <CardDescription>Edit your school website's hero section, about text, and gallery.</CardDescription>
+              <CardDescription>
+                Edit the hero section, about text, and video gallery shown on
+                your public website at{' '}
+                {data?.slug ? `${data.slug}.nexaforges.me` : 'your subdomain'}.
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <WebsiteContentForm
                 data={content}
-                onChange={(field: string, value: string) => setContent((prev) => ({ ...prev, [field]: value }))}
-                onGalleryChange={(gallery: { url: string; type: string }[]) => setContent((prev) => ({ ...prev, gallery }))}
+                onChange={(field: string, value: string) =>
+                  setContent((prev) => ({ ...prev, [field]: value }))
+                }
+                onGalleryChange={(gallery: { url: string; type: string }[]) =>
+                  setContent((prev) => ({ ...prev, gallery }))
+                }
                 onSave={handleSaveContent}
                 isLoading={isSaving}
               />
@@ -222,36 +380,23 @@ export default function SchoolSettingsPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="social">
+        <TabsContent value="social" className="mt-6">
           <Card>
             <CardHeader>
               <CardTitle>Social Links</CardTitle>
-              <CardDescription>Add links to your school's social media profiles.</CardDescription>
+              <CardDescription>
+                Add links to your school&apos;s social media profiles. These
+                appear in the footer of your public website.
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <SocialLinksForm
                 data={social}
-                onChange={(field: string, value: string) => setSocial((prev) => ({ ...prev, [field]: value }))}
+                onChange={(field: string, value: string) =>
+                  setSocial((prev) => ({ ...prev, [field]: value }))
+                }
                 onSave={handleSaveSocial}
                 isLoading={isSaving}
-              />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="signature">
-          <Card>
-            <CardHeader>
-              <CardTitle>Principal Signature</CardTitle>
-              <CardDescription>
-                Upload the principal's signature for report cards. PNG format recommended for transparency.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <SignatureUpload
-                signatureUrl={data?.principal_signature_url || null}
-                onUpload={handleUploadSignature}
-                onRemove={handleRemoveSignature}
               />
             </CardContent>
           </Card>

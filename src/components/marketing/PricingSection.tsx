@@ -1,12 +1,17 @@
 "use client";
 
-import { COLORS, PRICING_PLANS } from "@/lib/marketing/constants";
+import { useState } from "react";
+import { COLORS } from "@/lib/marketing/constants";
+import { SUBSCRIPTION_PLANS } from "@/lib/paystack/plans";
+import type { BillingCycle } from "@/types/subscription";
 
 interface PricingSectionProps {
   onScrollTo: (id: string) => void;
 }
 
 export function PricingSection({ onScrollTo }: PricingSectionProps) {
+  const [billingCycle, setBillingCycle] = useState<BillingCycle>("term");
+
   return (
     <section
       className="section-padding"
@@ -47,7 +52,7 @@ export function PricingSection({ onScrollTo }: PricingSectionProps) {
           >
             Pay per term.
             <br />
-            Not per month.
+            Or save with a session plan.
           </h2>
           <div
             style={{
@@ -63,13 +68,79 @@ export function PricingSection({ onScrollTo }: PricingSectionProps) {
               fontSize: 15,
               color: COLORS.textMid,
               lineHeight: 1.75,
-              maxWidth: 480,
+              maxWidth: 520,
               margin: "0 auto",
             }}
           >
-            NexaForge bills the way Nigerian schools think — per term and per
-            session. No charges in August. No surprises.
+            NexaForge bills the way Nigerian schools think — per term, or per
+            session for a discount. No charges in August. No surprises.
           </p>
+
+          {/* Billing toggle */}
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+              padding: 4,
+              marginTop: 32,
+              background: COLORS.cream,
+              borderRadius: 10,
+              border: "1px solid rgba(0,0,0,0.06)",
+            }}
+          >
+            <button
+              onClick={() => setBillingCycle("term")}
+              style={{
+                padding: "9px 20px",
+                fontSize: 13,
+                fontWeight: 600,
+                fontFamily: "inherit",
+                border: "none",
+                borderRadius: 7,
+                cursor: "pointer",
+                background: billingCycle === "term" ? COLORS.primary : "transparent",
+                color: billingCycle === "term" ? COLORS.white : COLORS.textMid,
+                transition: "all 0.15s",
+              }}
+            >
+              Pay Per Term
+            </button>
+            <button
+              onClick={() => setBillingCycle("session")}
+              style={{
+                padding: "9px 20px",
+                fontSize: 13,
+                fontWeight: 600,
+                fontFamily: "inherit",
+                border: "none",
+                borderRadius: 7,
+                cursor: "pointer",
+                background: billingCycle === "session" ? COLORS.primary : "transparent",
+                color: billingCycle === "session" ? COLORS.white : COLORS.textMid,
+                transition: "all 0.15s",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
+              Pay Per Session
+              <span
+                style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: 0.5,
+                  background: COLORS.gold,
+                  color: COLORS.primaryDark,
+                  padding: "2px 8px",
+                  borderRadius: 100,
+                  textTransform: "uppercase",
+                }}
+              >
+                Save ~11%
+              </span>
+            </button>
+          </div>
         </div>
 
         {/* Pricing Cards */}
@@ -82,12 +153,23 @@ export function PricingSection({ onScrollTo }: PricingSectionProps) {
             alignItems: "start",
           }}
         >
-          {PRICING_PLANS.map((plan) => {
-            const isFeatured = plan.featured;
+          {Object.entries(SUBSCRIPTION_PLANS).map(([key, plan]) => {
+            const isFeatured = key === "growth";
+            const isSession = billingCycle === "session" && !!plan.session_price;
+            const displayed = isSession ? plan.session_price! : plan.price;
+            const periodLabel = isSession ? "session" : "term";
+
+            const fullSessionPrice = plan.price * 3;
+            const discount = plan.session_price
+              ? fullSessionPrice - plan.session_price
+              : 0;
+            const discountPercent = plan.session_price
+              ? Math.round((discount / fullSessionPrice) * 100)
+              : 0;
 
             return (
               <div
-                key={plan.name}
+                key={key}
                 className={isFeatured ? "pricing-scale" : ""}
                 style={{
                   background: isFeatured ? COLORS.primary : COLORS.white,
@@ -99,7 +181,7 @@ export function PricingSection({ onScrollTo }: PricingSectionProps) {
                   position: "relative",
                 }}
               >
-                {plan.badge && (
+                {isFeatured && (
                   <div
                     style={{
                       position: "absolute",
@@ -117,7 +199,30 @@ export function PricingSection({ onScrollTo }: PricingSectionProps) {
                       whiteSpace: "nowrap",
                     }}
                   >
-                    {plan.badge}
+                    Most Popular
+                  </div>
+                )}
+
+                {/* Discount badge — session mode */}
+                {isSession && discount > 0 && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: 16,
+                      right: 16,
+                      background: isFeatured
+                        ? COLORS.gold
+                        : "rgba(26,92,58,0.1)",
+                      color: isFeatured ? COLORS.primaryDark : COLORS.primary,
+                      fontSize: 10,
+                      fontWeight: 700,
+                      letterSpacing: 0.5,
+                      padding: "3px 10px",
+                      borderRadius: 100,
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    Save ₦{discount.toLocaleString()}
                   </div>
                 )}
 
@@ -145,7 +250,7 @@ export function PricingSection({ onScrollTo }: PricingSectionProps) {
                     marginBottom: 4,
                   }}
                 >
-                  {plan.price}
+                  ₦{displayed.toLocaleString()}
                 </div>
 
                 <div
@@ -154,11 +259,57 @@ export function PricingSection({ onScrollTo }: PricingSectionProps) {
                     color: isFeatured
                       ? "rgba(255,255,255,0.5)"
                       : COLORS.textLight,
-                    marginBottom: 20,
+                    marginBottom: 4,
                   }}
                 >
-                  {plan.period}
+                  per {periodLabel} · {plan.students} students
                 </div>
+
+                {/* Session mode: show strikethrough + "covers all 3 terms" */}
+                {isSession && discount > 0 && (
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: isFeatured
+                        ? "rgba(255,255,255,0.55)"
+                        : COLORS.textLight,
+                      marginBottom: 20,
+                    }}
+                  >
+                    <span style={{ textDecoration: "line-through" }}>
+                      ₦{fullSessionPrice.toLocaleString()}
+                    </span>{" "}
+                    · Covers all 3 terms
+                  </div>
+                )}
+
+                {/* Term mode: tease session discount */}
+                {!isSession && plan.session_price && discount > 0 && (
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: isFeatured
+                        ? "rgba(255,255,255,0.55)"
+                        : COLORS.textLight,
+                      marginBottom: 20,
+                    }}
+                  >
+                    Or ₦{plan.session_price.toLocaleString()}/session —{" "}
+                    <span
+                      style={{
+                        color: isFeatured ? COLORS.gold : COLORS.primary,
+                        fontWeight: 600,
+                      }}
+                    >
+                      save {discountPercent}%
+                    </span>
+                  </div>
+                )}
+
+                {/* Spacer when no session price shown so card heights match */}
+                {!isSession && !plan.session_price && (
+                  <div style={{ marginBottom: 20 }} />
+                )}
 
                 {plan.features.map((feature) => (
                   <div
@@ -221,8 +372,9 @@ export function PricingSection({ onScrollTo }: PricingSectionProps) {
             marginTop: 24,
           }}
         >
-          14-day free trial on all plans. Pay per session and save one
-          term&apos;s cost. No charges during school holidays.
+          14-day free trial on all plans. Session pricing covers all three
+          terms — pay once and save up to 11%. No charges during school
+          holidays.
         </p>
       </div>
     </section>

@@ -5,7 +5,6 @@ import type {
   ServiceCard,
   StepItem,
   ProgrammeCard,
-  PricingPlan,
   FooterColumn,
   NavLink,
 } from "@/types/marketing";
@@ -39,7 +38,7 @@ export const HERO_STATS: StatItem[] = [
 export const FEATURE_PILLS: FeaturePill[] = [
   { icon: "📋", text: "Student records & report cards" },
   { icon: "🌐", text: "Branded public website included" },
-  { icon: "💳", text: "Pay per term — not monthly" },
+  { icon: "💳", text: "Pay per term or per session" },
   { icon: "🏆", text: "Skill programmes & competitions" },
   { icon: "📱", text: "Works on any phone or laptop" },
   { icon: "🔒", text: "Your data. Always yours." },
@@ -213,49 +212,6 @@ export const ECOSYSTEM_CARDS: ServiceCard[] = [
   },
 ];
 
-export const PRICING_PLANS: PricingPlan[] = [
-  {
-    name: "Starter",
-    price: "₦15,000",
-    period: "per term · up to 200 students",
-    features: [
-      "200 students",
-      "10 staff accounts",
-      "School website included",
-      "Score entry & report cards",
-      "Email support",
-    ],
-    featured: false,
-  },
-  {
-    name: "Growth",
-    price: "₦30,000",
-    period: "per term · up to 500 students",
-    features: [
-      "500 students",
-      "30 staff accounts",
-      "School website included",
-      "Priority support",
-      "NexaForge Programmes access",
-    ],
-    featured: true,
-    badge: "Most Popular",
-  },
-  {
-    name: "Premium",
-    price: "₦60,000",
-    period: "per term · unlimited",
-    features: [
-      "Unlimited students",
-      "Unlimited staff",
-      "Custom domain support",
-      "Dedicated support line",
-      "Full ecosystem access",
-    ],
-    featured: false,
-  },
-];
-
 export const FAQ_ITEMS: FAQItem[] = [
   {
     question: "What exactly is NexaForge?",
@@ -270,7 +226,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     question: "How does the billing work — is it monthly?",
     answer:
-      "No. NexaForge bills per term or per academic session — because Nigerian schools do not operate month to month. You pay for First Term, use it through to the last day, then decide whether to pay for Second Term. No charges during August or inter-term holidays. Ever.",
+      "No. NexaForge bills per term or per academic session — because Nigerian schools do not operate month to month. You can pay term by term, or pay for the full session upfront and save about 11%. No charges during August or inter-term holidays. Ever.",
   },
   {
     question: "Does my school get a website?",
