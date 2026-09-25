@@ -38,7 +38,6 @@ export default function SchoolSettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Profile state
   const [profile, setProfile] = useState({
     name: '',
     email: '',
@@ -47,14 +46,12 @@ export default function SchoolSettingsPage() {
     motto: '',
   });
 
-  // Branding state
   const [branding, setBranding] = useState({
     primary_color: '#2563eb',
     font: 'Inter',
     logo_url: null as string | null,
   });
 
-  // Content state
   const [content, setContent] = useState({
     hero_title: '',
     hero_subtitle: '',
@@ -62,14 +59,12 @@ export default function SchoolSettingsPage() {
     gallery: [] as { url: string; type: string }[],
   });
 
-  // Social state
   const [social, setSocial] = useState({
     facebook: '',
     twitter: '',
     instagram: '',
   });
 
-  // Sync state from fetched data
   useEffect(() => {
     if (!data) return;
     setProfile({
@@ -218,7 +213,10 @@ export default function SchoolSettingsPage() {
             <CardTitle className="text-base flex flex-wrap items-center justify-between gap-2">
               <span>Your School Website</span>
               <div className="flex items-center gap-2">
-                <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+                <Badge
+                  variant="outline"
+                  className="bg-amber-50 text-amber-700 border-amber-200"
+                >
                   <Clock className="h-3 w-3 mr-1" />
                   Preview
                 </Badge>
@@ -274,34 +272,40 @@ export default function SchoolSettingsPage() {
         </Card>
       )}
 
-      <Tabs defaultValue="profile" className="w-full">
-        {/* Line-variant tabs — scroll horizontally on mobile */}
-        <div className="w-full overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+      {/*
+        Tabs layout: the tab bar is a full-width bar sitting above the tab
+        content. The content fills the space directly below with no vertical
+        gap. On mobile the tab bar scrolls horizontally so all tabs stay
+        reachable without cramming.
+      */}
+      <Tabs defaultValue="profile" className="w-full gap-0">
+        {/* Full-width tab bar */}
+        <div className="border-b">
           <TabsList
             variant="line"
-            className="w-full justify-start border-b rounded-none h-auto p-0 gap-0"
+            className="w-full h-auto p-0 gap-0 rounded-none bg-transparent justify-start overflow-x-auto flex-nowrap"
           >
             <TabsTrigger
               value="profile"
-              className="rounded-none border-b-2 border-transparent data-[active]:border-primary px-4 py-3 text-sm font-medium"
+              className="flex-shrink-0 rounded-none border-b-2 border-transparent data-[active]:border-primary data-[active]:text-foreground px-4 py-3 text-sm font-medium"
             >
               Profile
             </TabsTrigger>
             <TabsTrigger
               value="branding"
-              className="rounded-none border-b-2 border-transparent data-[active]:border-primary px-4 py-3 text-sm font-medium"
+              className="flex-shrink-0 rounded-none border-b-2 border-transparent data-[active]:border-primary data-[active]:text-foreground px-4 py-3 text-sm font-medium"
             >
               Branding
             </TabsTrigger>
             <TabsTrigger
               value="documents"
-              className="rounded-none border-b-2 border-transparent data-[active]:border-primary px-4 py-3 text-sm font-medium"
+              className="flex-shrink-0 rounded-none border-b-2 border-transparent data-[active]:border-primary data-[active]:text-foreground px-4 py-3 text-sm font-medium"
             >
               Documents
             </TabsTrigger>
             <TabsTrigger
               value="content"
-              className="rounded-none border-b-2 border-transparent data-[active]:border-primary px-4 py-3 text-sm font-medium whitespace-nowrap"
+              className="flex-shrink-0 rounded-none border-b-2 border-transparent data-[active]:border-primary data-[active]:text-foreground px-4 py-3 text-sm font-medium whitespace-nowrap"
             >
               Website
               <Badge
@@ -313,13 +317,14 @@ export default function SchoolSettingsPage() {
             </TabsTrigger>
             <TabsTrigger
               value="social"
-              className="rounded-none border-b-2 border-transparent data-[active]:border-primary px-4 py-3 text-sm font-medium"
+              className="flex-shrink-0 rounded-none border-b-2 border-transparent data-[active]:border-primary data-[active]:text-foreground px-4 py-3 text-sm font-medium"
             >
               Social
             </TabsTrigger>
           </TabsList>
         </div>
 
+        {/* Content directly below the bar — no gap */}
         <TabsContent value="profile" className="mt-6">
           <Card>
             <CardHeader>
@@ -393,7 +398,6 @@ export default function SchoolSettingsPage() {
         </TabsContent>
 
         <TabsContent value="content" className="mt-6">
-          {/* Preview warning */}
           <Card className="border-amber-200 bg-amber-50/50 mb-4">
             <CardContent className="flex items-start gap-3 py-4">
               <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
