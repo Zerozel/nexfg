@@ -284,6 +284,7 @@ export async function createTeacher(
 
   return {
     ...(profile as Teacher),
+    email: authUser.user.email!,
     temporary_password: tempPassword,
   };
 }
