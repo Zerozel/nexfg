@@ -1,6 +1,7 @@
 import { SchoolLayout } from '@/components/public/SchoolLayout';
 import { HeroSection } from '@/components/public/HeroSection';
 import { AboutSection } from '@/components/public/AboutSection';
+import { WhySection } from '@/components/public/WhySection';
 import { GallerySection } from '@/components/public/GallerySection';
 import { ContactSection } from '@/components/public/ContactSection';
 import { WebsiteComingSoon } from '@/components/public/WebsiteComingSoon';
@@ -51,20 +52,30 @@ export default async function SchoolHomePage({
   if (published) {
     const primaryColor = published.website_theme?.primary_color || '#1e3a5f';
 
-    // Trust signals — first 4 make the cut.
-    // These come from school data; fall back gracefully when missing.
-    const signals = [
-      published.motto
-        ? { label: 'Motto', value: published.motto.slice(0, 40) }
-        : null,
-      { label: 'Established', value: 'Est. 1990' },
-      { label: 'Community', value: '500+ students' },
-      { label: 'Commitment', value: '100% care' },
-    ].filter(Boolean) as { label: string; value: string }[];
+    const signals: { label: string; value: string }[] = [];
 
-    // Hero background — first gallery video's thumbnail, or null
-    const gallery = published.website_content?.gallery || [];
-    const backgroundImageUrl = null; // images not yet stored; use gradient fallback
+    if (published.student_count > 0) {
+      signals.push({
+        label: 'Students',
+        value: `${published.student_count}+`,
+      });
+    }
+    if (published.staff_count > 0) {
+      signals.push({
+        label: 'Educators',
+        value: `${published.staff_count}`,
+      });
+    }
+    if (published.motto) {
+      signals.push({
+        label: 'Our Promise',
+        value: published.motto.slice(0, 24),
+      });
+    }
+    // Fallback so the bar never looks empty
+    if (signals.length < 3) {
+      signals.push({ label: 'Committed to', value: 'Excellence' });
+    }
 
     return (
       <SchoolLayout school={published}>
@@ -78,7 +89,7 @@ export default async function SchoolHomePage({
           primaryColor={primaryColor}
           slug={slug}
           signals={signals.slice(0, 4)}
-          backgroundImageUrl={backgroundImageUrl}
+          backgroundImageUrl={null}
         />
         <AboutSection
           aboutText={published.website_content?.about_text || null}
@@ -87,8 +98,12 @@ export default async function SchoolHomePage({
           primaryColor={primaryColor}
           slug={slug}
         />
+        <WhySection
+          schoolName={published.name}
+          primaryColor={primaryColor}
+        />
         <GallerySection
-          gallery={gallery}
+          gallery={published.website_content?.gallery || []}
           primaryColor={primaryColor}
           slug={slug}
         />
