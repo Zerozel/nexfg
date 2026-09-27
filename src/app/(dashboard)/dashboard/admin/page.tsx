@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/card";
 import { Users, GraduationCap, BookOpen } from "lucide-react";
 import { useAdminStats } from "@/hooks/useAdminStats";
+import { SchoolPulseCards } from "@/components/admin/analytics/SchoolPulseCards";
 
 export default function AdminDashboardPage() {
   const { data, isLoading, error } = useAdminStats();
@@ -19,10 +20,12 @@ export default function AdminDashboardPage() {
   };
 
   return (
-    <div>
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold text-gray-900">
         Admin Dashboard
       </h2>
+
+      {/* Top stats */}
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -65,6 +68,9 @@ export default function AdminDashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* School Pulse — analytics */}
+      <SchoolPulseCards />
     </div>
   );
 }

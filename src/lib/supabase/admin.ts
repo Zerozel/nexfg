@@ -1,6 +1,7 @@
 // src/lib/supabase/admin.ts
 import { createServerSupabase } from '@/lib/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
+import { PLAN_LIMITS } from '@/lib/paystack/plans';
 import type {
   Student,
   Teacher,
@@ -58,7 +59,6 @@ function generateSecurePassword(): string {
   // Shuffle
   return password.split('').sort(() => Math.random() - 0.5).join('');
 }
-
 // ============ STUDENTS ============
 
 export async function listStudents(
@@ -100,13 +100,64 @@ export async function listStudents(
   };
 }
 
+// ← CHANGED: now enforces the plan's student limit before inserting. Reads the
+// school's current subscription_tier, looks up PLAN_LIMITS, counts active
+// students, and rejects when the count is at or above the cap.
 export async function createStudent(
   supabase: SupabaseClient,
-  data: Omit<Student, 'id' | 'school_id' | 'is_deleted' | 'deleted_at' | 'created_at' | 'updated_at' | 'class_name'>
+  data: Omit<
+    Student,
+    | 'id'
+    | 'school_id'
+    | 'is_deleted'
+    | 'deleted_at'
+    | 'created_at'
+    | 'updated_at'
+    | 'class_name'
+  >
 ) {
+  // Derive school context from the authenticated session — same pattern as
+  // createTeacher, and avoids trusting the caller to pass school_id correctly.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const schoolId = user?.app_metadata?.school_id as string | undefined;
+  if (!schoolId) {
+    throw new Error('Unable to determine school context');
+  }
+
+  // Look up the school's plan limits
+  const { data: school, error: schoolError } = await supabase
+    .from('schools')
+    .select('subscription_tier')
+    .eq('id', schoolId)
+    .maybeSingle();
+
+  if (schoolError) throw schoolError;
+
+  const tier = (school?.subscription_tier as string) || 'free';
+  const limits = PLAN_LIMITS[tier] || PLAN_LIMITS.free;
+
+  if (limits.students !== Infinity) {
+    const { count, error: countError } = await supabase
+      .from('students')
+      .select('id', { count: 'exact', head: true })
+      .eq('school_id', schoolId)
+      .eq('is_deleted', false);
+
+    if (countError) throw countError;
+
+    if ((count || 0) >= limits.students) {
+      throw new Error(
+        `Student limit reached. Your ${tier} plan allows up to ${limits.students} students. Upgrade your subscription to add more.`
+      );
+    }
+  }
+
   const { data: student, error } = await supabase
     .from('students')
-    .insert(data)
+    .insert({ ...data, school_id: schoolId })
     .select('*, classes!class_id(name)')
     .single();
 
@@ -208,14 +259,17 @@ export async function listTeachers(
   };
 }
 
+// ← CHANGED: now enforces the plan's staff limit BEFORE creating the auth user.
+// This is critical — if we checked after creating the auth user, we'd have to
+// roll back a Supabase Auth record on every rejection, which is slow and can
+// leave orphans on partial failures. The error is user-facing.
 export async function createTeacher(
   supabase: SupabaseClient,
   data: { full_name: string; email: string; role: 'teacher' | 'admin' | 'principal' }
 ): Promise<TeacherWithCredentials> {
   const tempPassword = generateSecurePassword();
 
-  // Derive the admin's school_id from the authenticated session. New staff MUST
-  // be scoped to the same school for multi-tenant isolation.
+  // Derive the admin's school_id from the authenticated session.
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -223,6 +277,35 @@ export async function createTeacher(
   const schoolId = user?.app_metadata?.school_id as string | undefined;
   if (!schoolId) {
     throw new Error('Unable to determine school context for the current user');
+  }
+
+  // Enforce the plan's staff limit before touching Supabase Auth.
+  const { data: school, error: schoolError } = await supabase
+    .from('schools')
+    .select('subscription_tier')
+    .eq('id', schoolId)
+    .maybeSingle();
+
+  if (schoolError) throw schoolError;
+
+  const tier = (school?.subscription_tier as string) || 'free';
+  const limits = PLAN_LIMITS[tier] || PLAN_LIMITS.free;
+
+  if (limits.staff !== Infinity) {
+    const { count, error: countError } = await supabase
+      .from('profiles')
+      .select('id', { count: 'exact', head: true })
+      .eq('school_id', schoolId)
+      .in('role', ['teacher', 'admin', 'principal'])
+      .eq('is_deleted', false);
+
+    if (countError) throw countError;
+
+    if ((count || 0) >= limits.staff) {
+      throw new Error(
+        `Staff limit reached. Your ${tier} plan allows up to ${limits.staff} staff. Upgrade your subscription to add more.`
+      );
+    }
   }
 
   // Create auth user via Supabase Admin API
@@ -262,8 +345,6 @@ export async function createTeacher(
 
   // A database trigger creates the base profile row on auth.users insert. Update
   // it with the correct name/role and ensure it is scoped to the admin's school.
-  // Use the service client so this write isn't blocked by RLS while the profile
-  // is still being provisioned.
   const { data: profile, error: profileError } = await supabaseAdmin
     .from('profiles')
     .update({
@@ -276,8 +357,7 @@ export async function createTeacher(
     .single();
 
   if (profileError) {
-    // Roll back the auth user so a failed provisioning doesn't leave an orphaned
-    // account that blocks re-creating the teacher with the same email.
+    // Roll back the auth user so a failed provisioning doesn't leave an orphan.
     await supabaseAdmin.auth.admin.deleteUser(authUser.user.id);
     throw profileError;
   }
@@ -288,7 +368,6 @@ export async function createTeacher(
     temporary_password: tempPassword,
   };
 }
-
 
 export async function getTeacher(
   supabase: SupabaseClient,
