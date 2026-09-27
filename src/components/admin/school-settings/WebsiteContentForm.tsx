@@ -17,6 +17,8 @@ interface WebsiteContentFormProps {
     hero_title: string;
     hero_subtitle: string;
     about_text: string;
+    mission: string;
+    vision: string;
     gallery: GalleryItem[];
   };
   onChange: (field: string, value: string) => void;
@@ -36,7 +38,10 @@ export function WebsiteContentForm({
 
   const handleAddVideo = () => {
     if (!newVideoUrl.trim()) return;
-    onGalleryChange([...data.gallery, { url: newVideoUrl.trim(), type: 'video' }]);
+    onGalleryChange([
+      ...data.gallery,
+      { url: newVideoUrl.trim(), type: 'video' },
+    ]);
     setNewVideoUrl('');
   };
 
@@ -80,6 +85,30 @@ export function WebsiteContentForm({
           placeholder="St. Mary's is a premier institution..."
           rows={5}
         />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="mission">Mission Statement</Label>
+          <Textarea
+            id="mission"
+            value={data.mission}
+            onChange={(e) => onChange('mission', e.target.value)}
+            placeholder="To empower students with knowledge..."
+            rows={4}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="vision">Vision Statement</Label>
+          <Textarea
+            id="vision"
+            value={data.vision}
+            onChange={(e) => onChange('vision', e.target.value)}
+            placeholder="To be a center of educational excellence..."
+            rows={4}
+          />
+        </div>
       </div>
 
       <div className="space-y-2">

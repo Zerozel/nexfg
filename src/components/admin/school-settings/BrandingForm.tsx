@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Loader2, Upload, X } from 'lucide-react';
+import { Loader2, Upload } from 'lucide-react';
 
 interface BrandingFormProps {
   data: {
@@ -94,28 +94,35 @@ export function BrandingForm({
             className="w-40"
           />
         </div>
+        <p className="text-xs text-muted-foreground">
+          Used on your public website, report cards, and dashboard accents.
+        </p>
       </div>
 
       <div className="space-y-2">
         <Label htmlFor="font">Font</Label>
-        <Select value={data.font} onValueChange={(value) => onChange('font', value)}>
+        <Select
+          value={data.font}
+          onValueChange={(value) => onChange('font', value)}
+        >
           <SelectTrigger className="w-[200px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="Inter">Inter</SelectItem>
-            <SelectItem value="Roboto">Roboto</SelectItem>
-            <SelectItem value="Open Sans">Open Sans</SelectItem>
-            <SelectItem value="Montserrat">Montserrat</SelectItem>
             <SelectItem value="Poppins">Poppins</SelectItem>
           </SelectContent>
         </Select>
+        <p className="text-xs text-muted-foreground">
+          Used across your public website.
+        </p>
       </div>
 
       <div className="space-y-2">
         <Label>Logo</Label>
         {logoPreview ? (
           <div className="flex items-start gap-4">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={logoPreview}
               alt="School logo"
@@ -124,11 +131,23 @@ export function BrandingForm({
             <div className="space-y-2">
               {logoFile ? (
                 <>
-                  <Button type="button" size="sm" onClick={handleUpload} disabled={isUploading}>
-                    {isUploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleUpload}
+                    disabled={isUploading}
+                  >
+                    {isUploading && (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    )}
                     Upload
                   </Button>
-                  <Button type="button" size="sm" variant="outline" onClick={handleCancel}>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={handleCancel}
+                  >
                     Cancel
                   </Button>
                 </>
@@ -142,7 +161,12 @@ export function BrandingForm({
                   >
                     Change Logo
                   </Button>
-                  <Button type="button" size="sm" variant="outline" onClick={handleRemove}>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={handleRemove}
+                  >
                     Remove
                   </Button>
                 </>

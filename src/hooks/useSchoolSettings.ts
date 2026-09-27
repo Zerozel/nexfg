@@ -21,6 +21,8 @@ interface SchoolSettings {
     hero_title: string | null;
     hero_subtitle: string | null;
     about_text: string | null;
+    mission: string | null;
+    vision: string | null;
     contact_email: string | null;
     contact_phone: string | null;
     address: string | null;
@@ -89,5 +91,12 @@ export function useSchoolSettings() {
     return response.json();
   };
 
-  return { data, isLoading, error, refetch: fetchSettings, updateSettings, uploadImage };
+  return {
+    data,
+    isLoading,
+    error,
+    refetch: fetchSettings,
+    updateSettings,
+    uploadImage,
+  };
 }

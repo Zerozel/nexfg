@@ -13,17 +13,38 @@ interface SchoolLayoutProps {
       contact_phone?: string | null;
       address?: string | null;
     } | null;
-    social_links: { facebook?: string | null; twitter?: string | null; instagram?: string | null } | null;
+    social_links: {
+      facebook?: string | null;
+      twitter?: string | null;
+      instagram?: string | null;
+    } | null;
   };
 }
 
 export function SchoolLayout({ children, school }: SchoolLayoutProps) {
   const primaryColor = school.website_theme?.primary_color || '#2563eb';
-  const font = school.website_theme?.font || 'Inter';
+  const fontName = school.website_theme?.font || 'Inter';
+
+  const fontFamily =
+    fontName === 'Poppins'
+      ? 'var(--font-poppins), system-ui, sans-serif'
+      : 'var(--font-inter), system-ui, sans-serif';
 
   return (
-    <div style={{ fontFamily: `'${font}', sans-serif` }}>
-      <SchoolHeader name={school.name} logoUrl={school.logo_url} primaryColor={primaryColor} slug={school.slug} />
+    <div
+      style={
+        {
+          fontFamily,
+          '--primary-color': primaryColor,
+        } as React.CSSProperties
+      }
+    >
+      <SchoolHeader
+        name={school.name}
+        logoUrl={school.logo_url}
+        primaryColor={primaryColor}
+        slug={school.slug}
+      />
       <main className="min-h-screen">{children}</main>
       <SchoolFooter
         name={school.name}

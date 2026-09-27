@@ -2,10 +2,33 @@ import { SchoolLayout } from '@/components/public/SchoolLayout';
 import { GalleryGrid } from '@/components/public/GalleryGrid';
 import { getPublicSchool } from '@/lib/public/get-school';
 import { notFound } from 'next/navigation';
+import type { Metadata } from 'next';
 
 export const revalidate = 60;
 
-export default async function GalleryPage({ params }: { params: Promise<{ slug: string }> }) {
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const school = await getPublicSchool(slug);
+  if (!school) return { title: 'School Not Found' };
+  return {
+    title: `Gallery — ${school.name}`,
+    description: `Photos and videos from ${school.name}.`,
+    openGraph: {
+      title: `Gallery — ${school.name}`,
+      description: school.motto || '',
+    },
+  };
+}
+
+export default async function GalleryPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
   const { slug } = await params;
   const school = await getPublicSchool(slug);
   if (!school) notFound();
@@ -15,8 +38,13 @@ export default async function GalleryPage({ params }: { params: Promise<{ slug: 
     <SchoolLayout school={school}>
       <section className="py-16 md:py-24">
         <div className="max-w-[1200px] mx-auto px-4">
-          <h1 className="text-3xl md:text-4xl font-bold text-center mb-4">Gallery</h1>
-          <div className="w-16 h-1 mx-auto rounded-full mb-12" style={{ backgroundColor: primaryColor }} />
+          <h1 className="text-3xl md:text-4xl font-bold text-center mb-4">
+            Gallery
+          </h1>
+          <div
+            className="w-16 h-1 mx-auto rounded-full mb-12"
+            style={{ backgroundColor: primaryColor }}
+          />
           <GalleryGrid gallery={school.website_content?.gallery || []} />
         </div>
       </section>

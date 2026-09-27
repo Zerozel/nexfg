@@ -1,6 +1,7 @@
 import { SchoolLayout } from '@/components/public/SchoolLayout';
 import { getPublicSchool } from '@/lib/public/get-school';
 import { notFound } from 'next/navigation';
+import type { Metadata } from 'next';
 
 export const revalidate = 60;
 
@@ -9,7 +10,32 @@ const DEFAULT_MISSION =
 const DEFAULT_VISION =
   'To be a center of educational excellence and innovation, nurturing future leaders.';
 
-export default async function AboutPage({ params }: { params: Promise<{ slug: string }> }) {
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const school = await getPublicSchool(slug);
+  if (!school) return { title: 'School Not Found' };
+  return {
+    title: `About — ${school.name}`,
+    description:
+      school.website_content?.about_text?.slice(0, 160) ||
+      school.motto ||
+      `Learn more about ${school.name}.`,
+    openGraph: {
+      title: `About — ${school.name}`,
+      description: school.motto || '',
+    },
+  };
+}
+
+export default async function AboutPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
   const { slug } = await params;
   const school = await getPublicSchool(slug);
   if (!school) notFound();
@@ -20,23 +46,52 @@ export default async function AboutPage({ params }: { params: Promise<{ slug: st
     <SchoolLayout school={school}>
       <section className="py-16 md:py-24">
         <div className="max-w-3xl mx-auto px-4 text-center">
-          <h1 className="text-3xl md:text-4xl font-bold mb-4">About {school.name}</h1>
-          <div className="w-16 h-1 mx-auto rounded-full mb-8" style={{ backgroundColor: primaryColor }} />
+          <h1 className="text-3xl md:text-4xl font-bold mb-4">
+            About {school.name}
+          </h1>
+          <div
+            className="w-16 h-1 mx-auto rounded-full mb-8"
+            style={{ backgroundColor: primaryColor }}
+          />
           {content.about_text ? (
-            <p className="text-gray-600 leading-relaxed text-lg">{content.about_text}</p>
+            <p className="text-gray-600 leading-relaxed text-lg">
+              {content.about_text}
+            </p>
           ) : (
-            <p className="text-gray-500">No about information available yet.</p>
+            <p className="text-gray-500">
+              No about information available yet.
+            </p>
           )}
         </div>
 
         <div className="max-w-4xl mx-auto px-4 mt-12 grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="p-6 rounded-lg border border-gray-200 shadow-sm" style={{ borderTopColor: primaryColor, borderTopWidth: '4px' }}>
-            <h2 className="font-bold text-lg mb-3" style={{ color: '#1A1A2E' }}>Our Mission</h2>
-            <p className="text-gray-600">{content.mission || DEFAULT_MISSION}</p>
+          <div
+            className="p-6 rounded-lg border border-gray-200 shadow-sm"
+            style={{ borderTopColor: primaryColor, borderTopWidth: '4px' }}
+          >
+            <h2
+              className="font-bold text-lg mb-3"
+              style={{ color: '#1A1A2E' }}
+            >
+              Our Mission
+            </h2>
+            <p className="text-gray-600">
+              {content.mission || DEFAULT_MISSION}
+            </p>
           </div>
-          <div className="p-6 rounded-lg border border-gray-200 shadow-sm" style={{ borderTopColor: primaryColor, borderTopWidth: '4px' }}>
-            <h2 className="font-bold text-lg mb-3" style={{ color: '#1A1A2E' }}>Our Vision</h2>
-            <p className="text-gray-600">{content.vision || DEFAULT_VISION}</p>
+          <div
+            className="p-6 rounded-lg border border-gray-200 shadow-sm"
+            style={{ borderTopColor: primaryColor, borderTopWidth: '4px' }}
+          >
+            <h2
+              className="font-bold text-lg mb-3"
+              style={{ color: '#1A1A2E' }}
+            >
+              Our Vision
+            </h2>
+            <p className="text-gray-600">
+              {content.vision || DEFAULT_VISION}
+            </p>
           </div>
         </div>
       </section>

@@ -17,14 +17,7 @@ import { BrandingForm } from '@/components/admin/school-settings/BrandingForm';
 import { WebsiteContentForm } from '@/components/admin/school-settings/WebsiteContentForm';
 import { SocialLinksForm } from '@/components/admin/school-settings/SocialLinksForm';
 import { SignatureUpload } from '@/components/admin/school-settings/SignatureUpload';
-import {
-  Loader2,
-  Copy,
-  ExternalLink,
-  Check,
-  AlertTriangle,
-  Clock,
-} from 'lucide-react';
+import { Loader2, Copy, ExternalLink, Check } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function SchoolSettingsPage() {
@@ -56,6 +49,8 @@ export default function SchoolSettingsPage() {
     hero_title: '',
     hero_subtitle: '',
     about_text: '',
+    mission: '',
+    vision: '',
     gallery: [] as { url: string; type: string }[],
   });
 
@@ -83,6 +78,8 @@ export default function SchoolSettingsPage() {
       hero_title: data.website_content?.hero_title || '',
       hero_subtitle: data.website_content?.hero_subtitle || '',
       about_text: data.website_content?.about_text || '',
+      mission: data.website_content?.mission || '',
+      vision: data.website_content?.vision || '',
       gallery: data.website_content?.gallery || [],
     });
     setSocial({
@@ -145,6 +142,8 @@ export default function SchoolSettingsPage() {
         hero_title: content.hero_title || null,
         hero_subtitle: content.hero_subtitle || null,
         about_text: content.about_text || null,
+        mission: content.mission || null,
+        vision: content.vision || null,
         gallery: content.gallery,
       },
     });
@@ -206,20 +205,12 @@ export default function SchoolSettingsPage() {
         </p>
       </div>
 
-      {/* School URL card */}
       {publicUrl && (
         <Card className="border-blue-200 bg-blue-50/50">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex flex-wrap items-center justify-between gap-2">
               <span>Your School Website</span>
               <div className="flex items-center gap-2">
-                <Badge
-                  variant="outline"
-                  className="bg-amber-50 text-amber-700 border-amber-200"
-                >
-                  <Clock className="h-3 w-3 mr-1" />
-                  Preview
-                </Badge>
                 {data?.website_enabled ? (
                   <Badge className="bg-green-100 text-green-700 hover:bg-green-100">
                     Live
@@ -232,8 +223,9 @@ export default function SchoolSettingsPage() {
               </div>
             </CardTitle>
             <CardDescription>
-              Your public website URL. Content and features are in preview
-              while we finish the audit.
+              {data?.website_enabled
+                ? 'Your public website is live and shareable.'
+                : 'Fill in the Website tab below to publish your public site.'}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -272,22 +264,11 @@ export default function SchoolSettingsPage() {
         </Card>
       )}
 
-      {/*
-        Tabs layout: the tab bar sits ABOVE the content.
-
-        Force a column layout two ways:
-          1. `orientation="horizontal"` sets data-orientation on the root,
-             which triggers `data-horizontal:flex-col` in the base component.
-          2. `!flex !flex-col` overrides any residual row-direction flex so
-             the layout stacks even if the data-attribute selector doesn't fire.
-        `gap-0` removes the default 8px gap so content sits flush under the bar.
-      */}
       <Tabs
         defaultValue="profile"
         orientation="horizontal"
         className="w-full !flex !flex-col gap-0"
       >
-        {/* Full-width tab bar */}
         <div className="border-b">
           <TabsList
             variant="line"
@@ -316,12 +297,6 @@ export default function SchoolSettingsPage() {
               className="flex-shrink-0 rounded-none border-b-2 border-transparent data-[active]:border-primary data-[active]:text-foreground px-4 py-3 text-sm font-medium whitespace-nowrap"
             >
               Website
-              <Badge
-                variant="outline"
-                className="ml-2 text-[10px] bg-amber-50 text-amber-700 border-amber-200 py-0 px-1.5 hidden sm:inline-flex"
-              >
-                Soon
-              </Badge>
             </TabsTrigger>
             <TabsTrigger
               value="social"
@@ -332,7 +307,6 @@ export default function SchoolSettingsPage() {
           </TabsList>
         </div>
 
-        {/* Content directly below the bar */}
         <TabsContent value="profile" className="mt-6">
           <Card>
             <CardHeader>
@@ -406,28 +380,12 @@ export default function SchoolSettingsPage() {
         </TabsContent>
 
         <TabsContent value="content" className="mt-6">
-          <Card className="border-amber-200 bg-amber-50/50 mb-4">
-            <CardContent className="flex items-start gap-3 py-4">
-              <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
-              <div className="text-sm">
-                <p className="font-medium text-amber-900">
-                  Website feature — coming soon
-                </p>
-                <p className="text-amber-800 mt-0.5">
-                  Editing website content is available in preview while we
-                  complete the audit. Changes you make here may not be
-                  publicly visible yet.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
           <Card>
             <CardHeader>
               <CardTitle>Website Content</CardTitle>
               <CardDescription>
-                Edit the hero section, about text, and video gallery shown on
-                your public website at{' '}
+                Edit the hero section, about text, mission, vision, and video
+                gallery shown on your public website at{' '}
                 {data?.slug
                   ? `${data.slug}.nexaforges.me`
                   : 'your subdomain'}
