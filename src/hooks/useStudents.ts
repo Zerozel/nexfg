@@ -94,6 +94,60 @@ export function useAdminStudents(params: UseAdminStudentsParams = {}) {
   return { data, isLoading, error, refetch: fetchStudents };
 }
 
+// ============================================================
+// NEW: useStudentsByClass — grouped view for paid tiers
+// ------------------------------------------------------------
+// Fetches all students for the current school (no pagination) and groups
+// them by class_id. Also returns the unassigned bucket.
+// Each group carries the class name and a stable sort order.
+// ============================================================
+
+export interface StudentGroup {
+  class_id: string | null;
+  class_name: string;
+  base_name: string | null;
+  display_order: number | null;
+  students: AdminStudent[];
+}
+
+interface UseStudentsByClassReturn {
+  groups: StudentGroup[];
+  isLoading: boolean;
+  error: string | null;
+  refetch: () => Promise<void>;
+}
+
+export function useStudentsByClass(): UseStudentsByClassReturn {
+  const [groups, setGroups] = useState<StudentGroup[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchGrouped = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await fetch('/api/admin/students?grouped=1');
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to fetch grouped students');
+      }
+      const result = await response.json();
+      setGroups(result.groups || []);
+    } catch (err: any) {
+      setError(err.message);
+      setGroups([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchGrouped();
+  }, [fetchGrouped]);
+
+  return { groups, isLoading, error, refetch: fetchGrouped };
+}
+
 export function useStudentMutations() {
   const createStudent = async (studentData: Partial<AdminStudent>) => {
     const response = await fetch('/api/admin/students', {

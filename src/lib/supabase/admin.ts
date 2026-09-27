@@ -459,10 +459,9 @@ export async function listClasses(
   };
 }
 
-// ← CHANGED: supports the arms model with per-arm teachers.
-// When arms_count > 1, creates N class rows, each with its own teacher from
-// `arm_teachers` (keyed by arm letter "A", "B", ...). When arms_count = 1,
-// the single row uses `arm_teachers["A"]` (or `teacher_id` as fallback).
+// ← CHANGED: supports the arms model with per-arm teachers AND assigns a
+// code_prefix used for admission-number generation. Each arm gets its own
+// prefix so serials are per-arm (JSS1A → 10A, JSS1B → 10B).
 export async function createClass(
   supabase: SupabaseClient,
   schoolId: string,
@@ -499,8 +498,6 @@ export async function createClass(
   const armsCount =
     data.arms_count && data.arms_count > 0 ? data.arms_count : 1;
 
-  // Base name is what the user typed. Strip any trailing arm letter so we
-  // don't produce "JSS 1A A" when arms_count > 1.
   const rawName = (data.name || '').trim();
   const baseName =
     data.base_name?.trim() ||
@@ -508,8 +505,6 @@ export async function createClass(
       ? rawName.replace(/\s*[A-Z]\s*$/, '').trim() || rawName
       : rawName);
 
-  // Auto-derive display_order from the numeric part of the base name if not
-  // supplied (e.g. "JSS 1" → 1, "JSS 2" → 2). Used for sorting.
   const inferredOrder =
     data.display_order ??
     (() => {
@@ -518,18 +513,35 @@ export async function createClass(
       return Number.isFinite(n) ? n : null;
     })();
 
+  // Derive the base code_prefix from the class's numeric part (× 10). This
+  // becomes the prefix skeleton; the arm letter is appended per row below.
+  // JSS1 → base "10", JSS2 → base "20", Grade 10 → base "100".
+  // Non-numeric names use the first two letters.
+  const baseCodePrefix = (() => {
+    const digits = baseName.replace(/[^0-9]/g, '');
+    if (digits) {
+      const n = parseInt(digits, 10);
+      return String(n * 10).padStart(2, '0');
+    }
+    const letters = baseName
+      .replace(/[^A-Za-z]/g, '')
+      .toUpperCase()
+      .slice(0, 2);
+    return letters || 'UN';
+  })();
+
   const armLetters = 'ABCDEFGHIJ'.split('');
   const armTeachers = data.arm_teachers || {};
   const rows: any[] = [];
 
   if (armsCount === 1) {
-    // Single-arm: use arm_teachers["A"] if given, else fall back to teacher_id
     rows.push({
       academic_year_id: data.academic_year_id,
       name: rawName,
       base_name: baseName,
       arms_count: 1,
       display_order: inferredOrder,
+      code_prefix: baseCodePrefix,
       school_id: schoolId,
       teacher_id: armTeachers['A'] ?? data.teacher_id ?? null,
     });
@@ -542,6 +554,7 @@ export async function createClass(
         base_name: baseName,
         arms_count: armsCount,
         display_order: inferredOrder,
+        code_prefix: `${baseCodePrefix}${letter}`,
         school_id: schoolId,
         teacher_id: armTeachers[letter] ?? null,
       });
@@ -590,7 +603,7 @@ export async function updateClass(
   id: string,
   data: Partial<Class>
 ) {
-  // ← ADDED: if academic_year_id is being changed, validate ownership
+  // If academic_year_id is being changed, validate ownership
   if (data.academic_year_id) {
     const { data: academicYear, error: ayError } = await supabase
       .from('academic_years')
@@ -610,7 +623,7 @@ export async function updateClass(
     .from('classes')
     .update({ ...data, updated_at: new Date().toISOString() })
     .eq('id', id)
-    .eq('school_id', schoolId) // ← scope to caller's school
+    .eq('school_id', schoolId)
     .is('is_deleted', false)
     .select('*, profiles!classes_teacher_id_fkey(full_name)')
     .single();

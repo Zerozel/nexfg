@@ -8,12 +8,30 @@ import {
 import { studentSchema } from '@/lib/validations/student.schema';
 import { ZodError } from 'zod';
 
-// Helper function to generate a unique, school-specific admission number
+// ============================================================================
+// generateAdmissionNumber
+// ----------------------------------------------------------------------------
+// Produces admission numbers of the form:
+//   <SLUG>/<YEAR>/<PREFIX><SERIAL>
+// where:
+//   SLUG    — school slug, uppercased
+//   YEAR    — 4-digit enrollment year
+//   PREFIX  — the class's code_prefix column (e.g. 10A for JSS1A)
+//   SERIAL  — per-class-per-year sequence, starting at 01
+//
+// Examples:
+//   ROCK/2026/10A01  — first student in JSS1A in 2026
+//   ROCK/2026/10A02  — second student
+//   ROCK/2026/10B01  — first student in JSS1B
+//   ROCK/2026/UN01   — student with no class assigned yet
+// ============================================================================
 async function generateAdmissionNumber(
   supabase: any,
   schoolId: string,
-  enrollmentYear: number
+  enrollmentYear: number,
+  classId: string | null
 ): Promise<string> {
+  // 1. School slug
   const { data: school, error: schoolError } = await supabase
     .from('schools')
     .select('slug')
@@ -22,45 +40,148 @@ async function generateAdmissionNumber(
 
   if (schoolError || !school) {
     console.error('Failed to fetch school slug:', schoolError);
-    const random = Math.random().toString(36).substring(2, 8).toUpperCase();
-    return `SCH-${enrollmentYear}-${random}`;
+    const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+    return `SCH/${enrollmentYear}/XX${random}`;
   }
 
-  const slug = school.slug.toUpperCase();
-  const yearPrefix = enrollmentYear.toString();
+  const slug = (school.slug as string).toUpperCase();
 
-  const { data: existing, error: existingError } = await supabase
-    .from('students')
-    .select('admission_number')
+  // 2. Unassigned students get a shared UN prefix
+  if (!classId) {
+    const { count, error: countError } = await supabase
+      .from('students')
+      .select('id', { count: 'exact', head: true })
+      .eq('school_id', schoolId)
+      .eq('enrollment_year', enrollmentYear)
+      .is('class_id', null)
+      .eq('is_deleted', false);
+
+    if (countError) throw countError;
+
+    const serial = String((count || 0) + 1).padStart(2, '0');
+    return `${slug}/${enrollmentYear}/UN${serial}`;
+  }
+
+  // 3. Resolve the class's code_prefix
+  const { data: cls, error: classError } = await supabase
+    .from('classes')
+    .select('code_prefix, name')
+    .eq('id', classId)
     .eq('school_id', schoolId)
+    .maybeSingle();
+
+  if (classError) throw classError;
+
+  const prefix = (cls?.code_prefix as string) || 'UN';
+
+  // 4. Count existing students in the same class + year to get the next serial
+  const { count, error: countError } = await supabase
+    .from('students')
+    .select('id', { count: 'exact', head: true })
+    .eq('school_id', schoolId)
+    .eq('class_id', classId)
     .eq('enrollment_year', enrollmentYear)
-    .order('created_at', { ascending: false })
-    .limit(1);
+    .eq('is_deleted', false);
 
-  if (existingError) {
-    console.error('Failed to fetch existing admission numbers:', existingError);
-    const random = Math.random().toString(36).substring(2, 8).toUpperCase();
-    return `${slug}-${yearPrefix}-${random}`;
-  }
+  if (countError) throw countError;
 
-  let sequenceNumber = 1;
-  if (existing && existing.length > 0 && existing[0].admission_number) {
-    const parts = existing[0].admission_number.split('-');
-    if (parts.length === 3) {
-      const lastNum = parseInt(parts[2], 10);
-      if (!isNaN(lastNum)) {
-        sequenceNumber = lastNum + 1;
-      }
-    }
-  }
+  const serial = String((count || 0) + 1).padStart(2, '0');
 
-  return `${slug}-${yearPrefix}-${String(sequenceNumber).padStart(5, '0')}`;
+  return `${slug}/${enrollmentYear}/${prefix}${serial}`;
 }
 
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createServerSupabase();
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const schoolId = user.app_metadata?.school_id;
+    if (!schoolId) {
+      return NextResponse.json(
+        { error: 'No school associated' },
+        { status: 403 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
+    const grouped = searchParams.get('grouped') === '1';
+
+    // ─── Grouped response for the paid-tier student view ───
+    if (grouped) {
+      const { data: classes, error: classesError } = (await supabase
+        .from('classes')
+        .select('id, name, base_name, display_order')
+        .eq('school_id', schoolId)
+        .is('is_deleted', false)
+        .order('display_order', { ascending: true, nullsFirst: false })
+        .order('name', { ascending: true })) as unknown as {
+        data: any[] | null;
+        error: unknown;
+      };
+
+      if (classesError) throw classesError;
+
+      const { data: students, error: studentsError } = (await supabase
+        .from('students')
+        .select('*')
+        .eq('school_id', schoolId)
+        .eq('is_deleted', false)
+        .order('full_name', { ascending: true })) as unknown as {
+        data: any[] | null;
+        error: unknown;
+      };
+
+      if (studentsError) throw studentsError;
+
+      const bucket = new Map<string, any[]>();
+      const unassigned: any[] = [];
+
+      for (const s of students || []) {
+        if (!s.class_id) {
+          unassigned.push(s);
+          continue;
+        }
+        if (!bucket.has(s.class_id)) bucket.set(s.class_id, []);
+        bucket.get(s.class_id)!.push(s);
+      }
+
+      const groups: any[] = [];
+
+      for (const c of classes || []) {
+        const list = bucket.get(c.id) || [];
+        groups.push({
+          class_id: c.id,
+          class_name: c.name,
+          base_name: c.base_name || null,
+          display_order: c.display_order ?? null,
+          students: list,
+        });
+      }
+
+      if (unassigned.length > 0) {
+        groups.push({
+          class_id: null,
+          class_name: 'Unassigned',
+          base_name: null,
+          display_order: 999999,
+          students: unassigned,
+        });
+      }
+
+      return NextResponse.json({
+        success: true,
+        groups,
+        total: (students || []).length,
+      });
+    }
+
+    // ─── Flat paginated response (existing behavior) ───
     const page = parseInt(searchParams.get('page') || '1');
     const pageSize = parseInt(searchParams.get('pageSize') || '10');
     const search = searchParams.get('search') || '';
@@ -78,20 +199,22 @@ export async function POST(request: NextRequest) {
     const supabase = await createServerSupabase();
     const body = await request.json();
 
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const schoolId = user.app_metadata?.school_id;
     if (!schoolId) {
-      return NextResponse.json({ error: 'No school associated' }, { status: 403 });
+      return NextResponse.json(
+        { error: 'No school associated' },
+        { status: 403 }
+      );
     }
 
-    console.log('Student creation request body:', JSON.stringify(body, null, 2));
-
     const validatedData = studentSchema.parse(body);
-    console.log('Validated data:', JSON.stringify(validatedData, null, 2));
 
     const sanitized = Object.fromEntries(
       Object.entries(validatedData).map(([key, value]) => [
@@ -111,14 +234,13 @@ export async function POST(request: NextRequest) {
     const admissionNumber = await generateAdmissionNumber(
       supabase,
       schoolId,
-      enrollmentYear
+      enrollmentYear,
+      (sanitized.class_id as string) || null
     );
 
     sanitized.admission_number = admissionNumber;
     sanitized.school_id = schoolId;
     sanitized.enrollment_year = enrollmentYear;
-
-    console.log('Sanitized data with admission_number:', JSON.stringify(sanitized, null, 2));
 
     const student = await createStudent(supabase, sanitized as any);
 
@@ -128,8 +250,6 @@ export async function POST(request: NextRequest) {
       try {
         await ensureStudentEnrollment(supabase, student.id, student.class_id);
       } catch (enrollError) {
-        // Don't fail the whole request if enrollment fails — log and let the
-        // student creation succeed. A backfill can be run later if needed.
         console.error(
           `Failed to create enrollment for student ${student.id}:`,
           enrollError
@@ -143,12 +263,18 @@ export async function POST(request: NextRequest) {
     );
   } catch (error: any) {
     if (error instanceof ZodError) {
-      console.error('Zod validation errors:', JSON.stringify(error.errors, null, 2));
+      console.error(
+        'Zod validation errors:',
+        JSON.stringify(error.errors, null, 2)
+      );
       const firstError = error.errors[0];
-      return NextResponse.json({
-        error: firstError.message,
-        details: error.errors,
-      }, { status: 400 });
+      return NextResponse.json(
+        {
+          error: firstError.message,
+          details: error.errors,
+        },
+        { status: 400 }
+      );
     }
     console.error('POST /api/admin/students error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
