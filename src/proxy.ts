@@ -11,6 +11,27 @@ import type { UserRole } from '@/types';
 const BASE_DOMAIN = 'nexaforges.me';
 
 /**
+ * Subdomains that should NOT be treated as school slugs. If someone navigates
+ * to `app.nexaforges.me` or `www.nexaforges.me`, we don't want to rewrite
+ * those into `/school/app` or `/school/www` — we want them to fall through to
+ * normal routing (marketing, login, dashboard, etc.).
+ */
+const RESERVED_SUBDOMAINS = new Set([
+  'www',
+  'app',
+  'api',
+  'admin',
+  'dashboard',
+  'docs',
+  'help',
+  'support',
+  'status',
+  'blog',
+  'mail',
+  'cdn',
+]);
+
+/**
  * Resolve a school slug from a *custom domain* (e.g. `myschool.com`).
  *
  * Only called for genuine custom domains (never for the platform apex or its
@@ -18,7 +39,10 @@ const BASE_DOMAIN = 'nexaforges.me';
  * For very high traffic, cache this lookup (e.g. Edge Config / Redis).
  */
 async function getSlugByCustomDomain(domain: string): Promise<string | null> {
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  if (
+    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    !process.env.SUPABASE_SERVICE_ROLE_KEY
+  ) {
     return null;
   }
   try {
@@ -46,9 +70,9 @@ export async function proxy(req: NextRequest) {
   // ============================================================
   // Public website routing (subdomain + custom domain -> /school/{slug})
   // ============================================================
-  // Only "content" paths are eligible. Crucially we skip paths that already
-  // start with `/school/` so an internal link like `/school/{slug}/about`
-  // isn't rewritten again into `/school/{slug}/school/{slug}/about` (BUG-2).
+  // Only "content" paths are eligible. We skip paths that already start with
+  // `/school/` so an internal link like `/school/{slug}/about` isn't rewritten
+  // again into `/school/{slug}/school/{slug}/about`.
   const isRewriteEligible =
     !path.startsWith('/api/') &&
     !path.startsWith('/_next/') &&
@@ -63,7 +87,11 @@ export async function proxy(req: NextRequest) {
     if (host.endsWith(`.${BASE_DOMAIN}`)) {
       // Subdomain: {slug}.nexaforges.me
       const slug = host.split('.')[0];
-      if (slug && slug !== 'www') {
+
+      // Skip www and any reserved subdomains (dashboard, api, docs, etc.) so
+      // they fall through to normal routing instead of being treated as a
+      // school slug.
+      if (slug && !RESERVED_SUBDOMAINS.has(slug)) {
         return NextResponse.rewrite(new URL(`/school/${slug}${path}`, req.url));
       }
     } else if (
@@ -83,7 +111,7 @@ export async function proxy(req: NextRequest) {
   // ============================================================
   // Auth protection — ONLY for the dashboard + auth pages.
   // Public routes (marketing, /school/*, /payment, custom domains) must never
-  // be redirected to /login, and shouldn't pay for an auth round-trip (BUG-3).
+  // be redirected to /login, and shouldn't pay for an auth round-trip.
   // ============================================================
   const isAuthPage = path === '/login' || path === '/super-admin/login';
   const isProtectedRoute = path.startsWith('/dashboard');
@@ -95,7 +123,7 @@ export async function proxy(req: NextRequest) {
   const res = NextResponse.next();
   const supabase = createMiddlewareSupabase(req, res);
 
-  // SECURE: Validate JWT with Supabase Auth server
+  // Validate JWT with Supabase Auth server
   const {
     data: { user },
     error: userError,

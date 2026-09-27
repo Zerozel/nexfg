@@ -9,6 +9,8 @@ import {
 import { Users, GraduationCap, BookOpen } from "lucide-react";
 import { useAdminStats } from "@/hooks/useAdminStats";
 import { SchoolPulseCards } from "@/components/admin/analytics/SchoolPulseCards";
+import { OnboardingChecklist } from "@/components/admin/onboarding/OnboardingChecklist";
+import { WelcomeDialog } from "@/components/admin/onboarding/WelcomeDialog";
 
 export default function AdminDashboardPage() {
   const { data, isLoading, error } = useAdminStats();
@@ -24,6 +26,9 @@ export default function AdminDashboardPage() {
       <h2 className="text-2xl font-bold text-gray-900">
         Admin Dashboard
       </h2>
+
+      {/* Onboarding checklist — disappears once complete */}
+      <OnboardingChecklist />
 
       {/* Top stats */}
       <div className="grid gap-4 md:grid-cols-3">
@@ -71,6 +76,9 @@ export default function AdminDashboardPage() {
 
       {/* School Pulse — analytics */}
       <SchoolPulseCards />
+
+      {/* Welcome dialog — shows once per user until dismissed */}
+      <WelcomeDialog />
     </div>
   );
 }

@@ -42,29 +42,32 @@ export function SchoolHeader({
         borderBottom: `1px solid ${DESIGN_TOKENS.neutral.line}`,
       }}
     >
-      <div className="max-w-[1200px] mx-auto px-6 h-20 flex items-center justify-between">
-        {/* Brand */}
-        <Link href={`/school/${slug}`} className="flex items-center gap-3">
+      <div className="max-w-[1200px] mx-auto px-4 md:px-6 h-16 md:h-20 flex items-center justify-between gap-4">
+        {/* Brand — school name now shows on all screen sizes */}
+        <Link
+          href={`/school/${slug}`}
+          className="flex items-center gap-2.5 md:gap-3 min-w-0 flex-1 md:flex-initial"
+        >
           {logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={logoUrl}
               alt={name}
-              className="h-11 w-11 object-contain rounded-md"
+              className="h-9 w-9 md:h-11 md:w-11 object-contain rounded-md flex-shrink-0"
             />
           ) : (
             <div
-              className="h-11 w-11 rounded-md flex items-center justify-center text-white font-bold text-lg"
+              className="h-9 w-9 md:h-11 md:w-11 rounded-md flex items-center justify-center text-white font-bold text-base md:text-lg flex-shrink-0"
               style={{ backgroundColor: primaryColor }}
             >
               {name.charAt(0)}
             </div>
           )}
           <span
-            className="hidden sm:block"
+            className="truncate"
             style={{
               fontFamily: 'var(--font-fraunces)',
-              fontSize: '1.25rem',
+              fontSize: '1rem',
               fontWeight: 500,
               color: DESIGN_TOKENS.neutral.ink,
               letterSpacing: '-0.01em',
@@ -76,7 +79,7 @@ export function SchoolHeader({
         </Link>
 
         {/* Desktop nav */}
-        <nav className="hidden md:flex items-center gap-1">
+        <nav className="hidden md:flex items-center gap-1 flex-shrink-0">
           {links.map((link) => {
             const active = isActive(link.href);
             return (
@@ -116,7 +119,7 @@ export function SchoolHeader({
 
         {/* Mobile menu button */}
         <button
-          className="md:hidden p-2"
+          className="md:hidden p-2 flex-shrink-0"
           onClick={() => setMenuOpen(!menuOpen)}
           aria-label="Toggle menu"
         >
