@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
+import Link from 'next/link';
 import {
   useAdminClasses,
   useClassMutations,
@@ -38,7 +39,6 @@ export default function ClassesPage() {
   const [formData, setFormData] = useState<any>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Edit modal state — the whole group of arms
   const [editBaseName, setEditBaseName] = useState<string | null>(null);
   const [editArmsCount, setEditArmsCount] = useState<number>(1);
   const [editAcademicYearId, setEditAcademicYearId] = useState<string>('');
@@ -52,12 +52,8 @@ export default function ClassesPage() {
   const { data: academicYears } = useAcademicYears();
   const { createClass, deleteClass, syncClassGroup } = useClassMutations();
 
-  // Load the whole group when editing
   const { arms: editArms, isLoading: editArmsLoading } = useClassGroup(editBaseName);
 
-  // Seed edit state from the fetched group. Depends on editArms.length so it
-  // fires once the group has loaded — the earlier version short-circuited on
-  // the first render (editArms empty) and never re-ran.
   useEffect(() => {
     if (!showEdit || !editBaseName) return;
     if (editArms.length === 0) return;
@@ -178,6 +174,17 @@ export default function ClassesPage() {
   const columns: Column<Class>[] = [
     { key: 'name', header: 'Class Name' },
     { key: 'teacher_name', header: 'Class Teacher' },
+    {
+      key: 'subjects',
+      header: 'Subjects',
+      render: (cls: any) => (
+        <Link href={`/dashboard/admin/classes/${cls.id}/subjects`}>
+          <Button variant="outline" size="sm">
+            Manage Subjects
+          </Button>
+        </Link>
+      ),
+    },
   ];
 
   const letters = 'ABCDEFGHIJ'.split('').slice(0, editArmsCount);
@@ -213,7 +220,6 @@ export default function ClassesPage() {
         searchPlaceholder="Search classes..."
       />
 
-      {/* CREATE — uses ClassForm */}
       <CreateModal
         open={showCreate}
         onOpenChange={setShowCreate}
@@ -229,7 +235,6 @@ export default function ClassesPage() {
         />
       </CreateModal>
 
-      {/* EDIT — shows the whole group with per-arm teachers */}
       <EditModal
         open={showEdit}
         onOpenChange={(open) => {

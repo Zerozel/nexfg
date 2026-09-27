@@ -34,7 +34,7 @@ const STEP_META: StepMeta[] = [
   {
     key: "class_subjects",
     label: "Assign subjects to classes",
-    description: "Required so teachers can enter scores",
+    description: "Click 'Manage Subjects' on any class",
     href: "/dashboard/admin/classes",
   },
   {
@@ -143,8 +143,8 @@ export function OnboardingChecklist() {
           })}
         </div>
 
-        {/* CTA — uses plain Link so it works with your Button that doesn't
-            support asChild */}
+        {/* CTA — plain Link styled as a button, since our Button component
+            doesn't support asChild */}
         {nextStep && (
           <Link
             href={nextStep.href}
