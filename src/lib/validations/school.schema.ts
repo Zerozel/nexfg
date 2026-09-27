@@ -22,6 +22,18 @@ export const schoolSettingsSchema = z.object({
       about_text: z.string().optional().nullable(),
       mission: z.string().optional().nullable(),
       vision: z.string().optional().nullable(),
+      highlights: z
+        .array(
+          z.object({
+            title: z.string().optional().nullable(),
+            description: z.string().optional().nullable(),
+            icon: z
+              .enum(['users', 'book', 'sparkles', 'shield'])
+              .optional()
+              .nullable(),
+          })
+        )
+        .optional(),
       contact_email: z.string().email('Invalid email').optional().nullable(),
       contact_phone: z.string().optional().nullable(),
       address: z.string().optional().nullable(),

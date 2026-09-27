@@ -40,7 +40,7 @@ export default function SchoolSettingsPage() {
   });
 
   const [branding, setBranding] = useState({
-    primary_color: '#2563eb',
+    primary_color: '#1e3a5f',
     font: 'Inter',
     logo_url: null as string | null,
   });
@@ -51,6 +51,7 @@ export default function SchoolSettingsPage() {
     about_text: '',
     mission: '',
     vision: '',
+    highlights: [] as { title: string; description: string; icon: string }[],
     gallery: [] as { url: string; type: string }[],
   });
 
@@ -70,7 +71,7 @@ export default function SchoolSettingsPage() {
       motto: data.motto || '',
     });
     setBranding({
-      primary_color: data.website_theme?.primary_color || '#2563eb',
+      primary_color: data.website_theme?.primary_color || '#1e3a5f',
       font: data.website_theme?.font || 'Inter',
       logo_url: data.logo_url || null,
     });
@@ -80,6 +81,12 @@ export default function SchoolSettingsPage() {
       about_text: data.website_content?.about_text || '',
       mission: data.website_content?.mission || '',
       vision: data.website_content?.vision || '',
+      highlights:
+        data.website_content?.highlights?.map((h: any) => ({
+          title: h.title || '',
+          description: h.description || '',
+          icon: h.icon || 'sparkles',
+        })) || [],
       gallery: data.website_content?.gallery || [],
     });
     setSocial({
@@ -144,6 +151,7 @@ export default function SchoolSettingsPage() {
         about_text: content.about_text || null,
         mission: content.mission || null,
         vision: content.vision || null,
+        highlights: content.highlights.length > 0 ? content.highlights : null,
         gallery: content.gallery,
       },
     });
@@ -384,8 +392,8 @@ export default function SchoolSettingsPage() {
             <CardHeader>
               <CardTitle>Website Content</CardTitle>
               <CardDescription>
-                Edit the hero section, about text, mission, vision, and video
-                gallery shown on your public website at{' '}
+                Edit the hero section, about text, mission, vision, highlights,
+                and video gallery shown on your public website at{' '}
                 {data?.slug
                   ? `${data.slug}.nexaforges.me`
                   : 'your subdomain'}
@@ -401,6 +409,13 @@ export default function SchoolSettingsPage() {
                 onGalleryChange={(gallery: { url: string; type: string }[]) =>
                   setContent((prev) => ({ ...prev, gallery }))
                 }
+                onHighlightsChange={(
+                  highlights: {
+                    title: string;
+                    description: string;
+                    icon: string;
+                  }[]
+                ) => setContent((prev) => ({ ...prev, highlights }))}
                 onSave={handleSaveContent}
                 isLoading={isSaving}
               />

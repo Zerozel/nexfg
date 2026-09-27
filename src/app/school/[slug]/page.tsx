@@ -72,7 +72,6 @@ export default async function SchoolHomePage({
         value: published.motto.slice(0, 24),
       });
     }
-    // Fallback so the bar never looks empty
     if (signals.length < 3) {
       signals.push({ label: 'Committed to', value: 'Excellence' });
     }
@@ -101,6 +100,7 @@ export default async function SchoolHomePage({
         <WhySection
           schoolName={published.name}
           primaryColor={primaryColor}
+          highlights={published.website_content?.highlights || null}
         />
         <GallerySection
           gallery={published.website_content?.gallery || []}

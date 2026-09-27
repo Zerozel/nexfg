@@ -23,6 +23,11 @@ interface SchoolSettings {
     about_text: string | null;
     mission: string | null;
     vision: string | null;
+    highlights: {
+      title: string;
+      description: string;
+      icon: string;
+    }[] | null;
     contact_email: string | null;
     contact_phone: string | null;
     address: string | null;

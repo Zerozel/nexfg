@@ -12,6 +12,12 @@ interface GalleryItem {
   type: string;
 }
 
+interface HighlightItem {
+  title: string;
+  description: string;
+  icon: string;
+}
+
 interface WebsiteContentFormProps {
   data: {
     hero_title: string;
@@ -19,10 +25,12 @@ interface WebsiteContentFormProps {
     about_text: string;
     mission: string;
     vision: string;
+    highlights: HighlightItem[];
     gallery: GalleryItem[];
   };
   onChange: (field: string, value: string) => void;
   onGalleryChange: (gallery: GalleryItem[]) => void;
+  onHighlightsChange: (highlights: HighlightItem[]) => void;
   onSave: () => Promise<void>;
   isLoading: boolean;
 }
@@ -31,6 +39,7 @@ export function WebsiteContentForm({
   data,
   onChange,
   onGalleryChange,
+  onHighlightsChange,
   onSave,
   isLoading,
 }: WebsiteContentFormProps) {
@@ -47,6 +56,28 @@ export function WebsiteContentForm({
 
   const handleRemoveVideo = (index: number) => {
     onGalleryChange(data.gallery.filter((_, i) => i !== index));
+  };
+
+  const handleAddHighlight = () => {
+    if (data.highlights.length >= 4) return;
+    onHighlightsChange([
+      ...data.highlights,
+      { title: '', description: '', icon: 'sparkles' },
+    ]);
+  };
+
+  const handleUpdateHighlight = (
+    index: number,
+    field: keyof HighlightItem,
+    value: string
+  ) => {
+    const updated = [...data.highlights];
+    updated[index] = { ...updated[index], [field]: value };
+    onHighlightsChange(updated);
+  };
+
+  const handleRemoveHighlight = (index: number) => {
+    onHighlightsChange(data.highlights.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -111,7 +142,76 @@ export function WebsiteContentForm({
         </div>
       </div>
 
-      <div className="space-y-2">
+      {/* Highlights */}
+      <div className="space-y-3 pt-4 border-t">
+        <div className="flex items-center justify-between">
+          <div>
+            <Label>Why [Your School] — Key Highlights</Label>
+            <p className="text-xs text-muted-foreground mt-1">
+              Up to 4 highlights that show what makes your school special.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleAddHighlight}
+            disabled={data.highlights.length >= 4}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Add Highlight
+          </Button>
+        </div>
+
+        {data.highlights.length === 0 && (
+          <div className="text-sm text-muted-foreground p-4 border border-dashed rounded-lg text-center">
+            No highlights yet. Click &quot;Add Highlight&quot; to create your
+            first one.
+          </div>
+        )}
+
+        {data.highlights.map((h, index) => (
+          <div
+            key={index}
+            className="p-4 border rounded-lg space-y-3 bg-gray-50/50"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-gray-500">
+                Highlight {index + 1}
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => handleRemoveHighlight(index)}
+                className="h-7 w-7"
+              >
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+
+            <Input
+              placeholder="Title (e.g., Small Class Sizes)"
+              value={h.title}
+              onChange={(e) =>
+                handleUpdateHighlight(index, 'title', e.target.value)
+              }
+            />
+
+            <Textarea
+              placeholder="Description..."
+              value={h.description}
+              onChange={(e) =>
+                handleUpdateHighlight(index, 'description', e.target.value)
+              }
+              rows={2}
+            />
+          </div>
+        ))}
+      </div>
+
+      {/* Gallery */}
+      <div className="space-y-2 pt-4 border-t">
         <Label>Gallery (YouTube/Vimeo Videos)</Label>
         <div className="space-y-2">
           {data.gallery.map((item, index) => (

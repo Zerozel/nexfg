@@ -1,39 +1,60 @@
 import { BookOpen, Users, Sparkles, Shield } from 'lucide-react';
 import { DESIGN_TOKENS } from '@/lib/public/design-tokens';
 
+interface Highlight {
+  title: string;
+  description: string;
+  icon?: string | null;
+}
+
 interface WhySectionProps {
   schoolName: string;
   primaryColor: string;
+  highlights?: Highlight[] | null;
 }
 
-const HIGHLIGHTS = [
+const DEFAULT_HIGHLIGHTS: Highlight[] = [
   {
-    icon: Users,
     title: 'Small Class Sizes',
     description:
       'Every child receives individual attention in classrooms designed for focused learning.',
+    icon: 'users',
   },
   {
-    icon: BookOpen,
     title: 'Qualified Educators',
     description:
       'Experienced teachers who are committed to bringing out the best in every student.',
+    icon: 'book',
   },
   {
-    icon: Sparkles,
     title: 'Holistic Curriculum',
     description:
       'Academics, arts, sports, and character — balanced development, not just exam scores.',
+    icon: 'sparkles',
   },
   {
-    icon: Shield,
     title: 'Safe Environment',
     description:
       'A secure, nurturing campus where students can learn, play, and grow with confidence.',
+    icon: 'shield',
   },
 ];
 
-export function WhySection({ schoolName, primaryColor }: WhySectionProps) {
+const ICON_MAP: Record<string, any> = {
+  users: Users,
+  book: BookOpen,
+  sparkles: Sparkles,
+  shield: Shield,
+};
+
+export function WhySection({
+  schoolName,
+  primaryColor,
+  highlights,
+}: WhySectionProps) {
+  const items =
+    highlights && highlights.length > 0 ? highlights : DEFAULT_HIGHLIGHTS;
+
   return (
     <section
       className="py-24 md:py-32"
@@ -81,8 +102,8 @@ export function WhySection({ schoolName, primaryColor }: WhySectionProps) {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {HIGHLIGHTS.map((item, i) => {
-            const Icon = item.icon;
+          {items.map((item, i) => {
+            const Icon = ICON_MAP[item.icon || 'sparkles'] || Sparkles;
             return (
               <div
                 key={i}
