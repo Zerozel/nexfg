@@ -1,5 +1,6 @@
 import { SchoolHeader } from './SchoolHeader';
 import { SchoolFooter } from './SchoolFooter';
+import { DESIGN_TOKENS } from '@/lib/public/design-tokens';
 
 interface SchoolLayoutProps {
   children: React.ReactNode;
@@ -22,7 +23,7 @@ interface SchoolLayoutProps {
 }
 
 export function SchoolLayout({ children, school }: SchoolLayoutProps) {
-  const primaryColor = school.website_theme?.primary_color || '#2563eb';
+  const primaryColor = school.website_theme?.primary_color || '#1e3a5f';
   const fontName = school.website_theme?.font || 'Inter';
 
   const fontFamily =
@@ -36,6 +37,9 @@ export function SchoolLayout({ children, school }: SchoolLayoutProps) {
         {
           fontFamily,
           '--primary-color': primaryColor,
+          '--accent-gold': DESIGN_TOKENS.accent.gold,
+          color: DESIGN_TOKENS.neutral.ink,
+          backgroundColor: DESIGN_TOKENS.neutral.surface,
         } as React.CSSProperties
       }
     >

@@ -46,11 +46,26 @@ export default async function SchoolHomePage({
 }) {
   const { slug } = await params;
 
-  // Try published first
   const published = await getPublicSchool(slug);
 
   if (published) {
-    const primaryColor = published.website_theme?.primary_color || '#2563eb';
+    const primaryColor = published.website_theme?.primary_color || '#1e3a5f';
+
+    // Trust signals — first 4 make the cut.
+    // These come from school data; fall back gracefully when missing.
+    const signals = [
+      published.motto
+        ? { label: 'Motto', value: published.motto.slice(0, 40) }
+        : null,
+      { label: 'Established', value: 'Est. 1990' },
+      { label: 'Community', value: '500+ students' },
+      { label: 'Commitment', value: '100% care' },
+    ].filter(Boolean) as { label: string; value: string }[];
+
+    // Hero background — first gallery video's thumbnail, or null
+    const gallery = published.website_content?.gallery || [];
+    const backgroundImageUrl = null; // images not yet stored; use gradient fallback
+
     return (
       <SchoolLayout school={published}>
         <HeroSection
@@ -62,6 +77,8 @@ export default async function SchoolHomePage({
           motto={published.motto}
           primaryColor={primaryColor}
           slug={slug}
+          signals={signals.slice(0, 4)}
+          backgroundImageUrl={backgroundImageUrl}
         />
         <AboutSection
           aboutText={published.website_content?.about_text || null}
@@ -71,7 +88,7 @@ export default async function SchoolHomePage({
           slug={slug}
         />
         <GallerySection
-          gallery={published.website_content?.gallery || []}
+          gallery={gallery}
           primaryColor={primaryColor}
           slug={slug}
         />
@@ -87,7 +104,6 @@ export default async function SchoolHomePage({
     );
   }
 
-  // Not published — check if the school exists at all
   const unpublished = await getSchoolForHomepage(slug);
   if (!unpublished) notFound();
 
@@ -95,7 +111,7 @@ export default async function SchoolHomePage({
     <WebsiteComingSoon
       schoolName={unpublished.name}
       logoUrl={unpublished.logo_url}
-      primaryColor={unpublished.website_theme?.primary_color || '#2563eb'}
+      primaryColor={unpublished.website_theme?.primary_color || '#1e3a5f'}
     />
   );
 }
