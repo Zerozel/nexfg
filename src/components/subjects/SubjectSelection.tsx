@@ -73,6 +73,7 @@ export function SubjectSelection({
   };
 
   const handleSave = async () => {
+    const wasEmpty = activeSubjects.length === 0;
     setIsSaving(true);
     try {
       const response = await fetch(`${apiBase}/form-class-subjects`, {
@@ -91,8 +92,25 @@ export function SubjectSelection({
 
       toast({
         title: 'Success',
-        description: `Subjects updated: ${selectedIds.length} active`,
+        description:
+          selectedIds.length === 0
+            ? 'Subjects cleared.'
+            : `Subjects updated: ${selectedIds.length} active`,
       });
+
+      // First-time save with content → guide toward the next step: assigning
+      // teachers. Only shows once, when the class was empty before.
+      if (wasEmpty && selectedIds.length > 0) {
+        setTimeout(() => {
+          toast({
+            title: 'Next step',
+            description:
+              'Assign a teacher to each subject using the Assign button.',
+            duration: 5000,
+          });
+        }, 500);
+      }
+
       refetch();
     } catch (err: any) {
       toast({
@@ -298,7 +316,11 @@ export function SubjectSelection({
               {selectedIds.length} of {allSubjects.length} subjects active
             </span>
             <Button onClick={handleSave} disabled={isSaving}>
-              {isSaving ? 'Saving...' : 'Save Changes'}
+              {isSaving
+                ? 'Saving...'
+                : activeSubjects.length === 0
+                ? 'Save Subjects'
+                : 'Save Changes'}
             </Button>
           </div>
         </CardContent>

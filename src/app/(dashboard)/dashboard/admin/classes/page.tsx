@@ -52,7 +52,8 @@ export default function ClassesPage() {
   const { data: academicYears } = useAcademicYears();
   const { createClass, deleteClass, syncClassGroup } = useClassMutations();
 
-  const { arms: editArms, isLoading: editArmsLoading } = useClassGroup(editBaseName);
+  const { arms: editArms, isLoading: editArmsLoading } =
+    useClassGroup(editBaseName);
 
   useEffect(() => {
     if (!showEdit || !editBaseName) return;
@@ -86,14 +87,34 @@ export default function ClassesPage() {
     setShowCreate(true);
   };
 
+  // After a class is created, the admin is redirected straight to the
+  // subject-assignment page for that class. This makes the flow self-driving:
+  // create class → assign subjects → assign teachers — without anyone having
+  // to hunt for the next step.
   const handleCreate = async () => {
     setIsSubmitting(true);
     try {
-      await createClass(formData);
-      toast({ title: 'Success', description: 'Class created successfully' });
+      const created = await createClass(formData);
+      toast({
+        title: 'Class created',
+        description: 'Now assign its subjects.',
+      });
       setShowCreate(false);
       setFormData({});
       refetch();
+
+      // The API may return a single class or an array of arms; pick the first
+      // available ID and navigate there.
+      const newClassId =
+        created?.data?.id ||
+        created?.id ||
+        (Array.isArray(created?.data) ? created.data[0]?.id : null);
+
+      if (newClassId) {
+        setTimeout(() => {
+          window.location.href = `/dashboard/admin/classes/${newClassId}/subjects`;
+        }, 400);
+      }
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -171,20 +192,23 @@ export default function ClassesPage() {
     }
   };
 
+  // The class name itself is the link to its subject page — this removes the
+  // need for a separate "Manage Subjects" button and makes the path obvious.
   const columns: Column<Class>[] = [
-    { key: 'name', header: 'Class Name' },
-    { key: 'teacher_name', header: 'Class Teacher' },
     {
-      key: 'subjects',
-      header: 'Subjects',
+      key: 'name',
+      header: 'Class Name',
       render: (cls: any) => (
-        <Link href={`/dashboard/admin/classes/${cls.id}/subjects`}>
-          <Button variant="outline" size="sm">
-            Manage Subjects
-          </Button>
+        <Link
+          href={`/dashboard/admin/classes/${cls.id}/subjects`}
+          className="font-medium text-primary hover:underline inline-flex items-center gap-1.5"
+        >
+          {cls.name}
+          <span className="text-xs text-muted-foreground font-normal">→</span>
         </Link>
       ),
     },
+    { key: 'teacher_name', header: 'Class Teacher' },
   ];
 
   const letters = 'ABCDEFGHIJ'.split('').slice(0, editArmsCount);
@@ -194,7 +218,9 @@ export default function ClassesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Classes</h1>
-          <p className="text-muted-foreground">Manage classes for your school.</p>
+          <p className="text-muted-foreground">
+            Manage classes for your school. Click a class to manage its subjects.
+          </p>
         </div>
         <Button onClick={openCreate}>
           <Plus className="mr-2 h-4 w-4" />
