@@ -1,4 +1,15 @@
+import type { LucideIcon } from "lucide-react";
+import { Monitor, Target, TabletSmartphone, Landmark } from "lucide-react";
 import { COLORS, ECOSYSTEM_CARDS } from "@/lib/marketing/constants";
+import { IconBadge } from "./IconBadge";
+import { SectionDivider } from "./SectionDivider";
+
+const ICON_MAP: Record<string, LucideIcon> = {
+  Monitor,
+  Target,
+  TabletSmartphone,
+  Landmark,
+};
 
 export function EcosystemSection() {
   return (
@@ -10,59 +21,12 @@ export function EcosystemSection() {
       }}
     >
       <div style={{ maxWidth: 1180, margin: "0 auto", padding: "0 24px" }}>
-        {/* Header */}
-        <div style={{ textAlign: "center", maxWidth: 720, margin: "0 auto" }}>
-          <div
-            style={{
-              display: "inline-block",
-              fontFamily: "monospace",
-              fontSize: 10,
-              letterSpacing: 3,
-              textTransform: "uppercase",
-              color: COLORS.primary,
-              background: "rgba(26,92,58,0.08)",
-              padding: "5px 12px",
-              borderRadius: 100,
-              marginBottom: 14,
-            }}
-          >
-            The NexaForge Vision
-          </div>
-          <h2
-            style={{
-              fontFamily: "Georgia, serif",
-              fontSize: "clamp(1.8rem, 6vw, 2.8rem)",
-              fontWeight: 700,
-              color: COLORS.text,
-              lineHeight: 1.15,
-              marginBottom: 16,
-            }}
-          >
-            Four areas, one direction.
-          </h2>
-          <div
-            style={{
-              width: 48,
-              height: 3,
-              background: COLORS.gold,
-              borderRadius: 2,
-              margin: "16px auto 24px",
-            }}
-          />
-          <p
-            style={{
-              fontSize: 15,
-              color: COLORS.textMid,
-              lineHeight: 1.75,
-            }}
-          >
-            The platform is available today. The other three areas describe
-            where we are heading — clearly labelled so you always know what
-            exists and what is planned.
-          </p>
-        </div>
+        <SectionDivider
+          kicker="The NexaForge Vision"
+          title="Four areas, one direction."
+          subtitle="The platform is available today. The other three areas describe where we are heading — clearly labelled so you always know what exists and what is planned."
+        />
 
-        {/* Cards Grid */}
         <div
           style={{
             display: "grid",
@@ -71,66 +35,75 @@ export function EcosystemSection() {
             marginTop: 56,
           }}
         >
-          {ECOSYSTEM_CARDS.map((card) => (
-            <div
-              key={card.title}
-              style={{
-                background: COLORS.white,
-                border: "1px solid rgba(0,0,0,0.08)",
-                borderTop: `3px solid ${card.borderColor || COLORS.primary}`,
-                borderRadius: 12,
-                padding: "28px 24px",
-                position: "relative",
-                overflow: "hidden",
-                transition: "all 0.25s",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = "translateY(-4px)";
-                e.currentTarget.style.boxShadow =
-                  "0 12px 40px rgba(0,0,0,0.08)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = "translateY(0)";
-                e.currentTarget.style.boxShadow = "none";
-              }}
-            >
-              <div style={{ fontSize: 32, marginBottom: 16 }}>{card.icon}</div>
-              {card.subLabel && (
+          {ECOSYSTEM_CARDS.map((card) => {
+            const Icon = ICON_MAP[card.icon];
+            return (
+              <div
+                key={card.title}
+                style={{
+                  background: COLORS.white,
+                  border: "1px solid rgba(0,0,0,0.08)",
+                  borderTop: `3px solid ${card.borderColor || COLORS.primary}`,
+                  borderRadius: 12,
+                  padding: "28px 24px",
+                  transition: "all 0.25s",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = "translateY(-4px)";
+                  e.currentTarget.style.boxShadow =
+                    "0 12px 40px rgba(0,0,0,0.08)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = "translateY(0)";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
+              >
+                {Icon && (
+                  <IconBadge
+                    icon={Icon}
+                    size="md"
+                    tone={
+                      card.subLabel === "AVAILABLE NOW" ? "primary" : "neutral"
+                    }
+                  />
+                )}
+                {card.subLabel && (
+                  <div
+                    style={{
+                      fontFamily: "monospace",
+                      fontSize: 9,
+                      letterSpacing: 2,
+                      color: card.borderColor || COLORS.primary,
+                      marginBottom: 6,
+                      fontWeight: 600,
+                    }}
+                  >
+                    {card.subLabel}
+                  </div>
+                )}
                 <div
                   style={{
-                    fontFamily: "monospace",
-                    fontSize: 9,
-                    letterSpacing: 2,
-                    color: card.borderColor || COLORS.primary,
-                    marginBottom: 6,
+                    fontFamily: "Georgia, serif",
+                    fontSize: "1.1rem",
+                    color: card.borderColor || COLORS.text,
+                    marginBottom: 8,
                     fontWeight: 600,
                   }}
                 >
-                  {card.subLabel}
+                  {card.title}
                 </div>
-              )}
-              <div
-                style={{
-                  fontFamily: "Georgia, serif",
-                  fontSize: "1.1rem",
-                  color: card.borderColor || COLORS.text,
-                  marginBottom: 8,
-                  fontWeight: 600,
-                }}
-              >
-                {card.title}
+                <div
+                  style={{
+                    fontSize: 13,
+                    color: COLORS.textLight,
+                    lineHeight: 1.65,
+                  }}
+                >
+                  {card.description}
+                </div>
               </div>
-              <div
-                style={{
-                  fontSize: 13,
-                  color: COLORS.textLight,
-                  lineHeight: 1.65,
-                }}
-              >
-                {card.description}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </section>

@@ -1,6 +1,24 @@
 "use client";
 
+import type { LucideIcon } from "lucide-react";
+import {
+  Lightbulb,
+  Trophy,
+  GraduationCap,
+  Tablet,
+  Globe2,
+  Network,
+} from "lucide-react";
 import { COLORS, PROGRAMME_CARDS } from "@/lib/marketing/constants";
+
+const ICON_MAP: Record<string, LucideIcon> = {
+  Lightbulb,
+  Trophy,
+  GraduationCap,
+  Tablet,
+  Globe2,
+  Network,
+};
 
 interface ProgrammesSectionProps {
   onScrollTo: (id: string) => void;
@@ -18,7 +36,6 @@ export function ProgrammesSection({ onScrollTo }: ProgrammesSectionProps) {
           className="grid-2"
           style={{ display: "grid", gap: 64, alignItems: "center" }}
         >
-          {/* Left - Text */}
           <div>
             <div
               style={{
@@ -103,7 +120,6 @@ export function ProgrammesSection({ onScrollTo }: ProgrammesSectionProps) {
             </button>
           </div>
 
-          {/* Right - Programme Cards */}
           <div>
             <div
               style={{
@@ -112,63 +128,67 @@ export function ProgrammesSection({ onScrollTo }: ProgrammesSectionProps) {
                 gap: 24,
               }}
             >
-              {PROGRAMME_CARDS.map((card) => (
-                <div
-                  key={card.title}
-                  style={{
-                    borderRadius: 12,
-                    overflow: "hidden",
-                    border: "1px solid rgba(0,0,0,0.08)",
-                    transition: "all 0.25s",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = "translateY(-4px)";
-                    e.currentTarget.style.boxShadow =
-                      "0 12px 40px rgba(0,0,0,0.1)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = "translateY(0)";
-                    e.currentTarget.style.boxShadow = "none";
-                  }}
-                >
+              {PROGRAMME_CARDS.map((card) => {
+                const Icon = ICON_MAP[card.icon];
+                return (
                   <div
+                    key={card.title}
                     style={{
-                      height: 140,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: 48,
-                      background: card.gradient,
+                      borderRadius: 12,
+                      overflow: "hidden",
+                      border: "1px solid rgba(0,0,0,0.08)",
+                      transition: "all 0.25s",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = "translateY(-4px)";
+                      e.currentTarget.style.boxShadow =
+                        "0 12px 40px rgba(0,0,0,0.1)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = "translateY(0)";
+                      e.currentTarget.style.boxShadow = "none";
                     }}
                   >
-                    {card.icon}
-                  </div>
-                  <div
-                    style={{ padding: "20px 22px", background: COLORS.white }}
-                  >
                     <div
                       style={{
-                        fontFamily: "Georgia, serif",
-                        fontSize: "1.05rem",
-                        color: COLORS.text,
-                        marginBottom: 6,
-                        fontWeight: 600,
+                        height: 140,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        background: card.gradient,
                       }}
                     >
-                      {card.title}
+                      {Icon && (
+                        <Icon size={48} strokeWidth={1.5} color="#ffffff" />
+                      )}
                     </div>
                     <div
-                      style={{
-                        fontSize: 13,
-                        color: COLORS.textLight,
-                        lineHeight: 1.65,
-                      }}
+                      style={{ padding: "20px 22px", background: COLORS.white }}
                     >
-                      {card.description}
+                      <div
+                        style={{
+                          fontFamily: "Georgia, serif",
+                          fontSize: "1.05rem",
+                          color: COLORS.text,
+                          marginBottom: 6,
+                          fontWeight: 600,
+                        }}
+                      >
+                        {card.title}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 13,
+                          color: COLORS.textLight,
+                          lineHeight: 1.65,
+                        }}
+                      >
+                        {card.description}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>

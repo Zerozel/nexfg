@@ -1,4 +1,13 @@
+import type { LucideIcon } from "lucide-react";
+import { TrendingDown, Code2, School } from "lucide-react";
 import { COLORS, PROBLEM_STATS } from "@/lib/marketing/constants";
+import { IconBadge } from "./IconBadge";
+
+const ICON_MAP: Record<string, LucideIcon> = {
+  TrendingDown,
+  Code2,
+  School,
+};
 
 export function ProblemSection() {
   return (
@@ -11,7 +20,10 @@ export function ProblemSection() {
       }}
     >
       <div style={{ maxWidth: 1180, margin: "0 auto", padding: "0 24px" }}>
-        <div className="grid-2" style={{ display: "grid", gap: 48, alignItems: "center" }}>
+        <div
+          className="grid-2"
+          style={{ display: "grid", gap: 48, alignItems: "center" }}
+        >
           {/* Left */}
           <div>
             <div
@@ -59,8 +71,8 @@ export function ProblemSection() {
               }}
             >
               Children study hard, pass exams, collect certificates — and walk
-              into a world that has moved on without them. They were prepared for
-              a world of stable employment that barely exists anymore.
+              into a world that has moved on without them. They were prepared
+              for a world of stable employment that barely exists anymore.
             </p>
             <p
               style={{
@@ -70,8 +82,8 @@ export function ProblemSection() {
                 marginTop: 16,
               }}
             >
-              The problem is not the teachers. It is not even the schools. It is
-              that the tools and programmes schools need to do something
+              The problem is not the teachers. It is not even the schools. It
+              is that the tools and programmes schools need to do something
               different have never been put within reach — until now.
             </p>
           </div>
@@ -90,42 +102,49 @@ export function ProblemSection() {
                 marginBottom: 24,
               }}
             >
-              "The certificate is not the ceiling. But nobody told the school."
+              &ldquo;The certificate is not the ceiling. But nobody told the
+              school.&rdquo;
             </p>
-            {PROBLEM_STATS.map((stat) => (
-              <div
-                key={stat.value}
-                style={{
-                  display: "flex",
-                  gap: 16,
-                  padding: "16px 0",
-                  borderBottom: "1px solid rgba(0,0,0,0.07)",
-                }}
-              >
-                <div style={{ fontSize: 24, flexShrink: 0 }}>{stat.icon}</div>
-                <div>
-                  <div
-                    style={{
-                      fontFamily: "Georgia, serif",
-                      fontSize: "1.5rem",
-                      fontWeight: 700,
-                      color: COLORS.primary,
-                    }}
-                  >
-                    {stat.value}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 13,
-                      color: COLORS.textMid,
-                      lineHeight: 1.55,
-                    }}
-                  >
-                    {stat.description}
+            {PROBLEM_STATS.map((stat) => {
+              const Icon = ICON_MAP[stat.icon];
+              return (
+                <div
+                  key={stat.value}
+                  style={{
+                    display: "flex",
+                    gap: 16,
+                    padding: "16px 0",
+                    borderBottom: "1px solid rgba(0,0,0,0.07)",
+                    alignItems: "flex-start",
+                  }}
+                >
+                  {Icon && (
+                    <IconBadge icon={Icon} size="sm" tone="primary" flush />
+                  )}
+                  <div>
+                    <div
+                      style={{
+                        fontFamily: "Georgia, serif",
+                        fontSize: "1.5rem",
+                        fontWeight: 700,
+                        color: COLORS.primary,
+                      }}
+                    >
+                      {stat.value}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 13,
+                        color: COLORS.textMid,
+                        lineHeight: 1.55,
+                      }}
+                    >
+                      {stat.description}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>

@@ -1,7 +1,6 @@
 import type {
   FAQItem,
   StatItem,
-  FeaturePill,
   ServiceCard,
   StepItem,
   ProgrammeCard,
@@ -35,30 +34,34 @@ export const HERO_STATS: StatItem[] = [
   { value: "1", suffix: "", label: "Purpose" },
 ];
 
-export const FEATURE_PILLS: FeaturePill[] = [
-  { icon: "📋", text: "Student & teacher records" },
-  { icon: "🌐", text: "Branded public website" },
-  { icon: "💳", text: "Pay per term or per session" },
-  { icon: "📊", text: "Scores, results & report cards" },
-  { icon: "📱", text: "Works on any phone or laptop" },
-  { icon: "🔒", text: "Your data. Always yours." },
+/**
+ * Hero feature pills — text only, no emoji. Rendered as a compact list
+ * inside the hero's right-hand card.
+ */
+export const FEATURE_PILLS = [
+  { text: "Student & teacher records" },
+  { text: "Branded public website" },
+  { text: "Pay per term or per session" },
+  { text: "Scores, results & report cards" },
+  { text: "Works on any phone or laptop" },
+  { text: "Your data. Always yours." },
 ];
 
 export const PROBLEM_STATS = [
   {
-    icon: "📉",
+    icon: "TrendingDown",
     value: "67%",
     description:
       "of Nigerian graduates are underemployed within 2 years of graduation",
   },
   {
-    icon: "🧑‍💻",
+    icon: "Code2",
     value: "3%",
     description:
       "of secondary school students have been exposed to coding or entrepreneurship",
   },
   {
-    icon: "🏫",
+    icon: "School",
     value: "200+",
     description:
       "EdTech platforms competing — most automating paperwork, not producing better outcomes",
@@ -66,69 +69,65 @@ export const PROBLEM_STATS = [
 ];
 
 // ============================================================================
-// SERVICE_CARDS — Now aligned to "What we do today" (from the proposal).
-// Five confirmed capabilities. No claims about features we haven't built.
+// SERVICE_CARDS — What we do today. Icon strings map to lucide-react
+// components via the shared ICON_MAP in PlatformSection.
 // ============================================================================
 export const SERVICE_CARDS: ServiceCard[] = [
   {
-    icon: "👤",
+    icon: "Users",
     title: "Student & Teacher Records",
     description:
       "Register students and staff digitally. Manage class assignments, guardian information, enrollment history, and profile data — all in one place.",
   },
   {
-    icon: "🏛️",
+    icon: "Landmark",
     title: "Classes, Subjects & Academic Setup",
     description:
       "Configure academic sessions, terms, classes, subjects, and grading structures to match exactly how your school is organised.",
   },
   {
-    icon: "📝",
+    icon: "ClipboardPen",
     title: "Score Entry & Result Processing",
     description:
       "Teachers enter CA and examination scores from any device. Grades calculate automatically using your school's grading scale.",
   },
   {
-    icon: "📊",
+    icon: "BarChart3",
     title: "Report Cards & Results",
     description:
       "Branded, printable report cards generated automatically. Print one student or an entire class in seconds.",
   },
   {
-    icon: "🎓",
+    icon: "GraduationCap",
     title: "Promotion & New-Term Preparation",
     description:
       "Move students into their next academic stage and prepare the next term without rebuilding records from scratch.",
   },
   {
-    icon: "🌐",
+    icon: "Globe",
     title: "Public School Website",
     description:
       "A branded public website at schoolname.nexaforges.me — with your identity, contact details, gallery, and admissions information.",
   },
 ];
 
-// ============================================================================
-// COMING_SOON_ITEMS — Features we are actively building but cannot yet promise
-// as live. Framed honestly so schools know what to expect.
-// ============================================================================
 export const COMING_SOON_ITEMS = [
   {
-    icon: "📸",
+    icon: "Camera",
     title: "AI-Assisted Exam Preparation",
     description:
       "Photograph or upload exam questions. We extract the content, structure it, and prepare it for printing. Extracted content always remains subject to staff review before use.",
     note: "Cutting exam preparation cost from hours of typing to a few minutes.",
   },
   {
-    icon: "📅",
+    icon: "CalendarCheck",
     title: "Attendance Tracking",
     description:
       "Daily attendance tied to each student's record, generating attendance reports alongside academic results.",
     note: "Currently in design — not yet available in the platform.",
   },
   {
-    icon: "💬",
+    icon: "MessageCircle",
     title: "Parent Communication",
     description:
       "Direct messaging between the school and parents for announcements, results, and updates.",
@@ -170,48 +169,44 @@ export const BAND_STATS: StatItem[] = [
   { value: "98", suffix: "%", label: "Setup Success Rate" },
 ];
 
-// ============================================================================
-// PROGRAMME_CARDS — Reframed as "where we're going". Vision, not current
-// offering. Explicit language so nobody mistakes these for what exists today.
-// ============================================================================
 export const PROGRAMME_CARDS: ProgrammeCard[] = [
   {
-    icon: "💡",
+    icon: "Lightbulb",
     gradient: "linear-gradient(135deg, #1a5c3a, #2d8b5a)",
     title: "Skill Development Sessions",
     description:
       "Coding, design, public speaking, financial literacy — intended to be delivered directly in partner schools.",
   },
   {
-    icon: "🏆",
+    icon: "Trophy",
     gradient: "linear-gradient(135deg, #b8860b, #d4a017)",
     title: "Competitions",
     description:
       "Inter-school competitions in science, technology, entrepreneurship, and debate — with real prizes and recognition.",
   },
   {
-    icon: "🎓",
+    icon: "GraduationCap",
     gradient: "linear-gradient(135deg, #1a4c6e, #2d7aaa)",
     title: "Scholarships",
     description:
       "Merit-based funding for outstanding students in partner schools — funded through NexaForge and sponsors.",
   },
   {
-    icon: "📱",
+    icon: "Tablet",
     gradient: "linear-gradient(135deg, #3a1a5c, #5a2d8b)",
     title: "Educational Devices",
     description:
       "Tablets and classroom technology built for African schools — distributed through the NexaForge network.",
   },
   {
-    icon: "🌍",
+    icon: "Globe2",
     gradient: "linear-gradient(135deg, #1a5c5c, #2d8b8b)",
     title: "Career Exposure",
     description:
       "Entrepreneurs, engineers, and leaders visiting partner schools to show students what is possible.",
   },
   {
-    icon: "🔗",
+    icon: "Network",
     gradient: "linear-gradient(135deg, #5c3a1a, #8b5a2d)",
     title: "The Network",
     description:
@@ -219,13 +214,9 @@ export const PROGRAMME_CARDS: ProgrammeCard[] = [
   },
 ];
 
-// ============================================================================
-// ECOSYSTEM_CARDS — Reframed as directional. Only the Platform is live today;
-// the rest are labelled as future direction so the site doesn't mislead.
-// ============================================================================
 export const ECOSYSTEM_CARDS: ServiceCard[] = [
   {
-    icon: "🖥️",
+    icon: "Monitor",
     borderColor: COLORS.primary,
     title: "NexaForge Platform",
     subLabel: "AVAILABLE NOW",
@@ -233,7 +224,7 @@ export const ECOSYSTEM_CARDS: ServiceCard[] = [
       "School management software. Student data, results, report cards, public website, and billing — all in one.",
   },
   {
-    icon: "🎯",
+    icon: "Target",
     borderColor: "#5c1a3a",
     title: "NexaForge Programmes",
     subLabel: "IN DEVELOPMENT",
@@ -241,7 +232,7 @@ export const ECOSYSTEM_CARDS: ServiceCard[] = [
       "Skills development, competitions, scholarships, and career exposure — designed to make NexaForge schools educationally different.",
   },
   {
-    icon: "📱",
+    icon: "TabletSmartphone",
     borderColor: "#1a4c6e",
     title: "NexaForge Devices",
     subLabel: "FUTURE DIRECTION",
@@ -249,7 +240,7 @@ export const ECOSYSTEM_CARDS: ServiceCard[] = [
       "Tablets and classroom technology built specifically for African schools — distributed through the NexaForge network.",
   },
   {
-    icon: "🏛️",
+    icon: "Landmark",
     borderColor: "#1a5c5c",
     title: "NexaForge Government",
     subLabel: "FUTURE DIRECTION",
@@ -330,10 +321,6 @@ export const TRUST_BADGES = [
   "Cancel anytime",
 ];
 
-// ============================================================================
-// PHILOSOPHY — The proposal's named methodology. Becomes a section on the
-// site so every visitor understands how we work before they see the product.
-// ============================================================================
 export const PHILOSOPHY_STEPS = [
   {
     number: "01",

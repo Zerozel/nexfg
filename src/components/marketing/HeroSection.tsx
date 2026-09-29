@@ -1,5 +1,6 @@
 "use client";
 
+import { Check } from "lucide-react";
 import { COLORS, HERO_STATS, FEATURE_PILLS } from "@/lib/marketing/constants";
 
 interface HeroSectionProps {
@@ -68,7 +69,6 @@ export function HeroSection({ onScrollTo }: HeroSectionProps) {
         }}
       >
         <div>
-          {/* Eyebrow */}
           <div
             style={{
               display: "inline-flex",
@@ -98,7 +98,6 @@ export function HeroSection({ onScrollTo }: HeroSectionProps) {
             A Nigerian EdTech Initiative
           </div>
 
-          {/* Headline */}
           <h1
             style={{
               fontFamily: "Georgia, serif",
@@ -118,7 +117,6 @@ export function HeroSection({ onScrollTo }: HeroSectionProps) {
             </em>
           </h1>
 
-          {/* Description */}
           <p
             style={{
               color: "rgba(255,255,255,0.68)",
@@ -134,7 +132,6 @@ export function HeroSection({ onScrollTo }: HeroSectionProps) {
             giving their staff better work.
           </p>
 
-          {/* CTAs */}
           <div
             className="heroActions"
             style={{
@@ -183,7 +180,6 @@ export function HeroSection({ onScrollTo }: HeroSectionProps) {
             </button>
           </div>
 
-          {/* Stats */}
           <div
             className="heroStats"
             style={{ display: "flex", gap: 36, flexWrap: "wrap" }}
@@ -255,7 +251,8 @@ export function HeroSection({ onScrollTo }: HeroSectionProps) {
                 marginBottom: 14,
               }}
             >
-              ✅ Available Today
+              <Check size={12} strokeWidth={3} />
+              Available Today
             </div>
             <div
               style={{
@@ -287,15 +284,20 @@ export function HeroSection({ onScrollTo }: HeroSectionProps) {
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: 10,
+                  gap: 12,
                   padding: "10px 0",
                   borderBottom: "1px solid rgba(255,255,255,0.07)",
                 }}
               >
-                <span style={{ fontSize: 16 }}>{pill.icon}</span>
+                <Check
+                  size={16}
+                  strokeWidth={2.5}
+                  color={COLORS.gold}
+                  style={{ flexShrink: 0 }}
+                />
                 <span
                   style={{
-                    color: "rgba(255,255,255,0.75)",
+                    color: "rgba(255,255,255,0.78)",
                     fontSize: 13,
                   }}
                 >
