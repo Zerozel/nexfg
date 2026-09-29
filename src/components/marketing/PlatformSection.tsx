@@ -24,7 +24,7 @@ export function PlatformSection() {
               marginBottom: 14,
             }}
           >
-            The Platform
+            Available Today
           </div>
           <h2
             style={{
@@ -36,9 +36,7 @@ export function PlatformSection() {
               marginBottom: 16,
             }}
           >
-            Everything a school needs.
-            <br />
-            Nothing it doesn&apos;t.
+            What we do — right now.
           </h2>
           <div
             style={{
@@ -54,13 +52,13 @@ export function PlatformSection() {
               fontSize: 15,
               color: COLORS.textMid,
               lineHeight: 1.75,
-              maxWidth: 560,
+              maxWidth: 620,
               margin: "0 auto",
             }}
           >
-            NexaForge handles your administration completely — so your teachers
-            spend less time on paperwork and more time on what education is
-            actually for.
+            The NexaForge platform is live and used by schools today. These are
+            the workflows it handles — the ones that consume the most time for
+            administrators and teachers.
           </p>
         </div>
 

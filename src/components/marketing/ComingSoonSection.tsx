@@ -1,13 +1,11 @@
-import { COLORS, ECOSYSTEM_CARDS } from "@/lib/marketing/constants";
+import { COLORS, COMING_SOON_ITEMS } from "@/lib/marketing/constants";
 
-export function EcosystemSection() {
+export function ComingSoonSection() {
   return (
     <section
       className="section-padding"
-      style={{
-        background: COLORS.cream,
-        borderTop: "1px solid rgba(0,0,0,0.06)",
-      }}
+      id="coming-soon"
+      style={{ background: COLORS.white }}
     >
       <div style={{ maxWidth: 1180, margin: "0 auto", padding: "0 24px" }}>
         {/* Header */}
@@ -26,7 +24,7 @@ export function EcosystemSection() {
               marginBottom: 14,
             }}
           >
-            The NexaForge Vision
+            In Development
           </div>
           <h2
             style={{
@@ -38,7 +36,7 @@ export function EcosystemSection() {
               marginBottom: 16,
             }}
           >
-            Four areas, one direction.
+            What we are building next.
           </h2>
           <div
             style={{
@@ -56,78 +54,86 @@ export function EcosystemSection() {
               lineHeight: 1.75,
             }}
           >
-            The platform is available today. The other three areas describe
-            where we are heading — clearly labelled so you always know what
-            exists and what is planned.
+            We do not sell features before they exist. These are the
+            capabilities we are actively working on — and we will announce each
+            one to our schools as it becomes available.
           </p>
         </div>
 
-        {/* Cards Grid */}
+        {/* Coming Soon Cards */}
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+            gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
             gap: 20,
             marginTop: 56,
           }}
         >
-          {ECOSYSTEM_CARDS.map((card) => (
+          {COMING_SOON_ITEMS.map((item) => (
             <div
-              key={card.title}
+              key={item.title}
               style={{
-                background: COLORS.white,
-                border: "1px solid rgba(0,0,0,0.08)",
-                borderTop: `3px solid ${card.borderColor || COLORS.primary}`,
+                background: COLORS.cream,
+                border: "1px dashed rgba(26,92,58,0.3)",
                 borderRadius: 12,
                 padding: "28px 24px",
                 position: "relative",
-                overflow: "hidden",
-                transition: "all 0.25s",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = "translateY(-4px)";
-                e.currentTarget.style.boxShadow =
-                  "0 12px 40px rgba(0,0,0,0.08)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = "translateY(0)";
-                e.currentTarget.style.boxShadow = "none";
               }}
             >
-              <div style={{ fontSize: 32, marginBottom: 16 }}>{card.icon}</div>
-              {card.subLabel && (
-                <div
-                  style={{
-                    fontFamily: "monospace",
-                    fontSize: 9,
-                    letterSpacing: 2,
-                    color: card.borderColor || COLORS.primary,
-                    marginBottom: 6,
-                    fontWeight: 600,
-                  }}
-                >
-                  {card.subLabel}
-                </div>
-              )}
+              {/* "Coming soon" pill */}
+              <div
+                style={{
+                  position: "absolute",
+                  top: 16,
+                  right: 16,
+                  background: COLORS.goldLight,
+                  color: COLORS.primary,
+                  fontFamily: "monospace",
+                  fontSize: 9,
+                  letterSpacing: 1.5,
+                  textTransform: "uppercase",
+                  padding: "3px 8px",
+                  borderRadius: 100,
+                  fontWeight: 600,
+                }}
+              >
+                Coming Soon
+              </div>
+
+              <div style={{ fontSize: 32, marginBottom: 16, marginTop: 8 }}>
+                {item.icon}
+              </div>
               <div
                 style={{
                   fontFamily: "Georgia, serif",
                   fontSize: "1.1rem",
-                  color: card.borderColor || COLORS.text,
-                  marginBottom: 8,
+                  color: COLORS.text,
+                  marginBottom: 10,
                   fontWeight: 600,
                 }}
               >
-                {card.title}
+                {item.title}
               </div>
               <div
                 style={{
                   fontSize: 13,
-                  color: COLORS.textLight,
-                  lineHeight: 1.65,
+                  color: COLORS.textMid,
+                  lineHeight: 1.7,
+                  marginBottom: 12,
                 }}
               >
-                {card.description}
+                {item.description}
+              </div>
+              <div
+                style={{
+                  fontSize: 12,
+                  color: COLORS.primary,
+                  fontStyle: "italic",
+                  paddingTop: 12,
+                  borderTop: "1px solid rgba(26,92,58,0.1)",
+                }}
+              >
+                {item.note}
               </div>
             </div>
           ))}

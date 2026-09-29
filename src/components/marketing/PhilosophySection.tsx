@@ -1,12 +1,13 @@
-import { COLORS, ECOSYSTEM_CARDS } from "@/lib/marketing/constants";
+import { COLORS, PHILOSOPHY_STEPS } from "@/lib/marketing/constants";
 
-export function EcosystemSection() {
+export function PhilosophySection() {
   return (
     <section
       className="section-padding"
       style={{
         background: COLORS.cream,
         borderTop: "1px solid rgba(0,0,0,0.06)",
+        borderBottom: "1px solid rgba(0,0,0,0.06)",
       }}
     >
       <div style={{ maxWidth: 1180, margin: "0 auto", padding: "0 24px" }}>
@@ -26,7 +27,7 @@ export function EcosystemSection() {
               marginBottom: 14,
             }}
           >
-            The NexaForge Vision
+            Our Approach
           </div>
           <h2
             style={{
@@ -38,7 +39,7 @@ export function EcosystemSection() {
               marginBottom: 16,
             }}
           >
-            Four areas, one direction.
+            Organize. Automate. Enable.
           </h2>
           <div
             style={{
@@ -56,78 +57,64 @@ export function EcosystemSection() {
               lineHeight: 1.75,
             }}
           >
-            The platform is available today. The other three areas describe
-            where we are heading — clearly labelled so you always know what
-            exists and what is planned.
+            We do not assume every school needs the same technology. We start
+            by understanding how your school runs today — then we make it
+            better, one workflow at a time.
           </p>
         </div>
 
-        {/* Cards Grid */}
+        {/* Three Steps */}
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-            gap: 20,
+            gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+            gap: 28,
             marginTop: 56,
           }}
         >
-          {ECOSYSTEM_CARDS.map((card) => (
+          {PHILOSOPHY_STEPS.map((step) => (
             <div
-              key={card.title}
+              key={step.number}
               style={{
                 background: COLORS.white,
-                border: "1px solid rgba(0,0,0,0.08)",
-                borderTop: `3px solid ${card.borderColor || COLORS.primary}`,
+                border: "1px solid rgba(0,0,0,0.06)",
+                borderTop: `3px solid ${COLORS.gold}`,
                 borderRadius: 12,
-                padding: "28px 24px",
+                padding: "32px 28px",
                 position: "relative",
-                overflow: "hidden",
-                transition: "all 0.25s",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = "translateY(-4px)";
-                e.currentTarget.style.boxShadow =
-                  "0 12px 40px rgba(0,0,0,0.08)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = "translateY(0)";
-                e.currentTarget.style.boxShadow = "none";
               }}
             >
-              <div style={{ fontSize: 32, marginBottom: 16 }}>{card.icon}</div>
-              {card.subLabel && (
-                <div
-                  style={{
-                    fontFamily: "monospace",
-                    fontSize: 9,
-                    letterSpacing: 2,
-                    color: card.borderColor || COLORS.primary,
-                    marginBottom: 6,
-                    fontWeight: 600,
-                  }}
-                >
-                  {card.subLabel}
-                </div>
-              )}
               <div
                 style={{
                   fontFamily: "Georgia, serif",
-                  fontSize: "1.1rem",
-                  color: card.borderColor || COLORS.text,
-                  marginBottom: 8,
-                  fontWeight: 600,
+                  fontSize: "2rem",
+                  fontWeight: 700,
+                  color: COLORS.gold,
+                  marginBottom: 16,
+                  lineHeight: 1,
                 }}
               >
-                {card.title}
+                {step.number}
               </div>
               <div
                 style={{
-                  fontSize: 13,
-                  color: COLORS.textLight,
-                  lineHeight: 1.65,
+                  fontFamily: "Georgia, serif",
+                  fontSize: "1.35rem",
+                  fontWeight: 700,
+                  color: COLORS.text,
+                  marginBottom: 12,
                 }}
               >
-                {card.description}
+                {step.title}
+              </div>
+              <div
+                style={{
+                  fontSize: 14,
+                  color: COLORS.textMid,
+                  lineHeight: 1.75,
+                }}
+              >
+                {step.description}
               </div>
             </div>
           ))}

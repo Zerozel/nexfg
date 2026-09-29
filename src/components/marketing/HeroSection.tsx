@@ -21,7 +21,6 @@ export function HeroSection({ onScrollTo }: HeroSectionProps) {
         paddingTop: 68,
       }}
     >
-      {/* Glow Effects */}
       <div
         style={{
           position: "absolute",
@@ -48,7 +47,6 @@ export function HeroSection({ onScrollTo }: HeroSectionProps) {
           pointerEvents: "none",
         }}
       />
-      {/* Grid Overlay */}
       <div
         style={{
           position: "absolute",
@@ -69,7 +67,6 @@ export function HeroSection({ onScrollTo }: HeroSectionProps) {
           zIndex: 1,
         }}
       >
-        {/* Left Content */}
         <div>
           {/* Eyebrow */}
           <div
@@ -98,7 +95,7 @@ export function HeroSection({ onScrollTo }: HeroSectionProps) {
                 animation: "pulse 2s infinite",
               }}
             />
-            A TheNexaVerse Enterprise
+            A Nigerian EdTech Initiative
           </div>
 
           {/* Headline */}
@@ -112,15 +109,13 @@ export function HeroSection({ onScrollTo }: HeroSectionProps) {
               marginBottom: 24,
             }}
           >
-            We Did Not Come
+            What Do You Want
             <br />
-            to Manage Schools.
+            Your School to
             <br />
             <em style={{ color: COLORS.gold, fontStyle: "italic" }}>
-              We Came to Change
+              Be Known For?
             </em>
-            <br />
-            What They Produce.
           </h1>
 
           {/* Description */}
@@ -133,9 +128,10 @@ export function HeroSection({ onScrollTo }: HeroSectionProps) {
               marginBottom: 40,
             }}
           >
-            NexaForge is the education ecosystem for African schools that refuse
-            to produce students who are only good at passing exams. Software that
-            runs your school. Programmes that transform your students.
+            Not simply for having students — but for the quality of education
+            it produces and the people it develops. NexaForge gives schools the
+            practical tools to become organized, consistent, and capable of
+            giving their staff better work.
           </p>
 
           {/* CTAs */}
@@ -165,7 +161,7 @@ export function HeroSection({ onScrollTo }: HeroSectionProps) {
                 maxWidth: "max-content",
               }}
             >
-              Get Your School on NexaForge →
+              Talk to Us →
             </button>
             <button
               onClick={() => onScrollTo("platform")}
@@ -183,7 +179,7 @@ export function HeroSection({ onScrollTo }: HeroSectionProps) {
                 maxWidth: "max-content",
               }}
             >
-              See How It Works
+              See What We Do
             </button>
           </div>
 
@@ -259,7 +255,7 @@ export function HeroSection({ onScrollTo }: HeroSectionProps) {
                 marginBottom: 14,
               }}
             >
-              🏆 Live Platform
+              ✅ Available Today
             </div>
             <div
               style={{
@@ -271,7 +267,7 @@ export function HeroSection({ onScrollTo }: HeroSectionProps) {
                 lineHeight: 1.3,
               }}
             >
-              Your School. Fully Operational. Today.
+              Your School. Organized. Running.
             </div>
             <div
               style={{
@@ -280,8 +276,8 @@ export function HeroSection({ onScrollTo }: HeroSectionProps) {
                 lineHeight: 1.65,
               }}
             >
-              From student registration to report cards — everything your school
-              needs in one place.
+              From student records to report cards — the workflows that
+              consume the most time, handled digitally.
             </div>
           </div>
           <div style={{ padding: "24px 28px" }}>

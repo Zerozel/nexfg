@@ -10,7 +10,7 @@ export function ProgrammesSection({ onScrollTo }: ProgrammesSectionProps) {
   return (
     <section
       className="section-padding"
-      id="programmes"
+      id="vision"
       style={{ background: COLORS.white }}
     >
       <div style={{ maxWidth: 1180, margin: "0 auto", padding: "0 24px" }}>
@@ -27,14 +27,14 @@ export function ProgrammesSection({ onScrollTo }: ProgrammesSectionProps) {
                 fontSize: 10,
                 letterSpacing: 3,
                 textTransform: "uppercase",
-                color: COLORS.primary,
-                background: "rgba(26,92,58,0.08)",
+                color: COLORS.gold,
+                background: COLORS.goldLight,
                 padding: "5px 12px",
                 borderRadius: 100,
                 marginBottom: 14,
               }}
             >
-              The Difference
+              Our Vision
             </div>
             <h2
               style={{
@@ -46,9 +46,9 @@ export function ProgrammesSection({ onScrollTo }: ProgrammesSectionProps) {
                 marginBottom: 16,
               }}
             >
-              This is where NexaForge
+              Beyond software.
               <br />
-              stops being software.
+              An education network.
             </h2>
             <div
               style={{
@@ -66,9 +66,10 @@ export function ProgrammesSection({ onScrollTo }: ProgrammesSectionProps) {
                 lineHeight: 1.75,
               }}
             >
-              Every school in the NexaForge network gains access to programmes
-              that connect students to the real world. Not a promise. An active,
-              growing calendar of opportunities your students walk into.
+              Our platform handles the workflows that consume school time
+              today. Over time, we intend to go further — connecting schools
+              to programmes, devices, and a network that changes what their
+              students walk into after graduation.
             </p>
             <p
               style={{
@@ -76,11 +77,11 @@ export function ProgrammesSection({ onScrollTo }: ProgrammesSectionProps) {
                 color: COLORS.textMid,
                 lineHeight: 1.75,
                 marginTop: 16,
+                fontStyle: "italic",
               }}
             >
-              This is the thing no other platform in Nigeria offers. And it is
-              why NexaForge schools are not just administratively better — they
-              are educationally different.
+              The items below describe our direction. They are not current
+              offerings.
             </p>
             <button
               onClick={() => onScrollTo("cta")}
@@ -142,7 +143,9 @@ export function ProgrammesSection({ onScrollTo }: ProgrammesSectionProps) {
                   >
                     {card.icon}
                   </div>
-                  <div style={{ padding: "20px 22px", background: COLORS.white }}>
+                  <div
+                    style={{ padding: "20px 22px", background: COLORS.white }}
+                  >
                     <div
                       style={{
                         fontFamily: "Georgia, serif",
