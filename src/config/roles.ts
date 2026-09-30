@@ -29,34 +29,34 @@ export function getDashboardRoute(role: UserRole): string {
 
 export const TEACHER_NAV: NavItem[] = [
   { label: "My Classes", href: "/dashboard/teacher", roles: ["teacher"] },
-  { label: 'Manage Subjects', href: '/dashboard/teacher/subjects', roles: ["teacher"] }
-  /*{
-    label: "Enter Scores",
-    href: "/dashboard/teacher/scores",
+  {
+    label: "Manage Subjects",
+    href: "/dashboard/teacher/subjects",
     roles: ["teacher"],
-  },*/
+  },
 ];
 
 export const ADMIN_NAV: NavItem[] = [
   { label: "Dashboard", href: "/dashboard/admin", roles: ["admin", "principal"] },
+  { label: "Students", href: "/dashboard/admin/students", roles: ["admin", "principal"] },
   { label: "Teachers", href: "/dashboard/admin/teachers", roles: ["admin", "principal"] },
   { label: "Classes", href: "/dashboard/admin/classes", roles: ["admin", "principal"] },
-  { label: "Students", href: "/dashboard/admin/students", roles: ["admin", "principal"] },
   { label: "Subjects", href: "/dashboard/admin/subjects", roles: ["admin", "principal"] },
   { label: "Assessments", href: "/dashboard/admin/assessments", roles: ["admin", "principal"] },
-  { label: "Sessions", href: "/dashboard/admin/sessions", roles: ["admin", "principal"] },
-  { label: "Promotions", href: "/dashboard/admin/promotions", roles: ["admin", "principal"] },
-  //{ label: "School Website", href: "/dashboard/admin/website", roles: ["admin", "principal"] },
-  { label: "Compile Results", href: "/dashboard/admin/compile", roles: ["admin", "principal"] }, 
+  { label: "Compile Results", href: "/dashboard/admin/compile", roles: ["admin", "principal"] },
   { label: "Reports", href: "/dashboard/admin/reports", roles: ["admin", "principal"] },
+  { label: "Messages", href: "/dashboard/admin/messages", roles: ["admin", "principal"] },
   { label: "Billing", href: "/dashboard/admin/billing", roles: ["admin", "principal"] },
-  { label: 'School Settings', href: '/dashboard/admin/school-settings', roles: ["admin", "principal"] }, 
+  { label: "School Settings", href: "/dashboard/admin/school-settings", roles: ["admin", "principal"] },
 ];
 
 export const SUPER_ADMIN_NAV: NavItem[] = [
   { label: "Dashboard", href: "/dashboard/super-admin", roles: ["super_admin"] },
   { label: "Schools", href: "/dashboard/super-admin/schools", roles: ["super_admin"] },
-  //{ label: "System Settings", href: "/dashboard/super-admin/settings", roles: ["super_admin"] },
+  { label: "Support Chats", href: "/dashboard/super-admin/support", roles: ["super_admin"] },
+  { label: "School Messages", href: "/dashboard/super-admin/school-messages", roles: ["super_admin"] },
+  { label: "Feedback", href: "/dashboard/super-admin/feedback", roles: ["super_admin"] },
+  { label: "Broadcasts", href: "/dashboard/super-admin/broadcasts", roles: ["super_admin"] },
 ];
 
 export function getNavForRole(role: UserRole): NavItem[] {
