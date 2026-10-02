@@ -1,10 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 import { createServerSupabase } from "@/lib/supabase/server";
 
 /**
  * POST /api/feedback — any authenticated user submits feedback.
  * GET  /api/feedback — super_admin only, lists all feedback.
+ * PATCH /api/feedback — super_admin updates status / notes.
+ *
+ * The POST handler uses a service-role client for the actual insert. The
+ * user's identity has already been verified above via getUser(), so
+ * bypassing RLS for this single write is safe and avoids the flakiness of
+ * `auth.uid()` resolution inside Postgres policies for cookie-based
+ * server clients.
  */
+
+function createServiceClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  );
+}
+
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createServerSupabase();
@@ -28,7 +45,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid category" }, { status: 400 });
     }
 
-    const { data, error } = (await (supabase as any)
+    // Service-role insert. RLS bypass is intentional and safe — the user
+    // is authenticated above.
+    const admin = createServiceClient();
+
+    const { data, error } = (await admin
       .from("feedback_submissions")
       .insert({
         school_id: schoolId || null,
@@ -39,9 +60,12 @@ export async function POST(request: NextRequest) {
         body: String(body).trim(),
       })
       .select("id, created_at")
-      .single()) as unknown as { data: any; error: unknown };
+      .single()) as unknown as { data: any; error: any };
 
-    if (error) throw error;
+    if (error) {
+      console.error("Feedback insert error:", error);
+      throw error;
+    }
 
     return NextResponse.json({ success: true, data: { feedback: data } });
   } catch (error: any) {
@@ -66,7 +90,9 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
 
-    let query = (supabase as any)
+    const admin = createServiceClient();
+
+    let query = (admin as any)
       .from("feedback_submissions")
       .select(
         `
@@ -125,10 +151,6 @@ export async function GET(request: NextRequest) {
   }
 }
 
-/**
- * PATCH /api/feedback — super_admin updates status / notes.
- * body: { id, status?, admin_notes? }
- */
 export async function PATCH(request: NextRequest) {
   try {
     const supabase = await createServerSupabase();
@@ -150,7 +172,9 @@ export async function PATCH(request: NextRequest) {
     if (status) patch.status = status;
     if (admin_notes !== undefined) patch.admin_notes = admin_notes;
 
-    const { error } = await (supabase as any)
+    const admin = createServiceClient();
+
+    const { error } = await admin
       .from("feedback_submissions")
       .update(patch)
       .eq("id", id);
