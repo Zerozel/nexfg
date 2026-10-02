@@ -5,9 +5,9 @@ import { createServerSupabase } from "@/lib/supabase/server";
  * GET /api/school-messages
  *   - teacher: returns their own conversation (creating on first call)
  *   - admin/principal: lists all conversations in their school
+ *   - super_admin: lists all conversations across all schools
  *
  * POST /api/school-messages
- *   body: { conversationId?, recipientRole, body }
  *   - teacher: creates conversation (if needed) and inserts message
  *   - admin: replies to a specific teacher's conversation
  */
@@ -21,6 +21,49 @@ export async function GET(_request: NextRequest) {
 
     const role = user.app_metadata?.role;
     const schoolId = user.app_metadata?.school_id;
+
+    // ── Super admin: list every conversation across every school ──
+    if (role === "super_admin") {
+      const { data, error } = (await supabase
+        .from("school_conversations")
+        .select(
+          `
+          id,
+          teacher_user_id,
+          school_id,
+          status,
+          last_message_at,
+          unread_for_admin,
+          created_at,
+          profiles:teacher_user_id(full_name),
+          schools:school_id(name)
+        `
+        )
+        .order("last_message_at", { ascending: false })) as unknown as {
+        data: any[] | null;
+        error: unknown;
+      };
+
+      if (error) throw error;
+
+      const list = (data || []).map((c) => ({
+        id: c.id,
+        teacher_user_id: c.teacher_user_id,
+        teacher_name: Array.isArray(c.profiles)
+          ? c.profiles[0]?.full_name || "Unknown teacher"
+          : c.profiles?.full_name || "Unknown teacher",
+        school_id: c.school_id,
+        school_name: Array.isArray(c.schools)
+          ? c.schools[0]?.name || "Unknown school"
+          : c.schools?.name || "Unknown school",
+        status: c.status,
+        last_message_at: c.last_message_at,
+        unread_count: c.unread_for_admin || 0,
+        created_at: c.created_at,
+      }));
+
+      return NextResponse.json({ success: true, data: { conversations: list } });
+    }
 
     if (!schoolId) {
       return NextResponse.json({ error: "No school associated" }, { status: 403 });
@@ -162,7 +205,6 @@ export async function POST(request: NextRequest) {
 
       if (insertError) throw insertError;
 
-      // Bump admin unread
       const { data: current } = await (supabase as any)
         .from("school_conversations")
         .select("unread_for_admin")
@@ -189,7 +231,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify the conversation belongs to this school
     const { data: convo } = (await supabase
       .from("school_conversations")
       .select("id, school_id")
