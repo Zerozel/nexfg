@@ -10,14 +10,6 @@ import type {
   GradingSystem,
 } from "@/types/printing";
 
-/**
- * Transforms raw database compiled_results into print-ready data
- */
-
-/**
- * WAEC-style default grading bands, used when a school has not configured
- * a custom grading system.
- */
 const DEFAULT_GRADING_SYSTEM: GradingSystem = [
   { grade: "A1", min_score: 80, max_score: 100, remarks: "Excellent" },
   { grade: "B2", min_score: 75, max_score: 79, remarks: "Very Good" },
@@ -30,10 +22,6 @@ const DEFAULT_GRADING_SYSTEM: GradingSystem = [
   { grade: "F9", min_score: 0, max_score: 44, remarks: "Fail" },
 ];
 
-/**
- * Reads a grading system off raw API data. Supports either
- * `rawData.grading_system` or `rawData.school.grading_system`.
- */
 function extractGradingSystem(rawData: any): GradingSystem | undefined {
   const candidate =
     rawData?.grading_system ?? rawData?.school?.grading_system;
@@ -41,6 +29,12 @@ function extractGradingSystem(rawData: any): GradingSystem | undefined {
     return candidate as GradingSystem;
   }
   return undefined;
+}
+
+function numOrNull(v: any): number | null {
+  if (v === null || v === undefined) return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
 }
 
 export function transformStudentReportData(
@@ -85,7 +79,6 @@ export function transformStudentReportData(
     end_date: rawData.term?.end_date || null,
   };
 
-  // Transform compiled results into subject array (sorted alphabetically).
   const subjects: SubjectResult[] = Array.isArray(
     rawData.compiled_results?.subjects
   )
@@ -113,6 +106,10 @@ export function transformStudentReportData(
               ? subj.class_lowest
               : null,
           weight: typeof subj.weight === "number" ? subj.weight : null,
+          ca1_score: numOrNull(subj.ca1_score),
+          ca2_score: numOrNull(subj.ca2_score),
+          ca3_score: numOrNull(subj.ca3_score),
+          exam_score: numOrNull(subj.exam_score),
         }))
         .sort((a: SubjectResult, b: SubjectResult) =>
           a.name.localeCompare(b.name)
@@ -206,7 +203,6 @@ export function transformClassResultData(
     end_date: rawData.term?.end_date || null,
   };
 
-  // Extract all unique subject names for column headers
   const subjectsSet = new Set<string>();
   const students = Array.isArray(rawData.students)
     ? rawData.students.map((studentData: any) => {
@@ -219,8 +215,7 @@ export function transformClassResultData(
                 return {
                   id: subj.id || subj.subject_id || "",
                   name: subj.name || subj.subject_name || "Subject",
-                  score:
-                    typeof subj.score === "number" ? subj.score : 0,
+                  score: typeof subj.score === "number" ? subj.score : 0,
                   grade: subj.grade || formatGrade(subj.score, gradingSystems),
                   subject_position:
                     typeof subj.subject_position === "number"
@@ -242,6 +237,10 @@ export function transformClassResultData(
                       : null,
                   weight:
                     typeof subj.weight === "number" ? subj.weight : null,
+                  ca1_score: numOrNull(subj.ca1_score),
+                  ca2_score: numOrNull(subj.ca2_score),
+                  ca3_score: numOrNull(subj.ca3_score),
+                  exam_score: numOrNull(subj.exam_score),
                 };
               })
               .sort((a: SubjectResult, b: SubjectResult) =>
@@ -255,9 +254,7 @@ export function transformClassResultData(
               ? studentData.average
               : calculateAverage(studentSubjects),
           position:
-            typeof studentData.position === "number"
-              ? studentData.position
-              : 0,
+            typeof studentData.position === "number" ? studentData.position : 0,
           total_students:
             typeof studentData.total_students === "number"
               ? studentData.total_students
@@ -284,8 +281,7 @@ export function transformClassResultData(
         return {
           student: {
             id: studentData.student?.id || "",
-            full_name:
-              studentData.student?.full_name || "Student Name",
+            full_name: studentData.student?.full_name || "Student Name",
             admission_number:
               studentData.student?.admission_number || null,
             avatar_url: studentData.student?.avatar_url || null,
@@ -297,7 +293,6 @@ export function transformClassResultData(
       })
     : [];
 
-  // Sort students by position
   students.sort((a: any, b: any) => a.overall.position - b.overall.position);
 
   const allAverages = students.map((s: any) => s.overall.average);
@@ -317,8 +312,7 @@ export function transformClassResultData(
     term,
     subjects: Array.from(subjectsSet).sort(),
     students,
-    issued_date:
-      rawData.issued_date || new Date().toISOString().split("T")[0],
+    issued_date: rawData.issued_date || new Date().toISOString().split("T")[0],
     class_average: Math.round(classAverage * 100) / 100,
     class_highest: Math.round(classHighest * 100) / 100,
     class_lowest: Math.round(classLowest * 100) / 100,
@@ -326,14 +320,20 @@ export function transformClassResultData(
 }
 
 /**
- * Utility functions for grading
+ * True when at least one subject carries a populated CA/Exam breakdown.
+ * The report card template uses this to decide whether to render the
+ * extra columns or fall back to the compact single-score table.
  */
+export function hasAssessmentBreakdown(subjects: SubjectResult[]): boolean {
+  return subjects.some(
+    (s) =>
+      s.ca1_score !== null ||
+      s.ca2_score !== null ||
+      s.ca3_score !== null ||
+      s.exam_score !== null
+  );
+}
 
-/**
- * Weighted average of subject scores. Each subject may carry a `weight`;
- * when omitted the weight defaults to 1, so this reduces to a simple mean
- * for data that has no weighting configured (backward compatible).
- */
 export function calculateAverage(subjects: SubjectResult[]): number {
   if (subjects.length === 0) return 0;
 
@@ -350,10 +350,6 @@ export function calculateAverage(subjects: SubjectResult[]): number {
   return Math.round((weightedSum / totalWeight) * 100) / 100;
 }
 
-/**
- * Assigns a letter grade (e.g. A1–F9) for a score. Uses the supplied
- * `gradingSystems` bands when provided, otherwise WAEC defaults.
- */
 export function formatGrade(
   score: number,
   gradingSystems?: GradingSystem
@@ -366,15 +362,9 @@ export function formatGrade(
   );
 
   if (band) return band.grade;
-
-  // Fall back to the lowest band's grade when nothing matches.
   return bands[bands.length - 1]?.grade || "F9";
 }
 
-/**
- * Returns the remark associated with a score, using the school's grading
- * bands when available, otherwise WAEC-style defaults.
- */
 export function getRemarks(
   score: number,
   gradingSystems?: GradingSystem
@@ -388,7 +378,6 @@ export function getRemarks(
 
   if (band?.remarks) return band.remarks;
 
-  // Default remark fallbacks (used when a custom band omits remarks).
   if (safeScore >= 80) return "Excellent";
   if (safeScore >= 70) return "Very Good";
   if (safeScore >= 60) return "Good";
@@ -397,11 +386,6 @@ export function getRemarks(
   return "Fail";
 }
 
-/**
- * Maps a letter grade to a CSS class used for grade-color styling.
- * Shared by ReportCardTemplate and ClassResultSheet so the A1–F9 palette
- * is applied consistently.
- */
 export function getGradeClass(grade: string | null | undefined): string {
   if (!grade) return "";
   const g = grade.trim().toUpperCase();
@@ -411,7 +395,6 @@ export function getGradeClass(grade: string | null | undefined): string {
   if (/^(D7|E8)/.test(g)) return "grade-d7";
   if (/^F9/.test(g)) return "grade-f9";
 
-  // Fallback for single-letter grades (A/B/C/D/E/F)
   const first = g.charAt(0);
   if (first === "A" || first === "B") return "grade-a1";
   if (first === "C") return "grade-c4";
@@ -430,7 +413,6 @@ export function formatDate(dateString: string): string {
 }
 
 export function getOrdinal(n: number): string {
-  // Guard against missing/zero positions (e.g. uncompiled results).
   if (!Number.isFinite(n) || n <= 0) return "-";
   const s = ["th", "st", "nd", "rd"];
   const v = n % 100;

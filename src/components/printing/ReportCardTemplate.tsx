@@ -4,10 +4,20 @@ import type { IndividualReportCardData } from "@/types/printing";
 import { PrintHeader } from "./PrintHeader";
 import { PrintFooter } from "./PrintFooter";
 import { SignatureBlock } from "./SignatureBlock";
-import { getOrdinal, getGradeClass } from "@/lib/printing/data-transform";
+import {
+  getOrdinal,
+  getGradeClass,
+  hasAssessmentBreakdown,
+} from "@/lib/printing/data-transform";
 
 interface ReportCardTemplateProps {
   data: IndividualReportCardData;
+}
+
+function formatCell(v: number | null | undefined): string {
+  if (v === null || v === undefined) return "-";
+  // Show integers without decimals, decimals with 1dp
+  return Number.isInteger(v) ? String(v) : v.toFixed(1);
 }
 
 export function ReportCardTemplate({ data }: ReportCardTemplateProps) {
@@ -27,12 +37,12 @@ export function ReportCardTemplate({ data }: ReportCardTemplateProps) {
     psychomotor_skills,
   } = data;
 
+  const showBreakdown = hasAssessmentBreakdown(subjects);
+
   return (
     <div className="report-card-template">
-      {/* Watermark */}
       <div className="watermark">{school.name}</div>
 
-      {/* School Header */}
       <PrintHeader
         schoolName={school.name}
         logoUrl={school.logo_url}
@@ -43,10 +53,8 @@ export function ReportCardTemplate({ data }: ReportCardTemplateProps) {
         primaryColor={school.primary_color || "#2563eb"}
       />
 
-      {/* Report Card Title */}
       <div className="report-card-title">Student Report Card</div>
 
-      {/* Student Information */}
       <div className="student-info">
         <div>
           <div className="info-group">
@@ -74,40 +82,97 @@ export function ReportCardTemplate({ data }: ReportCardTemplateProps) {
         </div>
       </div>
 
-      {/* Subject Results Table */}
       <div className="subject-table-container">
         <table className="subject-table">
           <thead>
-            <tr>
-              <th style={{ width: "35%" }}>Subject</th>
-              <th style={{ width: "12%" }}>Score</th>
-              <th style={{ width: "10%" }}>Grade</th>
-              <th style={{ width: "12%" }}>Position</th>
-              <th style={{ width: "31%" }}>Remarks</th>
-            </tr>
+            {showBreakdown ? (
+              <tr>
+                <th rowSpan={2} style={{ width: "24%" }}>
+                  Subject
+                </th>
+                <th colSpan={3} style={{ textAlign: "center" }}>
+                  Continuous Assessment
+                </th>
+                <th rowSpan={2} style={{ width: "9%" }}>
+                  Exam
+                </th>
+                <th rowSpan={2} style={{ width: "9%" }}>
+                  Total
+                </th>
+                <th rowSpan={2} style={{ width: "8%" }}>
+                  Grade
+                </th>
+                <th rowSpan={2} style={{ width: "8%" }}>
+                  Pos
+                </th>
+                <th rowSpan={2} style={{ width: "18%" }}>
+                  Remarks
+                </th>
+              </tr>
+            ) : (
+              <tr>
+                <th style={{ width: "35%" }}>Subject</th>
+                <th style={{ width: "12%" }}>Score</th>
+                <th style={{ width: "10%" }}>Grade</th>
+                <th style={{ width: "12%" }}>Position</th>
+                <th style={{ width: "31%" }}>Remarks</th>
+              </tr>
+            )}
+            {showBreakdown && (
+              <tr>
+                <th style={{ textAlign: "center", fontSize: "8pt" }}>CA1</th>
+                <th style={{ textAlign: "center", fontSize: "8pt" }}>CA2</th>
+                <th style={{ textAlign: "center", fontSize: "8pt" }}>CA3</th>
+              </tr>
+            )}
           </thead>
           <tbody>
             {subjects.length > 0 ? (
-              subjects.map((subject) => (
-                <tr key={subject.id}>
-                  <td className="subject-name">{subject.name}</td>
-                  <td className="score">{subject.score.toFixed(1)}</td>
-                  <td>
-                    <span className={`grade ${getGradeClass(subject.grade)}`}>
-                      {subject.grade}
-                    </span>
-                  </td>
-                  <td>
-                    {subject.subject_position
-                      ? getOrdinal(subject.subject_position)
-                      : "-"}
-                  </td>
-                  <td>{subject.remarks || "-"}</td>
-                </tr>
-              ))
+              subjects.map((subject) =>
+                showBreakdown ? (
+                  <tr key={subject.id}>
+                    <td className="subject-name">{subject.name}</td>
+                    <td className="score">{formatCell(subject.ca1_score)}</td>
+                    <td className="score">{formatCell(subject.ca2_score)}</td>
+                    <td className="score">{formatCell(subject.ca3_score)}</td>
+                    <td className="score">{formatCell(subject.exam_score)}</td>
+                    <td className="score">{subject.score.toFixed(1)}</td>
+                    <td>
+                      <span className={`grade ${getGradeClass(subject.grade)}`}>
+                        {subject.grade}
+                      </span>
+                    </td>
+                    <td>
+                      {subject.subject_position
+                        ? getOrdinal(subject.subject_position)
+                        : "-"}
+                    </td>
+                    <td>{subject.remarks || "-"}</td>
+                  </tr>
+                ) : (
+                  <tr key={subject.id}>
+                    <td className="subject-name">{subject.name}</td>
+                    <td className="score">{subject.score.toFixed(1)}</td>
+                    <td>
+                      <span className={`grade ${getGradeClass(subject.grade)}`}>
+                        {subject.grade}
+                      </span>
+                    </td>
+                    <td>
+                      {subject.subject_position
+                        ? getOrdinal(subject.subject_position)
+                        : "-"}
+                    </td>
+                    <td>{subject.remarks || "-"}</td>
+                  </tr>
+                )
+              )
             ) : (
               <tr>
-                <td colSpan={5} style={{ textAlign: "center", padding: "20px" }}>
+                <td
+                  colSpan={showBreakdown ? 9 : 5}
+                  style={{ textAlign: "center", padding: "20px" }}
+                >
                   {has_compiled_results === false
                     ? "This term has not been compiled yet. Results will appear after compilation."
                     : "No subject results available"}
@@ -118,7 +183,6 @@ export function ReportCardTemplate({ data }: ReportCardTemplateProps) {
         </table>
       </div>
 
-      {/* Overall Performance */}
       <div
         className="overall-section"
         style={{ background: school.primary_color || "#2563eb" }}
@@ -139,7 +203,6 @@ export function ReportCardTemplate({ data }: ReportCardTemplateProps) {
         </div>
       </div>
 
-      {/* Attendance Section */}
       {attendance && (
         <div className="attendance-section avoid-break">
           <h4>Attendance Record</h4>
@@ -160,7 +223,6 @@ export function ReportCardTemplate({ data }: ReportCardTemplateProps) {
         </div>
       )}
 
-      {/* Affective Traits & Psychomotor Skills */}
       {(affective_traits || psychomotor_skills) && (
         <div className="additional-sections avoid-break">
           {affective_traits && affective_traits.length > 0 && (
@@ -197,7 +259,6 @@ export function ReportCardTemplate({ data }: ReportCardTemplateProps) {
         </div>
       )}
 
-      {/* Comments */}
       {(teacher_comment || principal_comment) && (
         <div className="comments-section avoid-break">
           {teacher_comment && (
@@ -215,7 +276,6 @@ export function ReportCardTemplate({ data }: ReportCardTemplateProps) {
         </div>
       )}
 
-      {/* Signature Block */}
       <SignatureBlock
         principalName={school.principal_name}
         principalSignatureUrl={school.principal_signature_url}
@@ -223,7 +283,6 @@ export function ReportCardTemplate({ data }: ReportCardTemplateProps) {
         teacherName={classInfo.teacher_name}
       />
 
-      {/* Footer */}
       <PrintFooter />
     </div>
   );

@@ -48,12 +48,17 @@ export interface SubjectResult {
   class_lowest: number | null;
   /** Relative weight used for weighted-average calculation. Defaults to 1. */
   weight?: number | null;
+  /**
+   * Raw per-assessment scores. Null when the row was compiled before
+   * Session 6 added these columns. When present, they render as separate
+   * columns on the report card.
+   */
+  ca1_score?: number | null;
+  ca2_score?: number | null;
+  ca3_score?: number | null;
+  exam_score?: number | null;
 }
 
-/**
- * A single band within a school's grading system, e.g.
- * { grade: "A1", min_score: 80, max_score: 100, remarks: "Excellent" }.
- */
 export interface GradingBand {
   grade: string;
   min_score: number;
@@ -62,7 +67,6 @@ export interface GradingBand {
   color?: string | null;
 }
 
-/** An ordered list of grading bands. When absent, WAEC defaults are used. */
 export type GradingSystem = GradingBand[];
 
 export interface OverallResult {
@@ -84,7 +88,6 @@ export interface IndividualReportCardData {
   issued_date: string;
   teacher_comment: string | null;
   principal_comment: string | null;
-  /** True when the term has at least one compiled subject row for this student. */
   has_compiled_results?: boolean;
   attendance?: {
     total_days: number;
@@ -116,7 +119,7 @@ export interface ClassResultSheetData {
   school: SchoolInfo;
   class: ClassInfo;
   term: TermInfo;
-  subjects: string[]; // Subject names for column headers
+  subjects: string[];
   students: ClassStudentResult[];
   issued_date: string;
   class_average: number;

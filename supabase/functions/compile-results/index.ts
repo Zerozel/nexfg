@@ -233,7 +233,7 @@ serve(async (req: Request) => {
         const subjectPositionMap = subjectPositions.get(subject.subject_id);
         const subjectPosition = subjectPositionMap?.get(student.student_id) || 0;
 
-        compiledResults.push({
+         compiledResults.push({
           school_id: job.school_id,
           student_id: student.student_id,
           class_id: job.class_id,
@@ -244,6 +244,10 @@ serve(async (req: Request) => {
           subject_position: subjectPosition,
           overall_position: overallPositions.get(student.student_id) || 0,
           remarks: subject.remarks,
+          ca1_score: subject.ca1_score,
+          ca2_score: subject.ca2_score,
+          ca3_score: subject.ca3_score,
+          exam_score: subject.exam_score,
         });
       }
     }

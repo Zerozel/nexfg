@@ -1,10 +1,55 @@
 // supabase/functions/compile-results/calculator.ts
 
-// ✅ FIX: Remove .ts extension from imports
-import { AssessmentRecord, GradingSystemRecord, StudentSubjectAggregate } from './types.ts';
+import {
+  AssessmentRecord,
+  GradingSystemRecord,
+  StudentSubjectAggregate,
+} from './types.ts';
 
 /**
- * Calculate weighted average for a student across subjects
+ * Which assessment template slot a given assessment name belongs to.
+ * The auto-provisioned names are CA1, CA2, CA3, Exam — anything else
+ * falls into a generic bucket and does not feed the four report-card
+ * columns directly.
+ */
+type AssessmentSlot = 'ca1' | 'ca2' | 'ca3' | 'exam' | 'other';
+
+function slotForAssessmentName(name: string): AssessmentSlot {
+  const upper = (name || '').toUpperCase().trim();
+  if (upper === 'CA1') return 'ca1';
+  if (upper === 'CA2') return 'ca2';
+  if (upper === 'CA3') return 'ca3';
+  if (upper === 'EXAM') return 'exam';
+  return 'other';
+}
+
+/**
+ * Compute the raw score for one assessment slot.
+ * Returns 0 when the student has no score for that slot — per the
+ * "force zero" policy, so missing scores count against the total and
+ * the report card matches what a Nigerian school expects.
+ */
+function rawScoreForSlot(
+  slot: AssessmentSlot,
+  subjectScores: { assessment_id: string; score: number | null }[],
+  subjectAssessments: AssessmentRecord[]
+): number {
+  if (slot === 'other') return 0;
+
+  const assessment = subjectAssessments.find(
+    (a) => slotForAssessmentName(a.name) === slot
+  );
+  if (!assessment) return 0;
+
+  const score = subjectScores.find((s) => s.assessment_id === assessment.id);
+  return score && typeof score.score === 'number' ? score.score : 0;
+}
+
+/**
+ * Weighted average for a subject.
+ * Missing scores are treated as 0 but the assessment weight still counts,
+ * so a student who skipped CA3 is penalised. Matches the "force zero"
+ * decision.
  */
 export function calculateWeightedAverage(
   scores: { assessment_id: string; score: number | null }[],
@@ -13,14 +58,14 @@ export function calculateWeightedAverage(
   let totalWeightedScore = 0;
   let totalWeight = 0;
 
-  for (const score of scores) {
-    if (score.score === null) continue;
+  for (const assessment of assessments) {
+    const scoreEntry = scores.find((s) => s.assessment_id === assessment.id);
+    const rawScore =
+      scoreEntry && typeof scoreEntry.score === 'number'
+        ? scoreEntry.score
+        : 0;
 
-    const assessment = assessments.find((a) => a.id === score.assessment_id);
-    if (!assessment) continue;
-
-    // Calculate percentage score
-    const percentage = (score.score / assessment.max_score) * 100;
+    const percentage = (rawScore / assessment.max_score) * 100;
     totalWeightedScore += percentage * assessment.weight;
     totalWeight += assessment.weight;
   }
@@ -29,9 +74,6 @@ export function calculateWeightedAverage(
   return Math.round((totalWeightedScore / totalWeight) * 100) / 100;
 }
 
-/**
- * Get grade and remarks for a score
- */
 export function getGradeAndRemarks(
   score: number,
   gradingSystem: GradingSystemRecord[]
@@ -44,7 +86,6 @@ export function getGradeAndRemarks(
     return { grade: band.grade, remarks: band.remark };
   }
 
-  // Fallback: lowest grade
   const lowest = gradingSystem[gradingSystem.length - 1];
   return {
     grade: lowest?.grade || 'F9',
@@ -52,14 +93,9 @@ export function getGradeAndRemarks(
   };
 }
 
-/**
- * Calculate positions for a list of scores
- * Ties: same position, skip next (1, 2, 2, 4)
- */
 export function calculatePositions(
   items: { student_id: string; score: number }[]
 ): Map<string, number> {
-  // Sort by score descending
   const sorted = [...items].sort((a, b) => b.score - a.score);
 
   const positions = new Map<string, number>();
@@ -76,7 +112,9 @@ export function calculatePositions(
 }
 
 /**
- * Aggregate scores by student and subject
+ * Aggregate scores by student and subject.
+ * Every subject the class teaches (per the assessments list) is included
+ * for every student in the map — no skips. Missing scores become 0.
  */
 export function aggregateScoresByStudentAndSubject(
   scores: { student_id: string; assessment_id: string; score: number | null }[],
@@ -85,7 +123,10 @@ export function aggregateScoresByStudentAndSubject(
   gradingSystem: GradingSystemRecord[]
 ): StudentSubjectAggregate[] {
   // Group scores by student
-  const studentMap = new Map<string, { assessment_id: string; score: number | null }[]>();
+  const studentMap = new Map<
+    string,
+    { assessment_id: string; score: number | null }[]
+  >();
 
   for (const score of scores) {
     if (!studentMap.has(score.student_id)) {
@@ -106,7 +147,6 @@ export function aggregateScoresByStudentAndSubject(
     subjectAssessments.get(assessment.subject_id)!.push(assessment);
   }
 
-  // For each student, calculate subject averages
   const results: StudentSubjectAggregate[] = [];
 
   for (const [studentId, studentScores] of studentMap) {
@@ -115,20 +155,26 @@ export function aggregateScoresByStudentAndSubject(
     let overallCount = 0;
 
     for (const [subjectId, subjectAssessmentsList] of subjectAssessments) {
-      // Filter scores for this subject
       const subjectScoreItems = studentScores.filter((s) =>
         subjectAssessmentsList.some((a) => a.id === s.assessment_id)
       );
 
-      if (subjectScoreItems.length === 0) {
-        // No scores for this subject — skip
-        continue;
-      }
-
-      const avg = calculateWeightedAverage(subjectScoreItems, subjectAssessmentsList);
+      // Always compute a row for this subject. If the student has no scores
+      // at all for it, the weighted average will still resolve to 0 and the
+      // raw columns will each be 0.
+      const avg = calculateWeightedAverage(
+        subjectScoreItems,
+        subjectAssessmentsList
+      );
       const { grade, remarks } = getGradeAndRemarks(avg, gradingSystem);
 
-      const subjectName = subjects.find((s) => s.id === subjectId)?.name || 'Unknown';
+      const subjectName =
+        subjects.find((s) => s.id === subjectId)?.name || 'Unknown';
+
+      const ca1_score = rawScoreForSlot('ca1', studentScores, subjectAssessmentsList);
+      const ca2_score = rawScoreForSlot('ca2', studentScores, subjectAssessmentsList);
+      const ca3_score = rawScoreForSlot('ca3', studentScores, subjectAssessmentsList);
+      const exam_score = rawScoreForSlot('exam', studentScores, subjectAssessmentsList);
 
       subjectResults.push({
         subject_id: subjectId,
@@ -136,17 +182,22 @@ export function aggregateScoresByStudentAndSubject(
         score: avg,
         grade,
         remarks,
+        ca1_score,
+        ca2_score,
+        ca3_score,
+        exam_score,
       });
 
       overallTotal += avg;
       overallCount++;
     }
 
-    const overallAverage = overallCount > 0 ? Math.round((overallTotal / overallCount) * 100) / 100 : 0;
-    const { grade: overallGrade, remarks: overallRemarks } = getGradeAndRemarks(
-      overallAverage,
-      gradingSystem
-    );
+    const overallAverage =
+      overallCount > 0
+        ? Math.round((overallTotal / overallCount) * 100) / 100
+        : 0;
+    const { grade: overallGrade, remarks: overallRemarks } =
+      getGradeAndRemarks(overallAverage, gradingSystem);
 
     results.push({
       student_id: studentId,

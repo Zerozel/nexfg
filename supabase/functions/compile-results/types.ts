@@ -1,8 +1,5 @@
 // supabase/functions/compile-results/types.ts
 
-/**
- * Job payload received from the database trigger
- */
 export interface CompilationJob {
   id: string;
   school_id: string;
@@ -14,18 +11,12 @@ export interface CompilationJob {
   created_at: string;
 }
 
-/**
- * Score record from the scores table
- */
 export interface ScoreRecord {
   student_id: string;
   assessment_id: string;
   score: number | null;
 }
 
-/**
- * Assessment record with weight and max_score
- */
 export interface AssessmentRecord {
   id: string;
   name: string;
@@ -35,27 +26,18 @@ export interface AssessmentRecord {
   subject_id: string;
 }
 
-/**
- * Subject record
- */
 export interface SubjectRecord {
   id: string;
   name: string;
   code: string;
 }
 
-/**
- * Student record
- */
 export interface StudentRecord {
   id: string;
   full_name: string;
   admission_number: string;
 }
 
-/**
- * Grading system record
- */
 export interface GradingSystemRecord {
   grade: string;
   min_score: number;
@@ -64,7 +46,11 @@ export interface GradingSystemRecord {
 }
 
 /**
- * Compiled result for one student + subject
+ * Compiled result for one student + subject.
+ * `score` is the weighted aggregate (0–100).
+ * `ca1_score`, `ca2_score`, `ca3_score`, `exam_score` are the raw scores
+ * for each assessment slot; missing scores are forced to 0 so totals and
+ * report cards stay consistent.
  */
 export interface CompiledResultRecord {
   school_id: string;
@@ -77,11 +63,12 @@ export interface CompiledResultRecord {
   subject_position: number;
   overall_position: number;
   remarks: string;
+  ca1_score: number;
+  ca2_score: number;
+  ca3_score: number;
+  exam_score: number;
 }
 
-/**
- * Per-student aggregation of subject scores
- */
 export interface StudentSubjectAggregate {
   student_id: string;
   subjects: {
@@ -90,15 +77,16 @@ export interface StudentSubjectAggregate {
     score: number;
     grade: string;
     remarks: string;
+    ca1_score: number;
+    ca2_score: number;
+    ca3_score: number;
+    exam_score: number;
   }[];
   overall_average: number;
   overall_grade: string;
   overall_remarks: string;
 }
 
-/**
- * Edge Function response
- */
 export interface CompilationResponse {
   success: boolean;
   message?: string;
