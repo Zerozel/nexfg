@@ -1,93 +1,155 @@
-## Build Direction: Compilation System (Session 5)
+# Session 7–8: AI Exam Extraction — Build Plan
 
-### The Goal
-Build a serverless compilation system that calculates grades, positions, and averages from raw scores and stores them in `compiled_results` for instant report card generation.
-
----
-
-### What We're Building
-
-| Component | What It Does | Files |
-| :--- | :--- | :--- |
-| **1. Edge Function** | Reads scores, calculates grades/positions, writes to `compiled_results` | `supabase/functions/compile-results/` |
-| **2. Admin API Route** | Triggers compilation when admin clicks "Compile Results" | `src/app/api/admin/compile/route.ts` |
-| **3. Admin UI** | Button + modal to trigger compilation and show progress | `src/app/dashboard/admin/compile/page.tsx` |
-| **4. Compile Hook** | Manages job creation and polling | `src/hooks/useCompileJob.ts` |
-| **5. Database Trigger** | Calls Edge Function when a `compilation_jobs` row is inserted | Existing trigger to update |
+Here is the anchor document. It won't change during the build. Use it to track progress.
 
 ---
 
-### File Structure
+## Purpose (for the record)
+
+Reduce the cost schools pay at cybercafés for typing exams. Every naira saved on typing is a naira not paid out of school operations.
+
+---
+
+## Architecture
 
 ```
-supabase/functions/compile-results/
-├── index.ts          # Main handler — orchestrates the flow
-├── types.ts          # Types for jobs, scores, results
-├── calculator.ts     # Weighted averages, grades, positions
-└── database.ts       # DB operations (read scores, write results)
-
-src/
-├── app/
-│   └── api/
-│       └── admin/
-│           └── compile/
-│               └── route.ts          # POST /api/admin/compile
-└── components/
-    └── admin/
-        └── CompileTrigger.tsx        # Button + modal for admin
+Teacher/Admin uploads photo
+        ↓
+Vercel API route (POST /api/admin/exams/extract)
+        ↓
+OpenRouter (single VLM call — OCR + LaTeX + structuring)
+        ↓
+Structured JSON back to client
+        ↓
+Split-screen editor (image left, editable questions right)
+        ↓
+Save to Supabase (exam_papers + exam_questions)
+        ↓
+Print via pluggable ExamPaperTemplate
 ```
 
----
-
-### Build Steps (In Order)
-
-| Step | What to Build | Files |
-| :--- | :--- | :--- |
-| **1** | Edge Function — types | `supabase/functions/compile-results/types.ts` |
-| **2** | Edge Function — database helpers | `supabase/functions/compile-results/database.ts` |
-| **3** | Edge Function — calculator | `supabase/functions/compile-results/calculator.ts` |
-| **4** | Edge Function — main handler | `supabase/functions/compile-results/index.ts` |
-| **5** | Admin API route | `src/app/api/admin/compile/route.ts` |
-| **6** | Compile hook | `src/hooks/useCompileJob.ts` |
-| **7** | Admin UI — trigger button | `src/components/admin/CompileTrigger.tsx` |
-| **8** | Admin page | `src/app/dashboard/admin/compile/page.tsx` |
+**Provider abstraction:** the VLM call is wrapped in `src/lib/ai/exam-extractor.ts` with a provider interface. Swapping OpenRouter → Google Vision + Gemini later means changing one file, not the pipeline.
 
 ---
 
-### What the Edge Function Does
+## Confirmed Decisions
 
-```
-Input: { job_id: string }
-  ↓
-1. Fetch job details (class_id, term_id, school_id)
-  ↓
-2. Fetch all scores for that class + term
-  ↓
-3. For each student, for each subject:
-   a. Calculate weighted average (using assessment weights)
-   b. Assign grade (using grading_systems table)
-  ↓
-4. Calculate subject positions (rank within subject)
-  ↓
-5. Calculate overall positions (rank by overall average)
-  ↓
-6. Insert/update compiled_results
-  ↓
-7. Update job status → 'completed' or 'failed'
-```
+| Decision | Choice |
+|----------|--------|
+| Provider (v1) | OpenRouter, free tier |
+| Primary model | `google/gemma-3-27b-it:free` |
+| Fallback models | `nvidia/nemotron-nano-12b-v2-vl:free`, `qwen/qwen-vl-plus:free` |
+| Math rendering | LaTeX via KaTeX |
+| Access | Admin only |
+| Storage | Library-cached (papers saved, reprint doesn't re-run OCR) |
+| Colour | Black and white default |
+| Templates | Pluggable (v1 = one, more later) |
+| Paper types supported | Objective, Theory, JAMB-style, Comprehension |
+| Cost target | Free until first school onboards |
 
 ---
 
-### Success Criteria
+## Deliverables Checklist
 
-| Item | Status |
-| :--- | :--- |
-| Edge Function deployed and working | ⬜ |
-| Admin can trigger compilation | ⬜ |
-| `compiled_results` populated | ⬜ |
-| Report cards show data | ⬜ |
-| Job progress tracked | ⬜ |
+### Phase 1 — Database (2 SQL objects)
+- [ ] `exam_papers` table (id, school_id, class_id, subject_id, term_id, title, exam_type, instructions, duration_minutes, total_marks, source_image_url, status, template_key, created_by, timestamps)
+- [ ] `exam_questions` table (id, paper_id, order_index, number, question_text, marks, options, answer, parent_id, timestamps)
+- [ ] RLS policies (school-scoped read, admin write)
+- [ ] Storage bucket for source images
+
+### Phase 2 — AI Provider Abstraction (2 files)
+- [ ] `src/lib/ai/exam-extractor.ts` — provider-agnostic interface
+- [ ] `src/lib/ai/providers/openrouter.ts` — OpenRouter implementation with model fallback
+- [ ] `src/lib/ai/exam-extraction-prompt.ts` — the strict prompt (OCR → LaTeX → JSON schema)
+
+### Phase 3 — Backend APIs (4 routes)
+- [ ] `POST /api/admin/exams/extract` — image → structured JSON
+- [ ] `GET /api/admin/exams` — list library
+- [ ] `GET / POST / PATCH / DELETE /api/admin/exams/[id]` — CRUD
+- [ ] `GET /api/admin/exams/[id]/print` — server-rendered print view
+
+### Phase 4 — Frontend Components (5 files)
+- [ ] `src/components/exams/ExamUploader.tsx` — drag-drop + file picker
+- [ ] `src/components/exams/ExtractionProgress.tsx` — loading state
+- [ ] `src/components/exams/ExtractedQuestionsEditor.tsx` — split-screen editor
+- [ ] `src/components/exams/ExamPaperTemplate.tsx` — pluggable template (v1: default)
+- [ ] `src/components/exams/ExamLibraryCard.tsx` — library grid item
+
+### Phase 5 — Pages (3 routes)
+- [ ] `/dashboard/admin/exams` — library
+- [ ] `/dashboard/admin/exams/new` — upload + extract
+- [ ] `/dashboard/admin/exams/[id]` — review/edit
+
+### Phase 6 — Configuration & Styles
+- [ ] `src/config/roles.ts` — add "Exams" to `ADMIN_NAV`
+- [ ] `src/styles/exam-paper.css` — print stylesheet, black and white
+- [ ] Vercel env var: `OPENROUTER_API_KEY`
+
+### Phase 7 — Print Template (v1)
+- [ ] School header (logo, name, address, term, class, subject)
+- [ ] Exam title + type
+- [ ] Duration + total marks
+- [ ] Instructions block
+- [ ] Numbered questions with LaTeX rendering via KaTeX
+- [ ] Marks in right margin (optional)
+- [ ] Page X of Y footer
 
 ---
 
-**Ready to start with Step 1: Edge Function types?**
+## Guardrails (Non-Negotiable)
+
+1. **No other feature is touched.** This session only adds.
+2. **The provider interface is defined first.** No direct OpenRouter calls from routes.
+3. **KaTeX renders inline.** No external stylesheet at runtime.
+4. **Every extraction result is cached** the moment it saves. Reprints never re-call the model.
+5. **The template is referenced by key** (`template_key` column). v2 templates can be added without changing the schema.
+6. **Free tier first.** Paid fallback only if free tier is down or rate-limited.
+
+---
+
+## Out of Scope (v1)
+
+- Diagrams (deferred — flagged in the prompt to return "diagram" placeholder)
+- Handwriting in messy cursive (best effort — the review step exists for this)
+- Multiple templates (v1 ships one)
+- Teacher access (admin only)
+- Answer sheet auto-generation
+
+---
+
+## Build Order (Serial)
+
+I will build in this exact sequence. Each step is testable before the next.
+
+1. **SQL migration** → run and verify
+2. **Provider abstraction** (`exam-extractor.ts`, `openrouter.ts`, prompt file)
+3. **Extract API route** → test with one image via curl or browser
+4. **Data APIs** (list, CRUD, print)
+5. **Pages and components** (library → upload → editor)
+6. **Print template + CSS**
+7. **Nav config**
+8. **End-to-end test**
+
+---
+
+## Success Criteria
+
+- [ ] Upload a typed exam paper photo → get structured JSON with correct questions and marks
+- [ ] Edit the extracted questions in the split-screen editor
+- [ ] Save to library
+- [ ] Reopen from library — no model call
+- [ ] Print to A4 — clean, black and white, professional layout
+- [ ] Swap the model in `openrouter.ts` → same result
+- [ ] Delete the OpenRouter key and paste a Google Vision key → pipeline still works with a one-file change
+
+---
+
+## Anchor
+
+**Current phase: Phase 1 — Database**
+
+When I say **"Phase N started"**, we are working on that phase. When you test and it passes, you say **"Phase N done"** and we move to the next.
+
+This document does not change. If the plan needs to change, we discuss and I issue a new anchor with a version number.
+
+**Ready to begin Phase 1.**
