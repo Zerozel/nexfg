@@ -44,6 +44,7 @@ export const ADMIN_NAV: NavItem[] = [
   { label: "Subjects", href: "/dashboard/admin/subjects", roles: ["admin", "principal"] },
   { label: "Assessments", href: "/dashboard/admin/assessments", roles: ["admin", "principal"] },
   { label: "Compile Results", href: "/dashboard/admin/compile", roles: ["admin", "principal"] },
+  {label: "Score Sheets", href: "/dashboard/admin/score-sheets", roles: ["admin", "principal"] },
   { label: "Reports", href: "/dashboard/admin/reports", roles: ["admin", "principal"] },
   { label: "Messages", href: "/dashboard/admin/messages", roles: ["admin", "principal"] },
   { label: "Billing", href: "/dashboard/admin/billing", roles: ["admin", "principal"] },

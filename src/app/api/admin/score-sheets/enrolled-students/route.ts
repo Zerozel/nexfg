@@ -9,7 +9,9 @@ import { requirePaidAdmin } from "@/lib/score-sheets/subscription-guard";
  *   - the subject teacher's name (pre-fill on the print sheet)
  *   - the assessment max scores for the class + subject + term
  *
- * Used by the print/PDF endpoint to build the sheet.
+ * Excludes soft-deleted enrollments and soft-deleted / inactive students.
+ *
+ * Used by the print/PDF endpoint and the batch creator preview.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -30,14 +32,57 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Verify class belongs to this school (defense-in-depth)
+    const { data: cls } = (await supabase
+      .from("classes")
+      .select("id")
+      .eq("id", classId)
+      .eq("school_id", schoolId)
+      .eq("is_deleted", false)
+      .maybeSingle()) as unknown as { data: { id: string } | null };
+
+    if (!cls) {
+      return NextResponse.json({ error: "Class not found" }, { status: 404 });
+    }
+
+    // Verify subject belongs to this school
+    const { data: subject } = (await supabase
+      .from("subjects")
+      .select("id")
+      .eq("id", subjectId)
+      .eq("school_id", schoolId)
+      .eq("is_deleted", false)
+      .maybeSingle()) as unknown as { data: { id: string } | null };
+
+    if (!subject) {
+      return NextResponse.json({ error: "Subject not found" }, { status: 404 });
+    }
+
+    // Verify term belongs to this school
+    const { data: term } = (await supabase
+      .from("terms")
+      .select("id")
+      .eq("id", termId)
+      .eq("school_id", schoolId)
+      .eq("is_deleted", false)
+      .maybeSingle()) as unknown as { data: { id: string } | null };
+
+    if (!term) {
+      return NextResponse.json({ error: "Term not found" }, { status: 404 });
+    }
+
+    // ── Load roster (excludes deleted/inactive students) ──
     const { data: enrollments, error } = (await supabase
       .from("enrollments")
       .select(
-        "student_id, students:student_id(id, full_name, admission_number)"
+        "student_id, students:student_id!inner(id, full_name, admission_number, is_deleted, is_active)"
       )
       .eq("class_id", classId)
       .eq("term_id", termId)
-      .eq("is_current", true)) as unknown as {
+      .eq("is_current", true)
+      .eq("is_deleted", false)
+      .eq("students.is_deleted", false)
+      .eq("students.is_active", true)) as unknown as {
       data: any[] | null;
       error: unknown;
     };
@@ -58,6 +103,7 @@ export async function GET(request: NextRequest) {
       .filter(Boolean)
       .sort((a: any, b: any) => a.full_name.localeCompare(b.full_name));
 
+    // ── Subject teacher (for pre-fill on sheet) ──
     const { data: cs } = (await supabase
       .from("class_subjects")
       .select("teacher_id, profiles:teacher_id(full_name)")
@@ -71,6 +117,7 @@ export async function GET(request: NextRequest) {
         : cs.profiles?.full_name
       : null;
 
+    // ── Assessment max scores ──
     const { data: assessments } = (await supabase
       .from("assessments")
       .select("name, max_score")

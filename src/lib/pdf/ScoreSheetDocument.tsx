@@ -3,6 +3,7 @@ import {
   Page,
   Text,
   View,
+  Image,
   StyleSheet,
 } from "@react-pdf/renderer";
 
@@ -11,7 +12,7 @@ import {
  * teacher. Deterministic, A4 portrait, black and white.
  *
  * Layout:
- *   Header       — school name, logo placeholder, sheet title
+ *   Header       — school logo (if any), school name, sheet title
  *   Meta row     — class, subject, term, teacher
  *   Table        — #, Adm. No., Student Name, CA1, CA2, CA3, Exam
  *   Extra rows   — 3 blank rows for late students
@@ -60,6 +61,13 @@ const styles = StyleSheet.create({
     borderBottomColor: "#000000",
     paddingBottom: 10,
     marginBottom: 14,
+  },
+  logo: {
+    width: 48,
+    height: 48,
+    marginBottom: 6,
+    alignSelf: "center",
+    objectFit: "contain",
   },
   schoolName: {
     fontSize: 16,
@@ -220,6 +228,8 @@ const styles = StyleSheet.create({
   },
 });
 
+const ROWS_PER_PAGE = 28;
+
 export function ScoreSheetDocument({ data }: { data: ScoreSheetData }) {
   const extraRows = data.extraBlankRows ?? 3;
   const allRows = [
@@ -230,18 +240,34 @@ export function ScoreSheetDocument({ data }: { data: ScoreSheetData }) {
     })),
   ];
 
-  // Chunk rows into pages of 28 (A4 fits ~28 rows with header + footer)
-  const ROWS_PER_PAGE = 28;
+  // Chunk rows into pages. Page 1 has the header + meta grid so it fits
+  // fewer rows than subsequent pages; subsequent pages fit more.
+  const FIRST_PAGE_ROWS = 22;
+  const OTHER_PAGE_ROWS = 32;
+
   const pages: (typeof allRows)[] = [];
-  for (let i = 0; i < allRows.length; i += ROWS_PER_PAGE) {
-    pages.push(allRows.slice(i, i + ROWS_PER_PAGE));
+  let cursor = 0;
+  if (allRows.length === 0) {
+    pages.push([]);
+  } else {
+    pages.push(allRows.slice(cursor, cursor + FIRST_PAGE_ROWS));
+    cursor += FIRST_PAGE_ROWS;
+    while (cursor < allRows.length) {
+      pages.push(allRows.slice(cursor, cursor + OTHER_PAGE_ROWS));
+      cursor += OTHER_PAGE_ROWS;
+    }
   }
-  if (pages.length === 0) pages.push([]);
 
   const generatedDate = new Date(data.generatedAt).toLocaleDateString(
     "en-GB",
     { year: "numeric", month: "long", day: "numeric" }
   );
+
+  // Running row number across pages
+  const rowOffsetForPage = (pageIndex: number) => {
+    if (pageIndex === 0) return 0;
+    return FIRST_PAGE_ROWS + (pageIndex - 1) * OTHER_PAGE_ROWS;
+  };
 
   return (
     <Document
@@ -249,141 +275,140 @@ export function ScoreSheetDocument({ data }: { data: ScoreSheetData }) {
       author={data.schoolName}
       creator="NexaForge"
     >
-      {pages.map((pageRows, pageIndex) => (
-        <Page key={pageIndex} size="A4" style={styles.page} wrap>
-          {/* Header — only on the first page */}
-          {pageIndex === 0 && (
-            <>
-              <View style={styles.header}>
-                <Text style={styles.schoolName}>{data.schoolName}</Text>
-                <Text style={styles.sheetTitle}>Score Sheet</Text>
-              </View>
-
-              <View style={styles.metaGrid}>
-                <View style={styles.metaItem}>
-                  <Text style={styles.metaLabel}>Class</Text>
-                  <Text style={styles.metaValue}>{data.className}</Text>
+      {pages.map((pageRows, pageIndex) => {
+        const offset = rowOffsetForPage(pageIndex);
+        return (
+          <Page key={pageIndex} size="A4" style={styles.page}>
+            {/* Header — first page only */}
+            {pageIndex === 0 && (
+              <>
+                <View style={styles.header}>
+                  {data.logoUrl ? (
+                    <Image src={data.logoUrl} style={styles.logo} />
+                  ) : null}
+                  <Text style={styles.schoolName}>{data.schoolName}</Text>
+                  <Text style={styles.sheetTitle}>Score Sheet</Text>
                 </View>
-                <View style={styles.metaItem}>
-                  <Text style={styles.metaLabel}>Subject</Text>
-                  <Text style={styles.metaValue}>{data.subjectName}</Text>
-                </View>
-                <View style={styles.metaItem}>
-                  <Text style={styles.metaLabel}>Term</Text>
-                  <Text style={styles.metaValue}>
-                    {data.termName} — {data.academicSession}
-                  </Text>
-                </View>
-                <View style={styles.metaItem}>
-                  <Text style={styles.metaLabel}>Teacher</Text>
-                  <Text style={styles.metaValue}>
-                    {data.teacherName || "___________________"}
-                  </Text>
-                </View>
-              </View>
-            </>
-          )}
 
-          {/* Table */}
-          <View style={styles.table} wrap={false}>
-            {/* Column headers */}
-            <View style={styles.tableHeaderRow} fixed>
-              <View style={styles.cellIndex}>
-                <Text style={styles.headerText}>#</Text>
-              </View>
-              <View style={styles.cellAdmission}>
-                <Text style={styles.headerTextLeft}>Adm. No.</Text>
-              </View>
-              <View style={styles.cellName}>
-                <Text style={styles.headerTextLeft}>Student Name</Text>
-              </View>
-              <View style={styles.cellScore}>
-                <Text style={styles.headerText}>CA1</Text>
-                <Text style={styles.maxBadge}>({data.maxScores.ca1})</Text>
-              </View>
-              <View style={styles.cellScore}>
-                <Text style={styles.headerText}>CA2</Text>
-                <Text style={styles.maxBadge}>({data.maxScores.ca2})</Text>
-              </View>
-              <View style={styles.cellScore}>
-                <Text style={styles.headerText}>CA3</Text>
-                <Text style={styles.maxBadge}>({data.maxScores.ca3})</Text>
-              </View>
-              <View style={styles.cellScoreLast}>
-                <Text style={styles.headerText}>Exam</Text>
-                <Text style={styles.maxBadge}>({data.maxScores.exam})</Text>
-              </View>
-            </View>
-
-            {/* Data rows */}
-            {pageRows.map((row, idx) => {
-              const globalIndex = pageIndex * ROWS_PER_PAGE + idx + 1;
-              const isLate = row.type === "late";
-              const isAlternate = !isLate && idx % 2 === 1;
-
-              return (
-                <View
-                  key={idx}
-                  style={[
-                    styles.tableRow,
-                    isAlternate ? styles.tableRowAlt : {},
-                    isLate ? styles.tableRowLate : {},
-                  ]}
-                  wrap={false}
-                >
-                  <View style={styles.cellIndex}>
-                    <Text>{globalIndex}</Text>
+                <View style={styles.metaGrid}>
+                  <View style={styles.metaItem}>
+                    <Text style={styles.metaLabel}>Class</Text>
+                    <Text style={styles.metaValue}>{data.className}</Text>
                   </View>
-                  <View style={styles.cellAdmission}>
-                    <Text>
-                      {isLate
-                        ? ""
-                        : row.student?.admission_number || ""}
+                  <View style={styles.metaItem}>
+                    <Text style={styles.metaLabel}>Subject</Text>
+                    <Text style={styles.metaValue}>{data.subjectName}</Text>
+                  </View>
+                  <View style={styles.metaItem}>
+                    <Text style={styles.metaLabel}>Term</Text>
+                    <Text style={styles.metaValue}>
+                      {data.termName}
+                      {data.academicSession ? ` — ${data.academicSession}` : ""}
                     </Text>
                   </View>
-                  <View style={styles.cellName}>
-                    <Text>
-                      {isLate ? "" : row.student?.full_name || ""}
+                  <View style={styles.metaItem}>
+                    <Text style={styles.metaLabel}>Teacher</Text>
+                    <Text style={styles.metaValue}>
+                      {data.teacherName || "___________________"}
                     </Text>
                   </View>
-                  <View style={styles.cellScore}>
-                    <Text> </Text>
-                  </View>
-                  <View style={styles.cellScore}>
-                    <Text> </Text>
-                  </View>
-                  <View style={styles.cellScore}>
-                    <Text> </Text>
-                  </View>
-                  <View style={styles.cellScoreLast}>
-                    <Text> </Text>
-                  </View>
                 </View>
-              );
-            })}
-          </View>
+              </>
+            )}
 
-          {/* Footer */}
-          <View style={styles.footer} fixed>
-            <View style={styles.footerRow}>
-              <View>
-                <View style={styles.signatureLine} />
-                <Text style={styles.footerLabel}>
-                  Subject Teacher Signature
-                </Text>
+            {/* Table */}
+            <View style={styles.table}>
+              <View style={styles.tableHeaderRow}>
+                <View style={styles.cellIndex}>
+                  <Text style={styles.headerText}>#</Text>
+                </View>
+                <View style={styles.cellAdmission}>
+                  <Text style={styles.headerTextLeft}>Adm. No.</Text>
+                </View>
+                <View style={styles.cellName}>
+                  <Text style={styles.headerTextLeft}>Student Name</Text>
+                </View>
+                <View style={styles.cellScore}>
+                  <Text style={styles.headerText}>CA1</Text>
+                  <Text style={styles.maxBadge}>({data.maxScores.ca1})</Text>
+                </View>
+                <View style={styles.cellScore}>
+                  <Text style={styles.headerText}>CA2</Text>
+                  <Text style={styles.maxBadge}>({data.maxScores.ca2})</Text>
+                </View>
+                <View style={styles.cellScore}>
+                  <Text style={styles.headerText}>CA3</Text>
+                  <Text style={styles.maxBadge}>({data.maxScores.ca3})</Text>
+                </View>
+                <View style={styles.cellScoreLast}>
+                  <Text style={styles.headerText}>Exam</Text>
+                  <Text style={styles.maxBadge}>({data.maxScores.exam})</Text>
+                </View>
               </View>
-              <View>
-                <View style={styles.signatureLine} />
-                <Text style={styles.footerLabel}>Date Completed</Text>
-              </View>
+
+              {pageRows.map((row, idx) => {
+                const globalIndex = offset + idx + 1;
+                const isLate = row.type === "late";
+                const isAlternate = !isLate && idx % 2 === 1;
+
+                return (
+                  <View
+                    key={idx}
+                    style={[
+                      styles.tableRow,
+                      isAlternate ? styles.tableRowAlt : {},
+                      isLate ? styles.tableRowLate : {},
+                    ]}
+                  >
+                    <View style={styles.cellIndex}>
+                      <Text>{globalIndex}</Text>
+                    </View>
+                    <View style={styles.cellAdmission}>
+                      <Text>
+                        {isLate ? "" : row.student?.admission_number || ""}
+                      </Text>
+                    </View>
+                    <View style={styles.cellName}>
+                      <Text>{isLate ? "" : row.student?.full_name || ""}</Text>
+                    </View>
+                    <View style={styles.cellScore}>
+                      <Text> </Text>
+                    </View>
+                    <View style={styles.cellScore}>
+                      <Text> </Text>
+                    </View>
+                    <View style={styles.cellScore}>
+                      <Text> </Text>
+                    </View>
+                    <View style={styles.cellScoreLast}>
+                      <Text> </Text>
+                    </View>
+                  </View>
+                );
+              })}
             </View>
-            <Text style={styles.generatedStamp}>
-              Generated by NexaForge · {generatedDate} · Page{" "}
-              {pageIndex + 1} of {pages.length}
-            </Text>
-          </View>
-        </Page>
-      ))}
+
+            <View style={styles.footer}>
+              <View style={styles.footerRow}>
+                <View>
+                  <View style={styles.signatureLine} />
+                  <Text style={styles.footerLabel}>
+                    Subject Teacher Signature
+                  </Text>
+                </View>
+                <View>
+                  <View style={styles.signatureLine} />
+                  <Text style={styles.footerLabel}>Date Completed</Text>
+                </View>
+              </View>
+              <Text style={styles.generatedStamp}>
+                Generated by NexaForge · {generatedDate} · Page{" "}
+                {pageIndex + 1} of {pages.length}
+              </Text>
+            </View>
+          </Page>
+        );
+      })}
     </Document>
   );
 }

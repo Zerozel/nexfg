@@ -50,6 +50,13 @@ export async function GET(
       data: any[] | null;
     };
 
+    const term = Array.isArray(batch.terms) ? batch.terms[0] : batch.terms;
+    const academicYear = term?.academic_years
+      ? Array.isArray(term.academic_years)
+        ? term.academic_years[0]
+        : term.academic_years
+      : null;
+
     return NextResponse.json({
       success: true,
       data: {
@@ -64,9 +71,8 @@ export async function GET(
             ? batch.subjects[0]?.name
             : batch.subjects?.name,
           term_id: batch.term_id,
-          term_name: Array.isArray(batch.terms)
-            ? batch.terms[0]?.name
-            : batch.terms?.name,
+          term_name: term?.name,
+          academic_session: academicYear?.name || null,
           teacher_name: Array.isArray(batch.profiles)
             ? batch.profiles[0]?.full_name
             : batch.profiles?.full_name,
@@ -95,6 +101,39 @@ export async function DELETE(
 
     const { id } = await params;
     const supabase = await createServerSupabase();
+
+    // Load the batch first to check status
+    const { data: batch } = (await supabase
+      .from("score_sheet_batches")
+      .select("id, status")
+      .eq("id", id)
+      .eq("school_id", schoolId)
+      .maybeSingle()) as unknown as {
+      data: { id: string; status: string } | null;
+    };
+
+    if (!batch) {
+      return NextResponse.json({ error: "Batch not found" }, { status: 404 });
+    }
+
+    // Cannot discard a confirmed batch — scores are already written.
+    // Admin must delete the scores first (via score entry UI) if they
+    // really want to undo.
+    if (batch.status === "confirmed") {
+      return NextResponse.json(
+        {
+          error:
+            "Cannot discard a confirmed batch. Scores have already been saved.",
+          code: "BATCH_CONFIRMED",
+        },
+        { status: 409 }
+      );
+    }
+
+    // Already discarded — idempotent success
+    if (batch.status === "discarded") {
+      return NextResponse.json({ success: true, data: { already_discarded: true } });
+    }
 
     const { error } = await (supabase as any)
       .from("score_sheet_batches")

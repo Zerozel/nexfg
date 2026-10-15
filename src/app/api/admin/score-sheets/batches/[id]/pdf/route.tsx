@@ -12,6 +12,8 @@ import {
  *
  * Generates the printable score sheet for a batch as a PDF.
  * Idempotent and deterministic — same input always produces the same PDF.
+ *
+ * Student roster excludes soft-deleted / inactive students.
  */
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -72,15 +74,20 @@ export async function GET(
         : term.academic_years?.name || ""
       : "";
 
-    // ── Load enrolled students ──
+    // ── Load enrolled students (excludes deleted/inactive) ──
     const { data: enrollments } = (await supabase
       .from("enrollments")
       .select(
-        "student_id, students:student_id(id, full_name, admission_number)"
+        "student_id, students:student_id!inner(id, full_name, admission_number, is_deleted, is_active)"
       )
       .eq("class_id", batch.class_id)
       .eq("term_id", batch.term_id)
-      .eq("is_current", true)) as unknown as { data: any[] | null };
+      .eq("is_current", true)
+      .eq("is_deleted", false)
+      .eq("students.is_deleted", false)
+      .eq("students.is_active", true)) as unknown as {
+      data: any[] | null;
+    };
 
     const students = (enrollments || [])
       .map((e) => {
@@ -135,8 +142,6 @@ export async function GET(
       <ScoreSheetDocument data={docData} />
     );
 
-    // `renderToBuffer` returns a Node Buffer. NextResponse expects a Web
-    // BodyInit. Converting to Uint8Array satisfies both runtimes.
     const pdfBytes = new Uint8Array(pdfBuffer);
 
     const safeClass = docData.className.replace(/[^a-zA-Z0-9]/g, "_");

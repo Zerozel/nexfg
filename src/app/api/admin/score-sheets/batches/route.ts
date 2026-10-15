@@ -9,6 +9,10 @@ import { requirePaidAdmin } from "@/lib/score-sheets/subscription-guard";
  * POST /api/admin/score-sheets/batches
  *   body: { class_id, subject_id, term_id }
  *   Creates a new batch. The teacher_id is resolved from class_subjects.
+ *
+ *   Rejects if a non-discarded batch already exists for the same
+ *   (class, subject, term) — otherwise two live batches would compete
+ *   for the same set of scores.
  */
 export async function GET(_request: NextRequest) {
   try {
@@ -32,11 +36,12 @@ export async function GET(_request: NextRequest) {
         confirmed_at,
         classes:class_id(name),
         subjects:subject_id(name),
-        terms:term_id(name, academic_years:academic_year_id(name)),
+        terms:term_id(name),
         profiles:teacher_id(full_name)
       `
       )
       .eq("school_id", schoolId)
+      .neq("status", "discarded")
       .order("created_at", { ascending: false })) as unknown as {
       data: any[] | null;
       error: unknown;
@@ -87,9 +92,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Verify class belongs to this school and is not deleted
     const { data: cls } = (await supabase
       .from("classes")
-      .select("id")
+      .select("id, name")
       .eq("id", class_id)
       .eq("school_id", schoolId)
       .eq("is_deleted", false)
@@ -99,6 +105,55 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Class not found" }, { status: 404 });
     }
 
+    // Verify subject belongs to this school
+    const { data: subject } = (await supabase
+      .from("subjects")
+      .select("id, name")
+      .eq("id", subject_id)
+      .eq("school_id", schoolId)
+      .eq("is_deleted", false)
+      .maybeSingle()) as unknown as { data: any | null };
+
+    if (!subject) {
+      return NextResponse.json({ error: "Subject not found" }, { status: 404 });
+    }
+
+    // Verify term belongs to this school
+    const { data: term } = (await supabase
+      .from("terms")
+      .select("id, name")
+      .eq("id", term_id)
+      .eq("school_id", schoolId)
+      .eq("is_deleted", false)
+      .maybeSingle()) as unknown as { data: any | null };
+
+    if (!term) {
+      return NextResponse.json({ error: "Term not found" }, { status: 404 });
+    }
+
+    // Reject if a live batch already exists for this triple
+    const { data: existing } = (await supabase
+      .from("score_sheet_batches")
+      .select("id, status")
+      .eq("school_id", schoolId)
+      .eq("class_id", class_id)
+      .eq("subject_id", subject_id)
+      .eq("term_id", term_id)
+      .neq("status", "discarded")
+      .maybeSingle()) as unknown as { data: any | null };
+
+    if (existing) {
+      return NextResponse.json(
+        {
+          error: "A score sheet already exists for this class, subject, and term.",
+          code: "DUPLICATE_BATCH",
+          existing_batch_id: existing.id,
+        },
+        { status: 409 }
+      );
+    }
+
+    // Resolve the subject teacher (for pre-filling the print sheet)
     const { data: cs } = (await supabase
       .from("class_subjects")
       .select("teacher_id")

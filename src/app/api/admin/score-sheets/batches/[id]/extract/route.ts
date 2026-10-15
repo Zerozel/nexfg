@@ -8,15 +8,20 @@ import { visionProvider } from "@/lib/ai";
  * body: multipart/form-data with field "file"
  *
  * Steps:
- *   1. Upload image to Supabase Storage (`score-sheets` bucket)
- *   2. Fetch batch metadata + expected student roster
- *   3. Call vision provider to extract scores
- *   4. Match extracted names to roster students
- *   5. Save extractions (raw_* columns)
- *   6. Update batch status to 'uploaded'
+ *   1. Verify batch is in a re-extractable state (not confirmed)
+ *   2. Upload image to Supabase Storage (`score-sheets` bucket)
+ *   3. Fetch batch metadata + expected student roster (excluding
+ *      soft-deleted / inactive students)
+ *   4. Call vision provider to extract scores
+ *   5. Match extracted names to roster students
+ *   6. Save extractions (raw_* columns)
+ *   7. Update batch status to 'uploaded'
  */
 export const runtime = "nodejs";
 export const maxDuration = 60;
+
+const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const ALLOWED_EXTENSIONS = ["jpg", "jpeg", "png", "webp"];
 
 export async function POST(
   request: NextRequest,
@@ -30,6 +35,7 @@ export async function POST(
     const { id } = await params;
     const supabase = await createServerSupabase();
 
+    // ── Load batch ──
     const { data: batch, error: batchError } = (await supabase
       .from("score_sheet_batches")
       .select(
@@ -39,6 +45,7 @@ export async function POST(
         subject_id,
         term_id,
         school_id,
+        status,
         classes:class_id(name),
         subjects:subject_id(name),
         terms:term_id(name, academic_years:academic_year_id(name)),
@@ -54,14 +61,33 @@ export async function POST(
       return NextResponse.json({ error: "Batch not found" }, { status: 404 });
     }
 
+    // Confirmed batches cannot be re-extracted — scores are already saved
+    // and re-extraction would desync the audit trail.
+    if (batch.status === "confirmed") {
+      return NextResponse.json(
+        {
+          error:
+            "This batch is already confirmed. Create a new score sheet to re-enter scores.",
+          code: "BATCH_CONFIRMED",
+        },
+        { status: 409 }
+      );
+    }
+
+    // ── Load roster (excludes deleted/inactive students) ──
     const { data: enrollments } = (await supabase
       .from("enrollments")
       .select(
-        "student_id, students:student_id(id, full_name, admission_number)"
+        "student_id, students:student_id!inner(id, full_name, admission_number, is_deleted, is_active)"
       )
       .eq("class_id", batch.class_id)
       .eq("term_id", batch.term_id)
-      .eq("is_current", true)) as unknown as { data: any[] | null };
+      .eq("is_current", true)
+      .eq("is_deleted", false)
+      .eq("students.is_deleted", false)
+      .eq("students.is_active", true)) as unknown as {
+      data: any[] | null;
+    };
 
     const roster = (enrollments || [])
       .map((e) => {
@@ -70,14 +96,25 @@ export async function POST(
       })
       .filter(Boolean) as { id: string; name: string }[];
 
+    // ── Read + validate the file ──
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
     if (!file) {
       return NextResponse.json({ error: "file is required" }, { status: 400 });
     }
 
+    if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+      return NextResponse.json(
+        {
+          error: `Unsupported file type. Allowed: ${ALLOWED_MIME_TYPES.join(", ")}`,
+        },
+        { status: 400 }
+      );
+    }
+
+    const rawExt = (file.type.split("/")[1] || "jpg").toLowerCase();
+    const ext = ALLOWED_EXTENSIONS.includes(rawExt) ? rawExt : "jpg";
     const arrayBuffer = await file.arrayBuffer();
-    const ext = (file.type.split("/")[1] || "jpg").toLowerCase();
     const storagePath = `${schoolId}/${id}/source.${ext}`;
 
     const { error: uploadError } = await supabase.storage
@@ -100,6 +137,7 @@ export async function POST(
       );
     }
 
+    // ── Load assessment max scores ──
     const { data: assessments } = (await supabase
       .from("assessments")
       .select("name, max_score")
@@ -132,6 +170,7 @@ export async function POST(
       ? batch.terms[0]?.name || "Term"
       : batch.terms?.name || "Term";
 
+    // ── Call VLM ──
     const result = await visionProvider.extractScoreSheet(signed.signedUrl, {
       schoolName,
       className,
@@ -141,6 +180,7 @@ export async function POST(
       expectedStudentNames: roster.map((r) => r.name),
     });
 
+    // ── Match names → students ──
     const normalize = (s: string) =>
       s
         .toLowerCase()
@@ -150,6 +190,7 @@ export async function POST(
 
     const rosterByNorm = new Map(roster.map((r) => [normalize(r.name), r]));
 
+    // ── Replace prior extractions (re-extract is allowed pre-confirm) ──
     await (supabase as any)
       .from("score_sheet_extractions")
       .delete()
@@ -179,6 +220,7 @@ export async function POST(
       if (insertError) throw insertError;
     }
 
+    // ── Update batch ──
     await (supabase as any)
       .from("score_sheet_batches")
       .update({
