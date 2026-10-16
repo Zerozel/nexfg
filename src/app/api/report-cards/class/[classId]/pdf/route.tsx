@@ -3,7 +3,7 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { fetchCompiledResultsByStudent } from "@/lib/printing/compiled-results";
 import { transformStudentReportData } from "@/lib/printing/data-transform";
-import { ReportCardBatchDocument } from "@/lib/pdf/ReportCardBatchDocument";
+import { ReportCardBatchDocument } from "@/lib/pdf/ReportCardDocument";
 import type { IndividualReportCardData } from "@/types/printing";
 
 export const runtime = "nodejs";

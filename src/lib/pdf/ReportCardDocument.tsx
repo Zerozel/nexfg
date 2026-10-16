@@ -12,138 +12,200 @@ import type {
 } from "@/types/printing";
 
 /**
- * React-PDF equivalent of ReportCardTemplate.tsx.
+ * Report card PDF — one Page per student.
  *
- * Consumes the same IndividualReportCardData shape as the browser template,
- * so both rendering paths stay in sync when data changes.
- *
- * A4 portrait. Black-and-white friendly (uses the school's primary color
- * as an accent, not a background).
+ * Design principles:
+ *   - Reads beautifully in pure black-and-white.
+ *   - School primary color used only as an accent (title bar, banner borders,
+ *     table header underline) — never as a large background.
+ *   - Deterministic layout: all widths explicit, no flex-wrap.
+ *   - Signature + date pinned to the bottom of every page regardless of
+ *     content length, so short cards don't leave an awkward gap.
  */
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Design tokens
+// ═══════════════════════════════════════════════════════════════════════════
+
+const COLOR = {
+  black: "#111111",
+  darkGrey: "#333333",
+  midGrey: "#666666",
+  softGrey: "#888888",
+  ruleGrey: "#cccccc",
+  lightGrey: "#e5e5e5",
+  tableHeadBg: "#f3f4f6",
+  zebraBg: "#fafafa",
+
+  // Grade bands
+  gradeA: "#15803d", // green
+  gradeB: "#1d4ed8", // blue
+  gradeC: "#b45309", // amber
+  gradeD: "#c2410c", // orange
+  gradeF: "#b91c1c", // red
+
+  white: "#ffffff",
+} as const;
+
+const PAGE = {
+  marginX: 56, // ~20mm
+  marginTop: 48,
+  marginBottom: 48,
+} as const;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Styles
+// ═══════════════════════════════════════════════════════════════════════════
 
 const styles = StyleSheet.create({
   page: {
-    padding: 24,
+    paddingTop: PAGE.marginTop,
+    paddingHorizontal: PAGE.marginX,
+    // Reserve room for the pinned signature (~90pt) + footer (~20pt).
+    paddingBottom: 130,
     fontFamily: "Helvetica",
     fontSize: 9,
-    color: "#000000",
-    backgroundColor: "#ffffff",
+    color: COLOR.black,
+    backgroundColor: COLOR.white,
   },
 
   // ── Header ──
   header: {
-    textAlign: "center",
-    borderBottomWidth: 1.5,
-    borderBottomColor: "#000000",
-    paddingBottom: 8,
-    marginBottom: 8,
+    alignItems: "center",
+    marginBottom: 12,
   },
   logo: {
-    width: 60,
-    height: 60,
-    marginBottom: 4,
-    alignSelf: "center",
+    width: 56,
+    height: 56,
+    marginBottom: 6,
     objectFit: "contain",
   },
   schoolName: {
-    fontSize: 15,
+    fontSize: 16,
     fontFamily: "Helvetica-Bold",
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
     textTransform: "uppercase",
+    textAlign: "center",
     marginBottom: 2,
   },
   motto: {
     fontSize: 8,
     fontStyle: "italic",
-    color: "#444444",
+    color: COLOR.midGrey,
+    textAlign: "center",
     marginBottom: 3,
   },
   contact: {
     fontSize: 7.5,
-    color: "#333333",
-  },
-
-  // ── Title ──
-  title: {
+    color: COLOR.darkGrey,
     textAlign: "center",
-    fontSize: 11,
-    fontFamily: "Helvetica-Bold",
-    letterSpacing: 1.2,
-    textTransform: "uppercase",
-    marginTop: 6,
-    marginBottom: 8,
   },
 
-  // ── Student info grid ──
-  infoGrid: {
-    flexDirection: "row",
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: "#000000",
+  // ── Title bar ──
+  titleBar: {
+    paddingVertical: 6,
+    marginBottom: 12,
+    textAlign: "center",
   },
-  infoColumn: {
-    flex: 1,
-    paddingHorizontal: 6,
-    paddingVertical: 4,
-  },
-  infoRow: {
-    flexDirection: "row",
-    marginBottom: 2,
-  },
-  infoLabel: {
-    width: 70,
+  titleBarText: {
+    fontSize: 10,
     fontFamily: "Helvetica-Bold",
-    fontSize: 7.5,
+    letterSpacing: 2,
     textTransform: "uppercase",
-    color: "#333333",
+    color: COLOR.white,
+    textAlign: "center",
   },
-  infoValue: {
+
+  // ── Student identity ──
+  identity: {
+    flexDirection: "row",
+    borderTopWidth: 0.5,
+    borderTopColor: COLOR.ruleGrey,
+    borderBottomWidth: 0.5,
+    borderBottomColor: COLOR.ruleGrey,
+    paddingVertical: 8,
+    marginBottom: 14,
+  },
+  identityColumn: {
     flex: 1,
-    fontSize: 8.5,
+    paddingRight: 8,
+  },
+  identityColumnLast: {
+    flex: 1,
+  },
+  identityRow: {
+    flexDirection: "row",
+    marginBottom: 5,
+  },
+  identityRowLast: {
+    flexDirection: "row",
+  },
+  identityLabel: {
+    width: 62,
+    fontFamily: "Helvetica-Bold",
+    fontSize: 7,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+    color: COLOR.midGrey,
+    paddingTop: 1,
+  },
+  identityValue: {
+    flex: 1,
+    fontSize: 9.5,
+    fontFamily: "Helvetica-Bold",
+    color: COLOR.black,
   },
 
   // ── Subject table ──
   table: {
-    borderWidth: 1,
-    borderColor: "#000000",
-    marginBottom: 8,
+    marginBottom: 12,
   },
   tableHeaderRow: {
     flexDirection: "row",
-    backgroundColor: "#e5e5e5",
-    borderBottomWidth: 1,
-    borderBottomColor: "#000000",
+    backgroundColor: COLOR.tableHeadBg,
+    borderBottomWidth: 1.5,
+    borderBottomColor: COLOR.black,
   },
   tableSubHeaderRow: {
     flexDirection: "row",
-    backgroundColor: "#f0f0f0",
+    backgroundColor: COLOR.tableHeadBg,
     borderBottomWidth: 1,
-    borderBottomColor: "#000000",
+    borderBottomColor: COLOR.black,
   },
   tableRow: {
     flexDirection: "row",
     borderBottomWidth: 0.5,
-    borderBottomColor: "#999999",
+    borderBottomColor: COLOR.ruleGrey,
+    minHeight: 18,
   },
-  tableRowAlt: {
-    backgroundColor: "#fafafa",
+  tableRowZebra: {
+    backgroundColor: COLOR.zebraBg,
   },
   headerCell: {
     fontFamily: "Helvetica-Bold",
     fontSize: 7,
+    letterSpacing: 0.4,
     textTransform: "uppercase",
     textAlign: "center",
-    paddingHorizontal: 2,
-    paddingVertical: 4,
-    borderRightWidth: 0.5,
-    borderRightColor: "#999999",
+    paddingHorizontal: 3,
+    paddingVertical: 5,
+    color: COLOR.darkGrey,
+  },
+  headerCellLeft: {
+    fontFamily: "Helvetica-Bold",
+    fontSize: 7,
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+    textAlign: "left",
+    paddingHorizontal: 3,
+    paddingVertical: 5,
+    color: COLOR.darkGrey,
   },
   cell: {
-    fontSize: 8,
-    paddingHorizontal: 3,
-    paddingVertical: 3,
-    borderRightWidth: 0.5,
-    borderRightColor: "#e0e0e0",
+    fontSize: 8.5,
+    paddingHorizontal: 4,
+    paddingVertical: 4,
+    color: COLOR.black,
   },
   cellCenter: {
     textAlign: "center",
@@ -151,174 +213,187 @@ const styles = StyleSheet.create({
   cellRight: {
     textAlign: "right",
   },
+  cellMuted: {
+    color: COLOR.midGrey,
+  },
+  cellBold: {
+    fontFamily: "Helvetica-Bold",
+  },
 
   // ── Overall banner ──
-  overallBanner: {
+  banner: {
     flexDirection: "row",
-    justifyContent: "space-around",
-    padding: 8,
-    marginBottom: 8,
-    borderRadius: 2,
+    marginBottom: 12,
   },
-  overallItem: {
-    alignItems: "center",
+  bannerItem: {
+    flex: 1,
+    paddingLeft: 8,
+    paddingVertical: 4,
+    marginRight: 6,
+    borderLeftWidth: 3,
   },
-  overallLabel: {
+  bannerItemLast: {
+    flex: 1,
+    paddingLeft: 8,
+    paddingVertical: 4,
+    borderLeftWidth: 3,
+  },
+  bannerLabel: {
     fontSize: 7,
+    letterSpacing: 0.6,
     textTransform: "uppercase",
-    color: "#ffffff",
-    letterSpacing: 0.5,
-    marginBottom: 2,
+    color: COLOR.midGrey,
+    marginBottom: 3,
   },
-  overallValue: {
-    fontSize: 13,
+  bannerValue: {
+    fontSize: 15,
     fontFamily: "Helvetica-Bold",
-    color: "#ffffff",
+    color: COLOR.black,
+  },
+
+  // ── Section headers ──
+  sectionLabel: {
+    fontSize: 7.5,
+    fontFamily: "Helvetica-Bold",
+    letterSpacing: 1,
+    textTransform: "uppercase",
+    color: COLOR.midGrey,
+    borderBottomWidth: 0.5,
+    borderBottomColor: COLOR.ruleGrey,
+    paddingBottom: 3,
+    marginBottom: 6,
   },
 
   // ── Attendance ──
-  section: {
-    marginBottom: 8,
-  },
-  sectionTitle: {
-    fontSize: 8,
-    fontFamily: "Helvetica-Bold",
-    textTransform: "uppercase",
-    borderBottomWidth: 1,
-    borderBottomColor: "#000000",
-    paddingBottom: 2,
-    marginBottom: 4,
-  },
-  attendanceGrid: {
+  attendanceRow: {
     flexDirection: "row",
-    borderWidth: 1,
-    borderColor: "#000000",
-  },
-  attendanceItem: {
-    flex: 1,
-    alignItems: "center",
-    paddingVertical: 6,
-    borderRightWidth: 0.5,
-    borderRightColor: "#999999",
-  },
-  attendanceItemLast: {
-    flex: 1,
-    alignItems: "center",
-    paddingVertical: 6,
-  },
-  attendanceValue: {
-    fontSize: 12,
-    fontFamily: "Helvetica-Bold",
-    marginBottom: 2,
-  },
-  attendanceLabel: {
-    fontSize: 7,
-    textTransform: "uppercase",
-    color: "#555555",
+    marginBottom: 12,
   },
 
   // ── Traits / Skills ──
   traitsRow: {
     flexDirection: "row",
-    gap: 8,
+    marginBottom: 12,
   },
   traitsCol: {
+    flex: 1,
+    marginRight: 12,
+  },
+  traitsColLast: {
     flex: 1,
   },
   traitRow: {
     flexDirection: "row",
     borderBottomWidth: 0.5,
-    borderBottomColor: "#e0e0e0",
+    borderBottomColor: COLOR.ruleGrey,
+    paddingVertical: 3,
+  },
+  traitRowLast: {
+    flexDirection: "row",
+    paddingVertical: 3,
   },
   traitName: {
     flex: 2,
-    fontSize: 7.5,
-    paddingHorizontal: 4,
-    paddingVertical: 2,
+    fontSize: 8,
+    color: COLOR.black,
   },
   traitRating: {
     flex: 1,
-    fontSize: 7.5,
-    paddingHorizontal: 4,
-    paddingVertical: 2,
+    fontSize: 8,
+    fontFamily: "Helvetica-Bold",
     textAlign: "right",
+    color: COLOR.darkGrey,
   },
 
   // ── Comments ──
-  commentBox: {
-    borderWidth: 1,
-    borderColor: "#000000",
-    padding: 6,
-    marginBottom: 4,
+  comment: {
+    marginBottom: 12,
   },
   commentLabel: {
-    fontSize: 7,
+    fontSize: 7.5,
     fontFamily: "Helvetica-Bold",
+    letterSpacing: 0.8,
     textTransform: "uppercase",
-    color: "#555555",
-    marginBottom: 3,
+    color: COLOR.midGrey,
+    borderBottomWidth: 0.5,
+    borderBottomColor: COLOR.ruleGrey,
+    paddingBottom: 3,
+    marginBottom: 4,
   },
   commentText: {
     fontSize: 8.5,
-    lineHeight: 1.3,
+    lineHeight: 1.4,
+    color: COLOR.black,
   },
 
-  // ── Signature block ──
+  // ── Signature block (pinned to bottom of page) ──
   signatureBlock: {
+    position: "absolute",
+    bottom: 42,
+    left: PAGE.marginX,
+    right: PAGE.marginX,
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 12,
     paddingTop: 8,
+    borderTopWidth: 0.5,
+    borderTopColor: COLOR.ruleGrey,
   },
   signatureItem: {
     width: "30%",
     alignItems: "center",
   },
   signatureImage: {
-    width: 100,
-    height: 30,
+    width: 90,
+    height: 26,
     objectFit: "contain",
     marginBottom: 2,
   },
   signatureLine: {
     width: "100%",
-    borderBottomWidth: 1,
-    borderBottomColor: "#000000",
+    borderBottomWidth: 0.75,
+    borderBottomColor: COLOR.black,
+    height: 22,
     marginBottom: 2,
-    height: 20,
   },
   signatureName: {
     fontSize: 8,
     fontFamily: "Helvetica-Bold",
     textAlign: "center",
+    color: COLOR.black,
     marginBottom: 1,
   },
   signatureTitle: {
-    fontSize: 7,
-    color: "#555555",
+    fontSize: 6.5,
+    letterSpacing: 0.5,
     textTransform: "uppercase",
+    color: COLOR.midGrey,
     textAlign: "center",
   },
 
-  // ── Footer ──
+  // ── Footer (pinned below signature) ──
   footer: {
     position: "absolute",
-    bottom: 12,
-    left: 24,
-    right: 24,
-    textAlign: "center",
+    bottom: 16,
+    left: PAGE.marginX,
+    right: PAGE.marginX,
+    flexDirection: "row",
+    justifyContent: "space-between",
     fontSize: 6.5,
-    color: "#888888",
+    color: COLOR.softGrey,
   },
 });
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Helpers
+// ═══════════════════════════════════════════════════════════════════════════
+
 function formatCell(v: number | null | undefined): string {
-  if (v === null || v === undefined) return "-";
+  if (v === null || v === undefined) return "—";
   return Number.isInteger(v) ? String(v) : v.toFixed(1);
 }
 
 function getOrdinal(n: number): string {
-  if (!Number.isFinite(n) || n <= 0) return "-";
+  if (!Number.isFinite(n) || n <= 0) return "—";
   const s = ["th", "st", "nd", "rd"];
   const v = n % 100;
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
@@ -337,20 +412,39 @@ function hasBreakdown(subjects: SubjectResult[]): boolean {
 function formatDate(dateString: string): string {
   const date = new Date(dateString);
   return date.toLocaleDateString("en-GB", {
-    year: "numeric",
-    month: "long",
     day: "numeric",
+    month: "long",
+    year: "numeric",
   });
 }
+
+function gradeColor(grade: string | null | undefined): string {
+  if (!grade) return COLOR.darkGrey;
+  const g = grade.trim().toUpperCase();
+  if (/^A/.test(g)) return COLOR.gradeA;
+  if (/^B/.test(g)) return COLOR.gradeB;
+  if (/^C/.test(g)) return COLOR.gradeC;
+  if (/^D|^E/.test(g)) return COLOR.gradeD;
+  if (/^F/.test(g)) return COLOR.gradeF;
+  return COLOR.darkGrey;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Page
+// ═══════════════════════════════════════════════════════════════════════════
 
 export function ReportCardPage({ data }: { data: IndividualReportCardData }) {
   const { school, student, class: classInfo, term, subjects, overall } = data;
   const showBreakdown = hasBreakdown(subjects);
-  const primaryColor = school.primary_color || "#2563eb";
+  const primaryColor = school.primary_color || "#1e40af";
+
+  const contactParts = [school.address, school.phone, school.email].filter(
+    Boolean
+  );
 
   return (
     <Page size="A4" style={styles.page}>
-      {/* ── Header ── */}
+      {/* ══ Header ══ */}
       <View style={styles.header}>
         {school.logo_url ? (
           <Image src={school.logo_url} style={styles.logo} />
@@ -359,77 +453,68 @@ export function ReportCardPage({ data }: { data: IndividualReportCardData }) {
           {school.name}
         </Text>
         {school.motto ? <Text style={styles.motto}>{school.motto}</Text> : null}
-        {(school.address || school.phone || school.email) && (
-          <Text style={styles.contact}>
-            {[school.address, school.phone, school.email]
-              .filter(Boolean)
-              .join("  |  ")}
-          </Text>
-        )}
+        {contactParts.length > 0 ? (
+          <Text style={styles.contact}>{contactParts.join("   ·   ")}</Text>
+        ) : null}
       </View>
 
-      {/* ── Title ── */}
-      <Text style={styles.title}>Student Report Card</Text>
+      {/* ══ Title bar ══ */}
+      <View style={[styles.titleBar, { backgroundColor: primaryColor }]}>
+        <Text style={styles.titleBarText}>Student Report Card</Text>
+      </View>
 
-      {/* ── Student info ── */}
-      <View style={styles.infoGrid}>
-        <View style={[styles.infoColumn, { borderRightWidth: 0.5, borderRightColor: "#999999" }]}>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Name</Text>
-            <Text style={styles.infoValue}>{student.full_name}</Text>
+      {/* ══ Student identity ══ */}
+      <View style={styles.identity}>
+        <View style={styles.identityColumn}>
+          <View style={styles.identityRow}>
+            <Text style={styles.identityLabel}>Student</Text>
+            <Text style={styles.identityValue}>{student.full_name}</Text>
           </View>
-          {student.admission_number ? (
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Adm. No.</Text>
-              <Text style={styles.infoValue}>{student.admission_number}</Text>
-            </View>
-          ) : null}
+          <View style={styles.identityRowLast}>
+            <Text style={styles.identityLabel}>Adm. No.</Text>
+            <Text style={styles.identityValue}>
+              {student.admission_number || "—"}
+            </Text>
+          </View>
         </View>
-        <View style={styles.infoColumn}>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Class</Text>
-            <Text style={styles.infoValue}>{classInfo.name}</Text>
+        <View style={styles.identityColumnLast}>
+          <View style={styles.identityRow}>
+            <Text style={styles.identityLabel}>Class</Text>
+            <Text style={styles.identityValue}>{classInfo.name}</Text>
           </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Term</Text>
-            <Text style={styles.infoValue}>
-              {term.name} — {term.academic_session}
+          <View style={styles.identityRowLast}>
+            <Text style={styles.identityLabel}>Term</Text>
+            <Text style={styles.identityValue}>
+              {term.name}
+              {term.academic_session ? `  ·  ${term.academic_session}` : ""}
             </Text>
           </View>
         </View>
       </View>
 
-      {/* ── Subject table ── */}
+      {/* ══ Subject table ══ */}
       <View style={styles.table}>
         {/* Header row */}
         <View style={styles.tableHeaderRow} fixed>
           {showBreakdown ? (
             <>
-              <Text style={[styles.headerCell, { flex: 3, textAlign: "left" }]}>
-                Subject
-              </Text>
-              <Text style={[styles.headerCell, { flex: 3 }]}>
+              <Text style={[styles.headerCellLeft, { flex: 3.4 }]}>Subject</Text>
+              <Text style={[styles.headerCell, { flex: 3.6 }]}>
                 Continuous Assessment
               </Text>
               <Text style={[styles.headerCell, { flex: 1.2 }]}>Exam</Text>
               <Text style={[styles.headerCell, { flex: 1.2 }]}>Total</Text>
-              <Text style={[styles.headerCell, { flex: 1 }]}>Grade</Text>
+              <Text style={[styles.headerCell, { flex: 1.1 }]}>Grade</Text>
               <Text style={[styles.headerCell, { flex: 1 }]}>Pos</Text>
-              <Text style={[styles.headerCell, { flex: 2, borderRightWidth: 0 }]}>
-                Remarks
-              </Text>
+              <Text style={[styles.headerCell, { flex: 2.3 }]}>Remarks</Text>
             </>
           ) : (
             <>
-              <Text style={[styles.headerCell, { flex: 4, textAlign: "left" }]}>
-                Subject
-              </Text>
-              <Text style={[styles.headerCell, { flex: 1.5 }]}>Score</Text>
+              <Text style={[styles.headerCellLeft, { flex: 4 }]}>Subject</Text>
+              <Text style={[styles.headerCell, { flex: 1.6 }]}>Score</Text>
               <Text style={[styles.headerCell, { flex: 1.2 }]}>Grade</Text>
-              <Text style={[styles.headerCell, { flex: 1.5 }]}>Position</Text>
-              <Text style={[styles.headerCell, { flex: 3.5, borderRightWidth: 0 }]}>
-                Remarks
-              </Text>
+              <Text style={[styles.headerCell, { flex: 1.6 }]}>Position</Text>
+              <Text style={[styles.headerCell, { flex: 3.4 }]}>Remarks</Text>
             </>
           )}
         </View>
@@ -437,75 +522,135 @@ export function ReportCardPage({ data }: { data: IndividualReportCardData }) {
         {/* Sub-header row for CA1/CA2/CA3 */}
         {showBreakdown && (
           <View style={styles.tableSubHeaderRow}>
-            <Text style={[styles.headerCell, { flex: 3, borderRightWidth: 0 }]} />
-            <Text style={[styles.headerCell, { flex: 1 }]}>CA1</Text>
-            <Text style={[styles.headerCell, { flex: 1 }]}>CA2</Text>
-            <Text style={[styles.headerCell, { flex: 1 }]}>CA3</Text>
-            <Text style={[styles.headerCell, { flex: 1.2, borderRightWidth: 0 }]} />
-            <Text style={[styles.headerCell, { flex: 1.2, borderRightWidth: 0 }]} />
-            <Text style={[styles.headerCell, { flex: 1, borderRightWidth: 0 }]} />
-            <Text style={[styles.headerCell, { flex: 1, borderRightWidth: 0 }]} />
-            <Text style={[styles.headerCell, { flex: 2, borderRightWidth: 0 }]} />
+            <Text style={[styles.headerCell, { flex: 3.4 }]} />
+            <Text style={[styles.headerCell, { flex: 1.2 }]}>CA1</Text>
+            <Text style={[styles.headerCell, { flex: 1.2 }]}>CA2</Text>
+            <Text style={[styles.headerCell, { flex: 1.2 }]}>CA3</Text>
+            <Text style={[styles.headerCell, { flex: 1.2 }]} />
+            <Text style={[styles.headerCell, { flex: 1.2 }]} />
+            <Text style={[styles.headerCell, { flex: 1.1 }]} />
+            <Text style={[styles.headerCell, { flex: 1 }]} />
+            <Text style={[styles.headerCell, { flex: 2.3 }]} />
           </View>
         )}
 
-        {/* Data rows */}
+        {/* Body rows */}
         {subjects.length > 0 ? (
           subjects.map((subject, idx) => (
             <View
               key={subject.id}
               style={[
                 styles.tableRow,
-                idx % 2 === 1 ? styles.tableRowAlt : {},
+                idx % 2 === 1 ? styles.tableRowZebra : {},
               ]}
               wrap={false}
             >
               {showBreakdown ? (
                 <>
-                  <Text style={[styles.cell, { flex: 3 }]}>{subject.name}</Text>
-                  <Text style={[styles.cell, styles.cellCenter, { flex: 1 }]}>
+                  <Text style={[styles.cell, { flex: 3.4 }]}>
+                    {subject.name}
+                  </Text>
+                  <Text
+                    style={[styles.cell, styles.cellCenter, { flex: 1.2 }]}
+                  >
                     {formatCell(subject.ca1_score)}
                   </Text>
-                  <Text style={[styles.cell, styles.cellCenter, { flex: 1 }]}>
+                  <Text
+                    style={[styles.cell, styles.cellCenter, { flex: 1.2 }]}
+                  >
                     {formatCell(subject.ca2_score)}
                   </Text>
-                  <Text style={[styles.cell, styles.cellCenter, { flex: 1 }]}>
+                  <Text
+                    style={[styles.cell, styles.cellCenter, { flex: 1.2 }]}
+                  >
                     {formatCell(subject.ca3_score)}
                   </Text>
-                  <Text style={[styles.cell, styles.cellCenter, { flex: 1.2 }]}>
+                  <Text
+                    style={[styles.cell, styles.cellCenter, { flex: 1.2 }]}
+                  >
                     {formatCell(subject.exam_score)}
                   </Text>
-                  <Text style={[styles.cell, styles.cellCenter, { flex: 1.2 }]}>
+                  <Text
+                    style={[
+                      styles.cell,
+                      styles.cellBold,
+                      styles.cellCenter,
+                      { flex: 1.2 },
+                    ]}
+                  >
                     {subject.score.toFixed(1)}
                   </Text>
-                  <Text style={[styles.cell, styles.cellCenter, { flex: 1 }]}>
-                    {subject.grade || "-"}
+                  <Text
+                    style={[
+                      styles.cell,
+                      styles.cellBold,
+                      styles.cellCenter,
+                      {
+                        flex: 1.1,
+                        color: gradeColor(subject.grade),
+                      },
+                    ]}
+                  >
+                    {subject.grade || "—"}
                   </Text>
-                  <Text style={[styles.cell, styles.cellCenter, { flex: 1 }]}>
+                  <Text
+                    style={[
+                      styles.cell,
+                      styles.cellCenter,
+                      styles.cellMuted,
+                      { flex: 1 },
+                    ]}
+                  >
                     {subject.subject_position
                       ? getOrdinal(subject.subject_position)
-                      : "-"}
+                      : "—"}
                   </Text>
-                  <Text style={[styles.cell, { flex: 2, borderRightWidth: 0 }]}>
-                    {subject.remarks || "-"}
+                  <Text style={[styles.cell, { flex: 2.3 }]}>
+                    {subject.remarks || "—"}
                   </Text>
                 </>
               ) : (
                 <>
-                  <Text style={[styles.cell, { flex: 4 }]}>{subject.name}</Text>
-                  <Text style={[styles.cell, styles.cellCenter, { flex: 1.5 }]}>
+                  <Text style={[styles.cell, { flex: 4 }]}>
+                    {subject.name}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.cell,
+                      styles.cellBold,
+                      styles.cellCenter,
+                      { flex: 1.6 },
+                    ]}
+                  >
                     {subject.score.toFixed(1)}
                   </Text>
-                  <Text style={[styles.cell, styles.cellCenter, { flex: 1.2 }]}>
-                    {subject.grade || "-"}
+                  <Text
+                    style={[
+                      styles.cell,
+                      styles.cellBold,
+                      styles.cellCenter,
+                      {
+                        flex: 1.2,
+                        color: gradeColor(subject.grade),
+                      },
+                    ]}
+                  >
+                    {subject.grade || "—"}
                   </Text>
-                  <Text style={[styles.cell, styles.cellCenter, { flex: 1.5 }]}>
+                  <Text
+                    style={[
+                      styles.cell,
+                      styles.cellCenter,
+                      styles.cellMuted,
+                      { flex: 1.6 },
+                    ]}
+                  >
                     {subject.subject_position
                       ? getOrdinal(subject.subject_position)
-                      : "-"}
+                      : "—"}
                   </Text>
-                  <Text style={[styles.cell, { flex: 3.5, borderRightWidth: 0 }]}>
-                    {subject.remarks || "-"}
+                  <Text style={[styles.cell, { flex: 3.4 }]}>
+                    {subject.remarks || "—"}
                   </Text>
                 </>
               )}
@@ -513,7 +658,13 @@ export function ReportCardPage({ data }: { data: IndividualReportCardData }) {
           ))
         ) : (
           <View style={styles.tableRow}>
-            <Text style={[styles.cell, { flex: 1, textAlign: "center" }]}>
+            <Text
+              style={[
+                styles.cell,
+                styles.cellCenter,
+                { flex: 1, paddingVertical: 14 },
+              ]}
+            >
               {data.has_compiled_results === false
                 ? "This term has not been compiled yet. Results will appear after compilation."
                 : "No subject results available"}
@@ -522,59 +673,98 @@ export function ReportCardPage({ data }: { data: IndividualReportCardData }) {
         )}
       </View>
 
-      {/* ── Overall banner ── */}
-      <View style={[styles.overallBanner, { backgroundColor: primaryColor }]}>
-        <View style={styles.overallItem}>
-          <Text style={styles.overallLabel}>Overall Average</Text>
-          <Text style={styles.overallValue}>{overall.average.toFixed(1)}%</Text>
+      {/* ══ Overall banner ══ */}
+      <View style={styles.banner}>
+        <View
+          style={[
+            styles.bannerItem,
+            { borderLeftColor: primaryColor },
+          ]}
+        >
+          <Text style={styles.bannerLabel}>Overall Average</Text>
+          <Text style={styles.bannerValue}>{overall.average.toFixed(1)}%</Text>
         </View>
-        <View style={styles.overallItem}>
-          <Text style={styles.overallLabel}>Grade</Text>
-          <Text style={styles.overallValue}>{overall.grade || "-"}</Text>
+        <View
+          style={[
+            styles.bannerItem,
+            { borderLeftColor: gradeColor(overall.grade) },
+          ]}
+        >
+          <Text style={styles.bannerLabel}>Grade</Text>
+          <Text style={styles.bannerValue}>{overall.grade || "—"}</Text>
         </View>
-        <View style={styles.overallItem}>
-          <Text style={styles.overallLabel}>Position</Text>
-          <Text style={styles.overallValue}>
+        <View
+          style={[
+            styles.bannerItemLast,
+            { borderLeftColor: primaryColor },
+          ]}
+        >
+          <Text style={styles.bannerLabel}>Position</Text>
+          <Text style={styles.bannerValue}>
             {getOrdinal(overall.position)} of {overall.total_students}
           </Text>
         </View>
       </View>
 
-      {/* ── Attendance ── */}
+      {/* ══ Attendance ══ */}
       {data.attendance && (
-        <View style={styles.section} wrap={false}>
-          <Text style={styles.sectionTitle}>Attendance Record</Text>
-          <View style={styles.attendanceGrid}>
-            <View style={styles.attendanceItem}>
-              <Text style={styles.attendanceValue}>
+        <View wrap={false} style={{ marginBottom: 12 }}>
+          <Text style={styles.sectionLabel}>Attendance Record</Text>
+          <View style={styles.attendanceRow}>
+            <View
+              style={[
+                styles.bannerItem,
+                { borderLeftColor: primaryColor },
+              ]}
+            >
+              <Text style={styles.bannerLabel}>School Days</Text>
+              <Text style={styles.bannerValue}>
                 {data.attendance.total_days}
               </Text>
-              <Text style={styles.attendanceLabel}>School Days</Text>
             </View>
-            <View style={styles.attendanceItem}>
-              <Text style={styles.attendanceValue}>
-                {data.attendance.present}
-              </Text>
-              <Text style={styles.attendanceLabel}>Present</Text>
+            <View
+              style={[
+                styles.bannerItem,
+                { borderLeftColor: primaryColor },
+              ]}
+            >
+              <Text style={styles.bannerLabel}>Present</Text>
+              <Text style={styles.bannerValue}>{data.attendance.present}</Text>
             </View>
-            <View style={styles.attendanceItemLast}>
-              <Text style={styles.attendanceValue}>
-                {data.attendance.absent}
-              </Text>
-              <Text style={styles.attendanceLabel}>Absent</Text>
+            <View
+              style={[
+                styles.bannerItemLast,
+                { borderLeftColor: primaryColor },
+              ]}
+            >
+              <Text style={styles.bannerLabel}>Absent</Text>
+              <Text style={styles.bannerValue}>{data.attendance.absent}</Text>
             </View>
           </View>
         </View>
       )}
 
-      {/* ── Affective Traits & Psychomotor Skills ── */}
+      {/* ══ Affective Traits / Psychomotor Skills ══ */}
       {(data.affective_traits?.length || data.psychomotor_skills?.length) ? (
-        <View style={[styles.section, styles.traitsRow]} wrap={false}>
+        <View style={styles.traitsRow} wrap={false}>
           {data.affective_traits && data.affective_traits.length > 0 && (
-            <View style={styles.traitsCol}>
-              <Text style={styles.sectionTitle}>Affective Traits</Text>
+            <View
+              style={
+                data.psychomotor_skills?.length
+                  ? styles.traitsCol
+                  : styles.traitsColLast
+              }
+            >
+              <Text style={styles.sectionLabel}>Affective Traits</Text>
               {data.affective_traits.map((trait, idx) => (
-                <View key={idx} style={styles.traitRow}>
+                <View
+                  key={idx}
+                  style={
+                    idx === data.affective_traits!.length - 1
+                      ? styles.traitRowLast
+                      : styles.traitRow
+                  }
+                >
                   <Text style={styles.traitName}>{trait.trait}</Text>
                   <Text style={styles.traitRating}>{trait.rating}</Text>
                 </View>
@@ -582,10 +772,17 @@ export function ReportCardPage({ data }: { data: IndividualReportCardData }) {
             </View>
           )}
           {data.psychomotor_skills && data.psychomotor_skills.length > 0 && (
-            <View style={styles.traitsCol}>
-              <Text style={styles.sectionTitle}>Psychomotor Skills</Text>
+            <View style={styles.traitsColLast}>
+              <Text style={styles.sectionLabel}>Psychomotor Skills</Text>
               {data.psychomotor_skills.map((skill, idx) => (
-                <View key={idx} style={styles.traitRow}>
+                <View
+                  key={idx}
+                  style={
+                    idx === data.psychomotor_skills!.length - 1
+                      ? styles.traitRowLast
+                      : styles.traitRow
+                  }
+                >
                   <Text style={styles.traitName}>{skill.skill}</Text>
                   <Text style={styles.traitRating}>{skill.rating}</Text>
                 </View>
@@ -595,30 +792,22 @@ export function ReportCardPage({ data }: { data: IndividualReportCardData }) {
         </View>
       ) : null}
 
-      {/* ── Comments ── */}
-      {(data.teacher_comment || data.principal_comment) && (
-        <View style={styles.section} wrap={false}>
-          {data.teacher_comment && (
-            <View style={styles.commentBox}>
-              <Text style={styles.commentLabel}>
-                Class Teacher&apos;s Comment
-              </Text>
-              <Text style={styles.commentText}>{data.teacher_comment}</Text>
-            </View>
-          )}
-          {data.principal_comment && (
-            <View style={styles.commentBox}>
-              <Text style={styles.commentLabel}>
-                Principal&apos;s Comment
-              </Text>
-              <Text style={styles.commentText}>{data.principal_comment}</Text>
-            </View>
-          )}
+      {/* ══ Comments ══ */}
+      {data.teacher_comment && (
+        <View style={styles.comment} wrap={false}>
+          <Text style={styles.commentLabel}>Class Teacher&apos;s Comment</Text>
+          <Text style={styles.commentText}>{data.teacher_comment}</Text>
+        </View>
+      )}
+      {data.principal_comment && (
+        <View style={styles.comment} wrap={false}>
+          <Text style={styles.commentLabel}>Principal&apos;s Comment</Text>
+          <Text style={styles.commentText}>{data.principal_comment}</Text>
         </View>
       )}
 
-      {/* ── Signatures ── */}
-      <View style={styles.signatureBlock} wrap={false}>
+      {/* ══ Signature block — pinned to bottom of page ══ */}
+      <View style={styles.signatureBlock}>
         {classInfo.teacher_name && (
           <View style={styles.signatureItem}>
             <View style={styles.signatureLine} />
@@ -628,7 +817,9 @@ export function ReportCardPage({ data }: { data: IndividualReportCardData }) {
         )}
         <View style={styles.signatureItem}>
           <View style={styles.signatureLine} />
-          <Text style={styles.signatureName}>{formatDate(data.issued_date)}</Text>
+          <Text style={styles.signatureName}>
+            {formatDate(data.issued_date)}
+          </Text>
           <Text style={styles.signatureTitle}>Date</Text>
         </View>
         {school.principal_name && (
@@ -646,10 +837,42 @@ export function ReportCardPage({ data }: { data: IndividualReportCardData }) {
         )}
       </View>
 
-      {/* ── Footer ── */}
-      <Text style={styles.footer} fixed>
-        Powered by NexaForges — School Management Platform
-      </Text>
+      {/* ══ Footer — pinned to bottom edge ══ */}
+      <View style={styles.footer} fixed>
+        <Text>Issued {formatDate(data.issued_date)}</Text>
+        <Text>Powered by NexaForges</Text>
+      </View>
     </Page>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Batch document — one Page per student
+// ═══════════════════════════════════════════════════════════════════════════
+
+interface BatchProps {
+  school: IndividualReportCardData["school"];
+  class: IndividualReportCardData["class"];
+  term: IndividualReportCardData["term"];
+  students: IndividualReportCardData[];
+}
+
+export function ReportCardBatchDocument({
+  school,
+  class: classInfo,
+  term,
+  students,
+}: BatchProps) {
+  return (
+    <Document
+      title={`${classInfo.name} Report Cards — ${term.name} ${term.academic_session}`}
+      author={school.name}
+      creator="NexaForge"
+      subject={`Report cards for ${classInfo.name}`}
+    >
+      {students.map((student) => (
+        <ReportCardPage key={student.student.id} data={student} />
+      ))}
+    </Document>
   );
 }
