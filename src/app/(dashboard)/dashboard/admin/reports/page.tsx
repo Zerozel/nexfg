@@ -55,6 +55,14 @@ function ReportsHubContent() {
     );
   };
 
+  // NEW: opens the server-rendered PDF for all students in the class.
+  const handleDownloadPdf = (classId: string, termId: string) => {
+    window.open(
+      `/api/report-cards/class/${classId}/pdf?termId=${termId}`,
+      "_blank"
+    );
+  };
+
   return (
     <div>
       {/* Header */}
@@ -62,8 +70,8 @@ function ReportsHubContent() {
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Reports</h2>
           <p className="text-sm text-gray-600 mt-1">
-            Print individual report cards, class result sheets, or batch
-            print multiple students at once.
+            Download a print-ready PDF for a class, or use the browser print
+            options below.
           </p>
         </div>
         <Link
@@ -101,6 +109,7 @@ function ReportsHubContent() {
           onPrintIndividual={handlePrintIndividual}
           onPrintClassResult={handlePrintClassResult}
           onPrintBatch={handleOpenBatchPrint}
+          onDownloadPdf={handleDownloadPdf}
           onSelectionChange={handleSelectionChange}
           initialClassId={initialClassId}
           initialTermId={initialTermId}

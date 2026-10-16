@@ -10,13 +10,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Printer, Users } from "lucide-react";
+import { Printer, Users, FileDown } from "lucide-react";
 import { useClassesDropdownContext } from "@/app/(dashboard)/dashboard/admin/reports/layout";
 
 interface PrintControlsProps {
   onPrintIndividual: (classId: string, termId: string) => void;
   onPrintClassResult: (classId: string, termId: string) => void;
   onPrintBatch: (classId: string, termId: string) => void;
+  /**
+   * Opens the server-rendered PDF for every student in the selected class.
+   * This is the preferred output path — browser print remains available as
+   * a fallback.
+   */
+  onDownloadPdf?: (classId: string, termId: string) => void;
   /**
    * Optional. Fires whenever the class or term selection changes.
    * Parent components use this to sync the selection to the URL.
@@ -34,6 +40,7 @@ export function PrintControls({
   onPrintIndividual,
   onPrintClassResult,
   onPrintBatch,
+  onDownloadPdf,
   onSelectionChange,
   initialClassId,
   initialTermId,
@@ -120,11 +127,25 @@ export function PrintControls({
       </div>
 
       <div className="control-group" style={{ alignSelf: "flex-end" }}>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          {/* PRIMARY: server-generated PDF for the whole class */}
+          {onDownloadPdf && (
+            <Button
+              onClick={() => onDownloadPdf(selectedClass, selectedTerm)}
+              disabled={!selectedClass || !selectedTerm}
+              variant="default"
+              size="sm"
+            >
+              <FileDown className="mr-2 h-4 w-4" />
+              Download Class PDF
+            </Button>
+          )}
+
+          {/* SECONDARY: browser-based flows remain available as fallback */}
           <Button
             onClick={() => onPrintIndividual(selectedClass, selectedTerm)}
             disabled={!selectedClass || !selectedTerm}
-            variant="default"
+            variant="outline"
             size="sm"
           >
             <Printer className="mr-2 h-4 w-4" />
@@ -144,7 +165,7 @@ export function PrintControls({
           <Button
             onClick={() => onPrintBatch(selectedClass, selectedTerm)}
             disabled={!selectedClass || !selectedTerm}
-            variant="secondary"
+            variant="outline"
             size="sm"
           >
             <Users className="mr-2 h-4 w-4" />
