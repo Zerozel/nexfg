@@ -183,6 +183,10 @@ export const config = {
     '/login',
     '/super-admin/login',
     '/dashboard/:path*',
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+    // Match everything EXCEPT static assets, API routes, and any file with
+    // an extension (css, js, woff2, png, ico, etc). This is the critical
+    // change: without `.*\\..*`, the proxy runs on CSS/JS/font requests and
+    // delays their delivery, causing the unstyled-first-paint bug.
+    '/((?!api|_next/static|_next/image|_next/data|favicon.ico|sitemap.xml|robots.txt|.*\\..*).*)',
   ],
 };
