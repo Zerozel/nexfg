@@ -3,26 +3,26 @@ import { createServerSupabase } from "@/lib/supabase/server";
 import { requirePaidAdmin } from "@/lib/score-sheets/subscription-guard";
 
 /**
- * GET  /api/admin/score-sheets/batches
- *   Lists all batches for the caller's school.
+ * GET  /api/admin/score-sheets/batches[?history=true]
+ *   Lists batches for the caller's school.
+ *   Default view: batches created in the last 3 days.
+ *   History view (?history=true): all non-discarded batches, ever.
  *
  * POST /api/admin/score-sheets/batches
  *   body: { class_id, subject_id, term_id }
  *   Creates a new batch. The teacher_id is resolved from class_subjects.
- *
- *   Rejects if a non-discarded batch already exists for the same
- *   (class, subject, term) — otherwise two live batches would compete
- *   for the same set of scores.
  */
-export async function GET(_request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
     const guard = await requirePaidAdmin();
     if (!guard.authorized) return guard.response;
     const { schoolId } = guard;
 
     const supabase = await createServerSupabase();
+    const { searchParams } = new URL(request.url);
+    const includeHistory = searchParams.get("history") === "true";
 
-    const { data, error } = (await supabase
+    let query = supabase
       .from("score_sheet_batches")
       .select(
         `
@@ -36,40 +36,61 @@ export async function GET(_request: NextRequest) {
         confirmed_at,
         classes:class_id(name),
         subjects:subject_id(name),
-        terms:term_id(name),
+        terms:term_id(name, academic_years:academic_year_id(name)),
         profiles:teacher_id(full_name)
       `
       )
       .eq("school_id", schoolId)
       .neq("status", "discarded")
-      .order("created_at", { ascending: false })) as unknown as {
+      .order("created_at", { ascending: false });
+
+    if (!includeHistory) {
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - 3);
+      query = query.gte("created_at", cutoff.toISOString());
+    }
+
+    const { data, error } = (await query) as unknown as {
       data: any[] | null;
       error: unknown;
     };
 
     if (error) throw error;
 
-    const list = (data || []).map((b) => ({
-      id: b.id,
-      class_id: b.class_id,
-      class_name: Array.isArray(b.classes)
-        ? b.classes[0]?.name
-        : b.classes?.name,
-      subject_id: b.subject_id,
-      subject_name: Array.isArray(b.subjects)
-        ? b.subjects[0]?.name
-        : b.subjects?.name,
-      term_id: b.term_id,
-      term_name: Array.isArray(b.terms) ? b.terms[0]?.name : b.terms?.name,
-      teacher_name: Array.isArray(b.profiles)
-        ? b.profiles[0]?.full_name
-        : b.profiles?.full_name,
-      status: b.status,
-      created_at: b.created_at,
-      confirmed_at: b.confirmed_at,
-    }));
+    const list = (data || []).map((b) => {
+      const term = Array.isArray(b.terms) ? b.terms[0] : b.terms;
+      const academicYear = term?.academic_years
+        ? Array.isArray(term.academic_years)
+          ? term.academic_years[0]
+          : term.academic_years
+        : null;
 
-    return NextResponse.json({ success: true, data: { batches: list } });
+      return {
+        id: b.id,
+        class_id: b.class_id,
+        class_name: Array.isArray(b.classes)
+          ? b.classes[0]?.name
+          : b.classes?.name,
+        subject_id: b.subject_id,
+        subject_name: Array.isArray(b.subjects)
+          ? b.subjects[0]?.name
+          : b.subjects?.name,
+        term_id: b.term_id,
+        term_name: term?.name,
+        academic_session: academicYear?.name || null,
+        teacher_name: Array.isArray(b.profiles)
+          ? b.profiles[0]?.full_name
+          : b.profiles?.full_name,
+        status: b.status,
+        created_at: b.created_at,
+        confirmed_at: b.confirmed_at,
+      };
+    });
+
+    return NextResponse.json({
+      success: true,
+      data: { batches: list, history: includeHistory },
+    });
   } catch (error: any) {
     console.error("GET /api/admin/score-sheets/batches error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -92,7 +113,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify class belongs to this school and is not deleted
     const { data: cls } = (await supabase
       .from("classes")
       .select("id, name")
@@ -105,7 +125,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Class not found" }, { status: 404 });
     }
 
-    // Verify subject belongs to this school
     const { data: subject } = (await supabase
       .from("subjects")
       .select("id, name")
@@ -118,7 +137,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Subject not found" }, { status: 404 });
     }
 
-    // Verify term belongs to this school
     const { data: term } = (await supabase
       .from("terms")
       .select("id, name")
@@ -131,7 +149,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Term not found" }, { status: 404 });
     }
 
-    // Reject if a live batch already exists for this triple
     const { data: existing } = (await supabase
       .from("score_sheet_batches")
       .select("id, status")
@@ -145,7 +162,8 @@ export async function POST(request: NextRequest) {
     if (existing) {
       return NextResponse.json(
         {
-          error: "A score sheet already exists for this class, subject, and term.",
+          error:
+            "A score sheet already exists for this class, subject, and term.",
           code: "DUPLICATE_BATCH",
           existing_batch_id: existing.id,
         },
@@ -153,7 +171,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Resolve the subject teacher (for pre-filling the print sheet)
     const { data: cs } = (await supabase
       .from("class_subjects")
       .select("teacher_id")

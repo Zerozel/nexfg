@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Plus, Loader2, FileText, Lock } from "lucide-react";
+import { Plus, Loader2, FileText, Lock, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -22,7 +22,15 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 export default function ScoreSheetsPage() {
-  const { data, isLoading, error, upgradeRequired } = useScoreSheetBatches();
+  const {
+    data,
+    isLoading,
+    error,
+    upgradeRequired,
+    isHistory,
+    showHistory,
+    showRecent,
+  } = useScoreSheetBatches();
 
   if (upgradeRequired) {
     return (
@@ -61,20 +69,44 @@ export default function ScoreSheetsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Score Sheets</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Print a sheet, have teachers fill scores by hand, then upload the
-            filled sheet to extract scores automatically.
+            {isHistory
+              ? "Showing all batches, including older than 3 days. Images are removed after 3 days."
+              : "Print a sheet, have teachers fill scores by hand, then upload the filled sheet to extract scores automatically."}
           </p>
         </div>
-        <Link href="/dashboard/admin/score-sheets/new">
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            New Score Sheet
-          </Button>
-        </Link>
+        <div className="flex gap-2 flex-wrap">
+          <div className="inline-flex rounded-md border p-0.5 bg-gray-50">
+            <Button
+              variant={isHistory ? "ghost" : "default"}
+              size="sm"
+              onClick={showRecent}
+              disabled={isLoading}
+              className="h-8"
+            >
+              Recent
+            </Button>
+            <Button
+              variant={isHistory ? "default" : "ghost"}
+              size="sm"
+              onClick={showHistory}
+              disabled={isLoading}
+              className="h-8"
+            >
+              <History className="mr-2 h-4 w-4" />
+              History
+            </Button>
+          </div>
+          <Link href="/dashboard/admin/score-sheets/new">
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              New Score Sheet
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {isLoading ? (
@@ -88,14 +120,18 @@ export default function ScoreSheetsPage() {
           <CardContent className="py-16 text-center">
             <FileText className="h-10 w-10 mx-auto mb-3 text-gray-300" />
             <p className="text-sm text-gray-500 mb-4">
-              No score sheets yet. Create one to get started.
+              {isHistory
+                ? "No batches found."
+                : "No recent score sheets. Create one to get started."}
             </p>
-            <Link href="/dashboard/admin/score-sheets/new">
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                New Score Sheet
-              </Button>
-            </Link>
+            {!isHistory && (
+              <Link href="/dashboard/admin/score-sheets/new">
+                <Button>
+                  <Plus className="mr-2 h-4 w-4" />
+                  New Score Sheet
+                </Button>
+              </Link>
+            )}
           </CardContent>
         </Card>
       ) : (

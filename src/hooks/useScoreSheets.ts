@@ -64,19 +64,22 @@ async function parseError(res: Response, fallback: string): Promise<Error> {
 }
 
 // ── List ──
-
-export function useScoreSheetBatches() {
+export function useScoreSheetBatches(options?: { includeHistory?: boolean }) {
   const [data, setData] = useState<BatchSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [upgradeRequired, setUpgradeRequired] = useState(false);
+  const [isHistory, setIsHistory] = useState(options?.includeHistory ?? false);
 
-  const fetchBatches = useCallback(async () => {
+  const fetchBatches = useCallback(async (includeHistory: boolean) => {
     setIsLoading(true);
     setError(null);
     setUpgradeRequired(false);
     try {
-      const res = await fetch("/api/admin/score-sheets/batches");
+      const url = includeHistory
+        ? "/api/admin/score-sheets/batches?history=true"
+        : "/api/admin/score-sheets/batches";
+      const res = await fetch(url);
       if (!res.ok) {
         const err = await parseError(res, "Failed to load batches");
         if (err instanceof UpgradeRequiredError) setUpgradeRequired(true);
@@ -84,6 +87,7 @@ export function useScoreSheetBatches() {
       }
       const result = await res.json();
       setData(result.data.batches || []);
+      setIsHistory(result.data.history ?? false);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -92,12 +96,24 @@ export function useScoreSheetBatches() {
   }, []);
 
   useEffect(() => {
-    fetchBatches();
-  }, [fetchBatches]);
+    fetchBatches(options?.includeHistory ?? false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  return { data, isLoading, error, upgradeRequired, refetch: fetchBatches };
+  const showHistory = useCallback(() => fetchBatches(true), [fetchBatches]);
+  const showRecent = useCallback(() => fetchBatches(false), [fetchBatches]);
+
+  return {
+    data,
+    isLoading,
+    error,
+    upgradeRequired,
+    isHistory,
+    refetch: () => fetchBatches(isHistory),
+    showHistory,
+    showRecent,
+  };
 }
-
 // ── Create ──
 
 export interface CreateBatchResult {
