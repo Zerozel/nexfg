@@ -1,7 +1,7 @@
 import { ImageResponse } from 'next/og';
 import { getPublicSchool } from '@/lib/public/get-school';
 
-export const runtime = 'edge';
+
 
 export async function GET(
   request: Request,
