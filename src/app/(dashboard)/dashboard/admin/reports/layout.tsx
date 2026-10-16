@@ -1,41 +1,13 @@
-// src/app/(dashboard)/dashboard/admin/reports/layout.tsx
-//
-// Route-group layout for the Report Cards / Reports section.
-// Responsibilities:
-//   1. Import print stylesheets (scoped to /reports/* and children only)
-//   2. Provide a single shared `useClassesDropdown()` fetch to all children
-//      (classes + terms) so the hub, PrintControls, and any child page read
-//      the same data from one request.
-//
-// Print pages (`*/print/page.tsx`) still render standalone — the provider is
-// harmless there because they don't consume the dropdown data.
-
 "use client";
 
-import { createContext, useContext, useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import type { ClassesDropdownData } from "@/types/printing";
+import {
+  DropdownContext,
+  type DropdownContextValue,
+} from "./dropdown-context";
 import "@/styles/print.css";
 import "@/styles/report-card.css";
-
-interface DropdownContextValue {
-  data: ClassesDropdownData | null;
-  isLoading: boolean;
-  error: string | null;
-}
-
-const DropdownContext = createContext<DropdownContextValue | undefined>(
-  undefined
-);
-
-export function useClassesDropdownContext(): DropdownContextValue {
-  const ctx = useContext(DropdownContext);
-  if (!ctx) {
-    throw new Error(
-      "useClassesDropdownContext must be used inside <ReportsLayout>"
-    );
-  }
-  return ctx;
-}
 
 export default function ReportsLayout({
   children,
@@ -75,7 +47,7 @@ export default function ReportsLayout({
     };
   }, []);
 
-  const value = useMemo(
+  const value = useMemo<DropdownContextValue>(
     () => ({ data, isLoading, error }),
     [data, isLoading, error]
   );

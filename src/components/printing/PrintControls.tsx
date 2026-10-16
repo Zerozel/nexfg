@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Printer, Users, FileDown } from "lucide-react";
-import { useClassesDropdownContext } from "@/app/(dashboard)/dashboard/admin/reports/layout";
+import { useClassesDropdownContext } from "@/app/(dashboard)/dashboard/admin/reports/dropdown-context";
 
 interface PrintControlsProps {
   onPrintIndividual: (classId: string, termId: string) => void;

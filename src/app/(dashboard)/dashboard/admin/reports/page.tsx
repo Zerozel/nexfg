@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PrintControls } from "@/components/printing/PrintControls";
-import { useClassesDropdownContext } from "./layout";
+import { useClassesDropdownContext } from "./dropdown-context";
 import { FileText, Table, Users, ArrowLeft } from "lucide-react";
 
 function ReportsHubContent() {
