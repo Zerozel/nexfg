@@ -109,14 +109,24 @@ export async function proxy(req: NextRequest) {
   }
 
   // ============================================================
-  // Auth protection — ONLY for the dashboard + auth pages.
-  // Public routes (marketing, /school/*, /payment, custom domains) must never
-  // be redirected to /login, and shouldn't pay for an auth round-trip.
+  // Auth protection — ONLY for the dashboard.
+  //
+  // The login pages are public by definition. Running a Supabase auth
+  // round-trip on them delays the HTML response, which causes the browser
+  // to paint unstyled HTML before the CSS chunk arrives ("unstyled first
+  // paint"). No auth check is needed there — the client-side AuthGuard
+  // handles the already-logged-in redirect.
   // ============================================================
+
   const isAuthPage = path === '/login' || path === '/super-admin/login';
+
+  if (isAuthPage) {
+    return NextResponse.next();
+  }
+
   const isProtectedRoute = path.startsWith('/dashboard');
 
-  if (!isAuthPage && !isProtectedRoute) {
+  if (!isProtectedRoute) {
     return NextResponse.next();
   }
 
@@ -129,9 +139,8 @@ export async function proxy(req: NextRequest) {
     error: userError,
   } = await supabase.auth.getUser();
 
-  // No valid user: allow auth pages only
+  // No valid user on a protected route → redirect to login
   if (userError || !user) {
-    if (isAuthPage) return res;
     return NextResponse.redirect(new URL('/login', req.url));
   }
 
@@ -140,21 +149,6 @@ export async function proxy(req: NextRequest) {
   // Where does *this* user belong? getDashboardRoute() maps each known role to
   // its dashboard and returns '/login' for a missing/unknown role.
   const homeForRole = role ? getDashboardRoute(role) : '/login';
-
-  // Authenticated user on an auth page → bounce to their own dashboard.
-  // If the role is missing/unknown, homeForRole is an auth page itself, so we
-  // render the page instead of redirecting to it — otherwise a role-less but
-  // authenticated user would loop /login → /login forever.
-  if (isAuthPage) {
-    if (
-      homeForRole === path ||
-      homeForRole === '/login' ||
-      homeForRole === '/super-admin/login'
-    ) {
-      return res;
-    }
-    return NextResponse.redirect(new URL(homeForRole, req.url));
-  }
 
   // Bare `/dashboard` has no page of its own — route the user to the dashboard
   // that matches their role (or /login if they have no valid role).
@@ -189,6 +183,6 @@ export const config = {
     '/login',
     '/super-admin/login',
     '/dashboard/:path*',
-    '/((?!_next/static|_next/image|favicon.ico).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico).*)',
   ],
 };
