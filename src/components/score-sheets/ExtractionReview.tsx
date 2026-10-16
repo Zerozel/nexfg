@@ -1,7 +1,14 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { Loader2, Save, AlertTriangle, Check, Lock, Trash2 } from "lucide-react";
+import {
+  Loader2,
+  Save,
+  AlertTriangle,
+  Check,
+  Lock,
+  Trash2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -27,7 +34,6 @@ interface Props {
   students: Student[];
   imageUrl: string | null;
   onSaved: () => void;
-  /** When true, all inputs are disabled and the save button is hidden. */
   readOnly?: boolean;
 }
 
@@ -41,7 +47,6 @@ interface EditableRow {
   exam: number | null;
   matched: boolean;
   is_extra: boolean;
-  /** True if the admin marked this row for removal. Not persisted. */
   removed: boolean;
 }
 
@@ -57,7 +62,6 @@ export function ExtractionReview({
   const [rows, setRows] = useState<EditableRow[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Seed rows from extractions
   useEffect(() => {
     setRows(
       data.extractions.map((e) => ({
@@ -90,13 +94,8 @@ export function ExtractionReview({
     });
   };
 
-  const removeRow = (idx: number) => {
-    updateRow(idx, { removed: true });
-  };
-
-  const undoRemove = (idx: number) => {
-    updateRow(idx, { removed: false });
-  };
+  const removeRow = (idx: number) => updateRow(idx, { removed: true });
+  const undoRemove = (idx: number) => updateRow(idx, { removed: false });
 
   const parseNum = (v: string): number | null => {
     if (v.trim() === "") return null;
@@ -198,15 +197,15 @@ export function ExtractionReview({
 
         {/* Right: editable table */}
         <div className="border rounded-lg overflow-auto max-h-[70vh]">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-100 sticky top-0">
+          <table className="w-full text-sm table-fixed">
+            <thead className="bg-gray-100 sticky top-0 z-10">
               <tr>
-                <th className="p-2 text-left">Row</th>
+                <th className="p-2 text-left w-14">Row</th>
                 <th className="p-2 text-left">Student</th>
-                <th className="p-2 text-center">CA1</th>
-                <th className="p-2 text-center">CA2</th>
-                <th className="p-2 text-center">CA3</th>
-                <th className="p-2 text-center">Exam</th>
+                <th className="p-2 text-center w-20">CA1</th>
+                <th className="p-2 text-center w-20">CA2</th>
+                <th className="p-2 text-center w-20">CA3</th>
+                <th className="p-2 text-center w-20">Exam</th>
                 {!readOnly && <th className="p-2 w-10" />}
               </tr>
             </thead>
@@ -219,7 +218,10 @@ export function ExtractionReview({
 
                 if (row.removed) {
                   return (
-                    <tr key={row.extraction_id} className="border-t opacity-50">
+                    <tr
+                      key={row.extraction_id}
+                      className="border-t opacity-50"
+                    >
                       <td
                         className="p-2 text-gray-400 line-through"
                         colSpan={readOnly ? 6 : 7}
@@ -242,14 +244,12 @@ export function ExtractionReview({
                 return (
                   <tr
                     key={row.extraction_id}
-                    className={`border-t ${
-                      isUnmatched ? "bg-amber-50" : ""
-                    }`}
+                    className={`border-t ${isUnmatched ? "bg-amber-50" : ""}`}
                   >
                     <td className="p-2 text-gray-500">
                       {row.is_extra ? "extra" : idx + 1}
                     </td>
-                    <td className="p-2 min-w-[220px]">
+                    <td className="p-2">
                       {readOnly ? (
                         <div className="flex items-center gap-2">
                           {matchedStudent ? (
@@ -276,10 +276,7 @@ export function ExtractionReview({
                         <Select
                           value={row.student_id || ""}
                           onValueChange={(v) =>
-                            updateRow(idx, {
-                              student_id: v,
-                              is_extra: false,
-                            })
+                            updateRow(idx, { student_id: v, is_extra: false })
                           }
                         >
                           <SelectTrigger className="h-8 text-xs">
@@ -304,10 +301,11 @@ export function ExtractionReview({
                         </Select>
                       )}
                     </td>
-                    <td className="p-2 w-16">
+                    <td className="p-1">
                       <Input
                         type="number"
-                        className="h-8 text-xs text-center"
+                        inputMode="numeric"
+                        className="h-9 w-full text-sm text-center px-1"
                         value={row.ca1 ?? ""}
                         disabled={readOnly}
                         onChange={(e) =>
@@ -315,10 +313,11 @@ export function ExtractionReview({
                         }
                       />
                     </td>
-                    <td className="p-2 w-16">
+                    <td className="p-1">
                       <Input
                         type="number"
-                        className="h-8 text-xs text-center"
+                        inputMode="numeric"
+                        className="h-9 w-full text-sm text-center px-1"
                         value={row.ca2 ?? ""}
                         disabled={readOnly}
                         onChange={(e) =>
@@ -326,10 +325,11 @@ export function ExtractionReview({
                         }
                       />
                     </td>
-                    <td className="p-2 w-16">
+                    <td className="p-1">
                       <Input
                         type="number"
-                        className="h-8 text-xs text-center"
+                        inputMode="numeric"
+                        className="h-9 w-full text-sm text-center px-1"
                         value={row.ca3 ?? ""}
                         disabled={readOnly}
                         onChange={(e) =>
@@ -337,10 +337,11 @@ export function ExtractionReview({
                         }
                       />
                     </td>
-                    <td className="p-2 w-16">
+                    <td className="p-1">
                       <Input
                         type="number"
-                        className="h-8 text-xs text-center"
+                        inputMode="numeric"
+                        className="h-9 w-full text-sm text-center px-1"
                         value={row.exam ?? ""}
                         disabled={readOnly}
                         onChange={(e) =>
@@ -349,7 +350,7 @@ export function ExtractionReview({
                       />
                     </td>
                     {!readOnly && (
-                      <td className="p-2 w-10 text-right">
+                      <td className="p-2 text-right">
                         <button
                           type="button"
                           onClick={() => removeRow(idx)}
