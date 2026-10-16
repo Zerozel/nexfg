@@ -8,21 +8,33 @@ import { buildScoreSheetPrompt } from "@/lib/ai/score-sheet-prompt";
 /**
  * OpenRouter vision provider with model fallback.
  *
- * The primary model is tried first; on rate-limit or failure, the list is
- * walked in order. Only the last model's failure is surfaced.
+ * IMPORTANT: Free models on OpenRouter are volatile. IDs get retired,
+ * renamed, and lose provider endpoints without notice. If all models fail,
+ * check the current free model list at https://openrouter.ai/models?max_price=0
+ * and update MODEL_CHAIN below.
  *
- * To swap providers (e.g. to Google Vision + Gemini), write a sibling file
- * that implements VisionProvider and change the export in
- * src/lib/ai/index.ts. Nothing else in the codebase needs to change.
+ * PRIVACY: Free models require "Model Training" to be enabled in your
+ * OpenRouter Privacy Settings. Without it, ALL free models return 404.
+ * See https://openrouter.ai/settings/privacy
  */
 
 const OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions";
 
-/** Ordered list of free vision-capable models to try. */
+/**
+ * Ordered list of free vision-capable models to try.
+ *
+ * As of the last verified date, these models support:
+ *   - Image input
+ *   - Structured / JSON output (required for our extraction)
+ *
+ * Do NOT add Gemma 3 models — they do not support structured output
+ * or system instructions on OpenRouter.
+ */
 const MODEL_CHAIN = [
-  "google/gemma-3-27b-it:free",
-  "nvidia/nemotron-nano-12b-v2-vl:free",
-  "qwen/qwen-vl-plus:free",
+  "google/gemma-4-31b-it:free",
+  "google/gemma-4-26b-a4b-it:free",
+  "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+  "qwen/qwen3.7-flash:free",
 ];
 
 interface OpenRouterMessage {
@@ -45,7 +57,6 @@ async function callOpenRouter(
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
-      // Optional: helps OpenRouter attribute traffic. Safe to omit.
       "HTTP-Referer": "https://nexaforges.me",
       "X-Title": "NexaForge Score Sheet Extraction",
     },
@@ -53,7 +64,8 @@ async function callOpenRouter(
       model,
       messages,
       temperature: 0,
-      response_format: { type: "json_object" },
+      // Do NOT send response_format — not all free models support it,
+      // and Gemma models return 400 if it's present.
     }),
   });
 
@@ -73,7 +85,6 @@ async function callOpenRouter(
 }
 
 function parseResult(raw: string): ScoreSheetExtractionResult {
-  // The model is instructed to return pure JSON, but strip code fences defensively.
   const cleaned = raw
     .replace(/^```(?:json)?\s*/i, "")
     .replace(/\s*```$/, "")
@@ -133,19 +144,22 @@ export const openRouterProvider: VisionProvider = {
       },
     ];
 
-    let lastError: Error | null = null;
+    const errors: string[] = [];
 
     for (const model of MODEL_CHAIN) {
       try {
         const raw = await callOpenRouter(model, messages, apiKey);
         return parseResult(raw);
       } catch (err) {
-        lastError = err instanceof Error ? err : new Error(String(err));
-        // Try the next model
+        const msg = err instanceof Error ? err.message : String(err);
+        errors.push(`${model}: ${msg}`);
+        console.warn(`Vision model ${model} failed, trying next:`, msg);
         continue;
       }
     }
 
-    throw lastError ?? new Error("All vision models failed");
+    throw new Error(
+      `All vision models failed:\n${errors.join("\n")}`
+    );
   },
 };
