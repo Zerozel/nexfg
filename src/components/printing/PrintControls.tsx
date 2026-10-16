@@ -135,9 +135,10 @@ export function PrintControls({
               disabled={!selectedClass || !selectedTerm}
               variant="default"
               size="sm"
+              title="Generates a single PDF with one report card per student in this class"
             >
               <FileDown className="mr-2 h-4 w-4" />
-              Download Class PDF
+              Download All Report Cards (PDF)
             </Button>
           )}
 
