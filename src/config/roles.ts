@@ -58,6 +58,7 @@ export const SUPER_ADMIN_NAV: NavItem[] = [
   { label: "School Messages", href: "/dashboard/super-admin/school-messages", roles: ["super_admin"] },
   { label: "Feedback", href: "/dashboard/super-admin/feedback", roles: ["super_admin"] },
   { label: "Broadcasts", href: "/dashboard/super-admin/broadcasts", roles: ["super_admin"] },
+  { label: "Promo Codes", href: "/dashboard/super-admin/promo-codes", roles: ["super_admin"] },
 ];
 
 export function getNavForRole(role: UserRole): NavItem[] {

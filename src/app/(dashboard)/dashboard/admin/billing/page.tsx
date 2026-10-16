@@ -5,11 +5,103 @@ import { useSubscription } from '@/hooks/useSubscription';
 import { SubscriptionStatusView } from '@/components/subscription/SubscriptionStatus';
 import { PricingCard } from '@/components/subscription/PricingCard';
 import { SUBSCRIPTION_PLANS } from '@/lib/paystack/plans';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Ticket } from 'lucide-react';
 import type { BillingCycle } from '@/types/subscription';
+
+// ════════════════════════════════════════════════════════════════════════
+// Promo code redemption — inline card
+// ════════════════════════════════════════════════════════════════════════
+
+function RedeemPromoCode({ onRedeemed }: { onRedeemed: () => void }) {
+  const { toast } = useToast();
+  const [code, setCode] = useState('');
+  const [isRedeeming, setIsRedeeming] = useState(false);
+
+  const handleRedeem = async () => {
+    if (!code.trim()) return;
+    setIsRedeeming(true);
+    try {
+      const res = await fetch('/api/subscriptions/redeem-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || 'Redemption failed');
+
+      toast({
+        title: 'Code applied',
+        description: body.data.message,
+      });
+      setCode('');
+      onRedeemed();
+    } catch (err: any) {
+      toast({
+        title: 'Redemption failed',
+        description: err.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsRedeeming(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <Ticket className="h-4 w-4" />
+          Redeem a promo code
+        </CardTitle>
+        <CardDescription>
+          Enter a code to activate or extend your subscription for free.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex gap-3 flex-wrap items-end">
+        <div className="flex-1 min-w-[220px] space-y-2">
+          <Label htmlFor="promo-code">Promo code</Label>
+          <Input
+            id="promo-code"
+            value={code}
+            onChange={(e) => setCode(e.target.value.toUpperCase())}
+            placeholder="NEXA-XXX-XXXXXXXX"
+            className="font-mono tracking-wider"
+            autoComplete="off"
+            spellCheck={false}
+          />
+        </div>
+        <Button
+          onClick={handleRedeem}
+          disabled={!code.trim() || isRedeeming}
+        >
+          {isRedeeming ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Applying…
+            </>
+          ) : (
+            'Redeem'
+          )}
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// Billing page
+// ════════════════════════════════════════════════════════════════════════
 
 export default function BillingPage() {
   const {
@@ -138,6 +230,10 @@ export default function BillingPage() {
           isLoading={actionLoading}
         />
       )}
+
+      {/* Promo code redemption — its own path to activate a subscription
+          without going through Paystack. */}
+      <RedeemPromoCode onRedeemed={refetch} />
 
       <div id="billing-plans" className="space-y-4 scroll-mt-6">
         <div className="flex items-center justify-between flex-wrap gap-3">
