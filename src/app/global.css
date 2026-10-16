@@ -1,6 +1,12 @@
 /* app/global.css — Tailwind CSS v4 entrypoint + design tokens */
 @import "tailwindcss";
 
+@source "../app/**/*.{ts,tsx}";
+@source "../components/**/*.{ts,tsx}";
+@source "../hooks/**/*.{ts,tsx}";
+@source "../lib/**/*.{ts,tsx}";
+@source "../config/**/*.{ts,tsx}";
+
 /* Enable class-based dark mode (components use `dark:` variants) */
 @custom-variant dark (&:is(.dark *));
 
