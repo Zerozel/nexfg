@@ -195,13 +195,15 @@ export function ExtractionReview({
           )}
         </div>
 
-        {/* Right: editable table */}
+        {/* Right: editable table.
+            min-w-[560px] forces horizontal scroll on narrow viewports so the
+            Student column never collapses to zero width. */}
         <div className="border rounded-lg overflow-auto max-h-[70vh]">
-          <table className="w-full text-sm table-fixed">
+          <table className="w-full text-sm table-fixed min-w-[560px]">
             <thead className="bg-gray-100 sticky top-0 z-10">
               <tr>
                 <th className="p-2 text-left w-14">Row</th>
-                <th className="p-2 text-left">Student</th>
+                <th className="p-2 text-left w-[160px]">Student</th>
                 <th className="p-2 text-center w-20">CA1</th>
                 <th className="p-2 text-center w-20">CA2</th>
                 <th className="p-2 text-center w-20">CA3</th>
@@ -251,24 +253,33 @@ export function ExtractionReview({
                     </td>
                     <td className="p-2">
                       {readOnly ? (
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
                           {matchedStudent ? (
                             <>
                               <Check className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />
-                              <span className="text-sm truncate">
+                              <span
+                                className="text-sm truncate"
+                                title={matchedStudent.full_name}
+                              >
                                 {matchedStudent.full_name}
                               </span>
                             </>
                           ) : (
-                            <span className="text-xs italic text-gray-500">
+                            <span
+                              className="text-xs italic text-gray-500 truncate"
+                              title={row.name_on_sheet || "(unmatched)"}
+                            >
                               {row.name_on_sheet || "(unmatched)"}
                             </span>
                           )}
                         </div>
                       ) : matchedStudent ? (
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
                           <Check className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />
-                          <span className="text-sm truncate">
+                          <span
+                            className="text-sm truncate"
+                            title={matchedStudent.full_name}
+                          >
                             {matchedStudent.full_name}
                           </span>
                         </div>
