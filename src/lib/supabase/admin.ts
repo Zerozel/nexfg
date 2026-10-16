@@ -1,6 +1,6 @@
 // src/lib/supabase/admin.ts
 import { createServerSupabase } from '@/lib/supabase/server';
-import { createClient as createAdminClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 import { PLAN_LIMITS } from '@/lib/paystack/plans';
 import type {
   Student,
@@ -18,6 +18,31 @@ import type {
   UnenrolledStudent,
 } from '@/types/admin';
 
+
+
+// ============================================================================
+// SERVICE-ROLE CLIENT
+// ----------------------------------------------------------------------------
+// Bypasses RLS entirely. Use ONLY in server-side routes that have already
+// enforced authorization (e.g. via requirePaidAdmin). Never expose this to
+// the browser, and never call it before the caller's identity, school, and
+// entitlement have been verified.
+// ============================================================================
+
+export function createAdminClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!url || !key) {
+    throw new Error(
+      'Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY'
+    );
+  }
+
+  return createClient(url, key, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}
 // ============================================================================
 // MULTI-TENANT SCOPING NOTES
 // ----------------------------------------------------------------------------
@@ -309,16 +334,8 @@ export async function createTeacher(
   }
 
   // Create auth user via Supabase Admin API
-  const supabaseAdmin = createAdminClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    }
-  );
+    // Create auth user via Supabase Admin API
+  const supabaseAdmin = createAdminClient();
 
   // IMPORTANT: role and school_id MUST live in app_metadata — the login forms,
   // middleware, and RLS policies (auth.jwt() -> 'app_metadata') all read from

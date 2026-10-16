@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { requirePaidAdmin } from "@/lib/score-sheets/subscription-guard";
 import { visionProvider } from "@/lib/ai";
-
 /**
  * POST /api/admin/score-sheets/batches/[id]/extract
  * body: multipart/form-data with field "file"
@@ -117,7 +117,12 @@ export async function POST(
     const arrayBuffer = await file.arrayBuffer();
     const storagePath = `${schoolId}/${id}/source.${ext}`;
 
-    const { error: uploadError } = await supabase.storage
+        // Storage operations bypass RLS via the service-role client. Authorization
+    // is already enforced by requirePaidAdmin() above, and the storage path is
+    // scoped to the caller's schoolId, so cross-tenant writes are impossible.
+    const adminStorage = createAdminClient();
+
+    const { error: uploadError } = await adminStorage.storage
       .from("score-sheets")
       .upload(storagePath, arrayBuffer, {
         contentType: file.type,
@@ -126,7 +131,7 @@ export async function POST(
 
     if (uploadError) throw uploadError;
 
-    const { data: signed } = await supabase.storage
+    const { data: signed } = await adminStorage.storage
       .from("score-sheets")
       .createSignedUrl(storagePath, 60 * 10);
 
