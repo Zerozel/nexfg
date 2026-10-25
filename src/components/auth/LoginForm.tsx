@@ -23,6 +23,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import Link from "next/link";
 
 export function LoginForm() {
   const [email, setEmail] = useState("");
@@ -140,7 +141,7 @@ export function LoginForm() {
         </form>
 
         <p className="text-center text-sm text-gray-500 mt-6">
-          <a href="#" className="hover:text-green-600 hover:underline">
+          <a href="/auth/forgot-password" className="hover:text-green-600 hover:underline">
             Forgot password?
           </a>
         </p>
