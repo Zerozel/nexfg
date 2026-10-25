@@ -82,6 +82,7 @@ export function Sidebar() {
       <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto">
         {navItems.map((item) => {
           const isActive = pathname === item.href;
+          const Icon = item.icon;
           return (
             <Link
               key={item.href}
@@ -96,11 +97,12 @@ export function Sidebar() {
               title={collapsed ? item.label : undefined}
             >
               {collapsed ? (
-                <span className="text-lg font-semibold">
-                  {item.label.charAt(0)}
-                </span>
+                <Icon className="h-5 w-5" />
               ) : (
-                item.label
+                <div className="flex items-center gap-3 min-w-0">
+                  <Icon className="h-4 w-4 shrink-0" />
+                  <span className="truncate">{item.label}</span>
+                </div>
               )}
             </Link>
           );
@@ -138,19 +140,21 @@ export function Sidebar() {
             <nav className="py-4 px-2 space-y-1">
               {navItems.map((item) => {
                 const isActive = pathname === item.href;
+                const Icon = item.icon;
                 return (
                   <Link
                     key={item.href}
                     href={item.href}
                     onClick={() => setMobileOpen(false)}
                     className={cn(
-                      "flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                      "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                       isActive
                         ? "bg-green-50 text-green-700"
                         : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                     )}
                   >
-                    {item.label}
+                    <Icon className="h-4 w-4 shrink-0" />
+                    <span className="truncate">{item.label}</span>
                   </Link>
                 );
               })}

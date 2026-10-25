@@ -1,5 +1,7 @@
 // types/index.ts
 
+import type { LucideIcon } from "lucide-react";
+
 // ─── Auth & User ───────────────────────────────────
 export type UserRole = "super_admin" | "admin" | "principal" | "teacher";
 
@@ -88,14 +90,14 @@ export interface Score {
 }
 
 export interface PendingScore {
-  id?: string;                        // ← ADD (Session 4 UUID for tracking)
+  id?: string;
   student_id: string;
   assessment_id: string;
   score: number | null;
   synced: boolean;
   updated_at: string;
-  sync_attempts?: number;            // ← ADD (retry counter)
-  last_sync_error?: string;          // ← ADD (error message from last attempt)
+  sync_attempts?: number;
+  last_sync_error?: string;
 }
 
 export interface ClassScoreCache {
@@ -141,7 +143,7 @@ export interface SyncState {
 export interface NavItem {
   label: string;
   href: string;
-  icon?: string;
+  icon?: LucideIcon;
   roles: UserRole[];
 }
 
