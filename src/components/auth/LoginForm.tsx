@@ -141,20 +141,23 @@ export function LoginForm() {
         </form>
 
         <p className="text-center text-sm text-gray-500 mt-6">
-          <a href="/auth/forgot-password" className="hover:text-green-600 hover:underline">
+          <Link
+            href="/forgot-password"
+            className="hover:text-green-600 hover:underline"
+          >
             Forgot password?
-          </a>
+          </Link>
         </p>
 
         <div className="mt-6 pt-4 border-t border-gray-100 text-center">
           <p className="text-xs text-gray-400">
             Staff access?{" "}
-            <a
+            <Link
               href="/super-admin/login"
               className="text-green-600 hover:underline"
             >
               System Admin Portal
-            </a>
+            </Link>
           </p>
         </div>
       </CardContent>
