@@ -1,46 +1,45 @@
-'use client';
+// src/components/subjects/SubjectSelection.tsx
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useFormClassSubjects } from '@/hooks/useFormClassSubjects';
-import { useSchoolTeachers } from '@/hooks/useSchoolTeachers';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
+import { useState, useEffect } from "react";
+import { useFormClassSubjects } from "@/hooks/useFormClassSubjects";
+import { useSchoolTeachers } from "@/hooks/useSchoolTeachers";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Skeleton } from '@/components/ui/skeleton';
-import { useToast } from '@/components/ui/use-toast';
+} from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/components/ui/use-toast";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { X, UserPlus } from 'lucide-react';
+} from "@/components/ui/dialog";
+import { X, UserPlus } from "lucide-react";
 
 interface SubjectSelectionProps {
   classId: string;
   className: string;
-  /**
-   * Base path for the assignment APIs.
-   *   - '/api/teacher' for the teacher portal
-   *   - '/api/admin'   for the admin portal
-   * Both route to the same underlying logic; the admin routes just have
-   * a wider permission check.
-   */
   apiBase?: string;
 }
 
 export function SubjectSelection({
   classId,
   className,
-  apiBase = '/api/teacher',
+  apiBase = "/api/teacher",
 }: SubjectSelectionProps) {
   const {
     activeSubjects,
@@ -53,8 +52,8 @@ export function SubjectSelection({
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [isAssigning, setIsAssigning] = useState(false);
-  const [selectedSubjectId, setSelectedSubjectId] = useState('');
-  const [selectedTeacherId, setSelectedTeacherId] = useState('');
+  const [selectedSubjectId, setSelectedSubjectId] = useState("");
+  const [selectedTeacherId, setSelectedTeacherId] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const { toast } = useToast();
 
@@ -77,8 +76,8 @@ export function SubjectSelection({
     setIsSaving(true);
     try {
       const response = await fetch(`${apiBase}/form-class-subjects`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           class_id: classId,
           subject_ids: selectedIds,
@@ -87,25 +86,23 @@ export function SubjectSelection({
 
       if (!response.ok) {
         const err = await response.json();
-        throw new Error(err.error || 'Failed to save');
+        throw new Error(err.error || "Failed to save");
       }
 
       toast({
-        title: 'Success',
+        title: "Success",
         description:
           selectedIds.length === 0
-            ? 'Subjects cleared.'
+            ? "Subjects cleared."
             : `Subjects updated: ${selectedIds.length} active`,
       });
 
-      // First-time save with content → guide toward the next step: assigning
-      // teachers. Only shows once, when the class was empty before.
       if (wasEmpty && selectedIds.length > 0) {
         setTimeout(() => {
           toast({
-            title: 'Next step',
+            title: "Next step",
             description:
-              'Assign a teacher to each subject using the Assign button.',
+              "Assign a teacher to each subject using the Assign button.",
             duration: 5000,
           });
         }, 500);
@@ -114,9 +111,9 @@ export function SubjectSelection({
       refetch();
     } catch (err: any) {
       toast({
-        title: 'Error',
+        title: "Error",
         description: err.message,
-        variant: 'destructive',
+        variant: "destructive",
       });
     } finally {
       setIsSaving(false);
@@ -125,16 +122,16 @@ export function SubjectSelection({
 
   const handleOpenAssign = (subjectId: string) => {
     setSelectedSubjectId(subjectId);
-    setSelectedTeacherId('');
+    setSelectedTeacherId("");
     setDialogOpen(true);
   };
 
   const handleAssign = async () => {
     if (!selectedSubjectId || !selectedTeacherId) {
       toast({
-        title: 'Error',
-        description: 'Please select both a subject and a teacher.',
-        variant: 'destructive',
+        title: "Error",
+        description: "Please select both a subject and a teacher.",
+        variant: "destructive",
       });
       return;
     }
@@ -142,8 +139,8 @@ export function SubjectSelection({
     setIsAssigning(true);
     try {
       const response = await fetch(`${apiBase}/assign-subject`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           class_id: classId,
           subject_id: selectedSubjectId,
@@ -153,22 +150,22 @@ export function SubjectSelection({
 
       if (!response.ok) {
         const err = await response.json();
-        throw new Error(err.error || 'Failed to assign teacher');
+        throw new Error(err.error || "Failed to assign teacher");
       }
 
       toast({
-        title: 'Success',
-        description: 'Teacher assigned to subject successfully.',
+        title: "Success",
+        description: "Teacher assigned to subject successfully.",
       });
-      setSelectedSubjectId('');
-      setSelectedTeacherId('');
+      setSelectedSubjectId("");
+      setSelectedTeacherId("");
       setDialogOpen(false);
       refetch();
     } catch (err: any) {
       toast({
-        title: 'Error',
+        title: "Error",
         description: err.message,
-        variant: 'destructive',
+        variant: "destructive",
       });
     } finally {
       setIsAssigning(false);
@@ -178,8 +175,8 @@ export function SubjectSelection({
   const handleRemove = async (subjectId: string) => {
     try {
       const response = await fetch(`${apiBase}/remove-subject`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           class_id: classId,
           subject_id: subjectId,
@@ -188,19 +185,19 @@ export function SubjectSelection({
 
       if (!response.ok) {
         const err = await response.json();
-        throw new Error(err.error || 'Failed to remove teacher');
+        throw new Error(err.error || "Failed to remove teacher");
       }
 
       toast({
-        title: 'Success',
-        description: 'Teacher removed from subject.',
+        title: "Success",
+        description: "Teacher removed from subject.",
       });
       refetch();
     } catch (err: any) {
       toast({
-        title: 'Error',
+        title: "Error",
         description: err.message,
-        variant: 'destructive',
+        variant: "destructive",
       });
     }
   };
@@ -225,109 +222,132 @@ export function SubjectSelection({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div>
-        <h2 className="text-2xl font-bold tracking-tight">{className}</h2>
-        <p className="text-muted-foreground">
+        <h2 className="text-xl sm:text-2xl font-bold tracking-tight">
+          {className}
+        </h2>
+        <p className="text-xs sm:text-sm text-muted-foreground">
           Select subjects and assign Subject Teachers for this class.
         </p>
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Subjects &amp; Subject Teachers</CardTitle>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm sm:text-base">
+            Subjects &amp; Subject Teachers
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-4">
+          <div className="grid gap-3">
             {allSubjects.map((subject) => {
               const isActive = selectedIds.includes(subject.id);
               const assignedTeacherId = subject.teacher_id || null;
               const teacherName =
                 teachers?.find((t) => t.id === assignedTeacherId)?.full_name ||
-                'Not Assigned';
+                "Not Assigned";
               const isAssigned = !!assignedTeacherId;
 
               return (
                 <div
                   key={subject.id}
-                  className="flex items-center justify-between p-3 border rounded-lg"
+                  className="border rounded-lg p-3 sm:p-3 bg-white"
                 >
-                  <div className="flex items-center space-x-3 flex-1">
-                    <Checkbox
-                      id={subject.id}
-                      checked={isActive}
-                      onCheckedChange={(checked) =>
-                        handleToggle(subject.id, checked === true)
-                      }
-                    />
-                    <Label htmlFor={subject.id} className="cursor-pointer">
-                      <span className="font-medium">{subject.name}</span>
-                      {subject.code && (
-                        <span className="text-sm text-muted-foreground ml-2">
-                          {subject.code}
-                        </span>
-                      )}
-                    </Label>
-                  </div>
-
-                  <div className="flex items-center space-x-4">
-                    <div className="text-sm">
-                      <span className="text-muted-foreground">Teacher: </span>
-                      <span
-                        className={
-                          isAssigned
-                            ? 'font-medium text-green-600'
-                            : 'text-gray-400'
+                  {/* Mobile: stacked. Desktop: horizontal. */}
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    {/* Checkbox + name */}
+                    <div className="flex items-center space-x-3 flex-1 min-w-0">
+                      <Checkbox
+                        id={subject.id}
+                        checked={isActive}
+                        onCheckedChange={(checked) =>
+                          handleToggle(subject.id, checked === true)
                         }
+                        className="flex-shrink-0"
+                      />
+                      <Label
+                        htmlFor={subject.id}
+                        className="cursor-pointer min-w-0"
                       >
-                        {teacherName}
-                      </span>
+                        <span className="font-medium text-sm truncate block">
+                          {subject.name}
+                        </span>
+                        {subject.code && (
+                          <span className="text-xs text-muted-foreground block sm:inline sm:ml-2">
+                            {subject.code}
+                          </span>
+                        )}
+                      </Label>
                     </div>
 
-                    {isActive && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleOpenAssign(subject.id)}
-                      >
-                        <UserPlus className="h-4 w-4 mr-1" />
-                        {isAssigned ? 'Change' : 'Assign'}
-                      </Button>
-                    )}
+                    {/* Teacher + actions */}
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 sm:flex-shrink-0">
+                      <div className="text-xs sm:text-sm">
+                        <span className="text-muted-foreground">
+                          Teacher:{" "}
+                        </span>
+                        <span
+                          className={
+                            isAssigned
+                              ? "font-medium text-green-600"
+                              : "text-gray-400"
+                          }
+                        >
+                          {teacherName}
+                        </span>
+                      </div>
 
-                    {isAssigned && isActive && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleRemove(subject.id)}
-                        className="text-red-500 hover:text-red-700"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    )}
+                      {isActive && (
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleOpenAssign(subject.id)}
+                            className="flex-1 sm:flex-initial"
+                          >
+                            <UserPlus className="h-4 w-4 mr-1 flex-shrink-0" />
+                            {isAssigned ? "Change" : "Assign"}
+                          </Button>
+                          {isAssigned && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleRemove(subject.id)}
+                              className="text-red-500 hover:text-red-700 flex-shrink-0"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
             })}
           </div>
 
-          <div className="flex items-center justify-between pt-4 border-t">
-            <span className="text-sm text-muted-foreground">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-4 border-t">
+            <span className="text-xs sm:text-sm text-muted-foreground">
               {selectedIds.length} of {allSubjects.length} subjects active
             </span>
-            <Button onClick={handleSave} disabled={isSaving}>
+            <Button
+              onClick={handleSave}
+              disabled={isSaving}
+              className="w-full sm:w-auto"
+            >
               {isSaving
-                ? 'Saving...'
+                ? "Saving..."
                 : activeSubjects.length === 0
-                ? 'Save Subjects'
-                : 'Save Changes'}
+                ? "Save Subjects"
+                : "Save Changes"}
             </Button>
           </div>
         </CardContent>
       </Card>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-[92vw] sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Assign Teacher to Subject</DialogTitle>
           </DialogHeader>
@@ -373,7 +393,7 @@ export function SubjectSelection({
               disabled={isAssigning}
               className="w-full"
             >
-              {isAssigning ? 'Assigning...' : 'Assign Teacher'}
+              {isAssigning ? "Assigning..." : "Assign Teacher"}
             </Button>
           </div>
         </DialogContent>
