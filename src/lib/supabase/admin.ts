@@ -479,6 +479,9 @@ export async function listClasses(
 // ← CHANGED: supports the arms model with per-arm teachers AND assigns a
 // code_prefix used for admission-number generation. Each arm gets its own
 // prefix so serials are per-arm (JSS1A → 10A, JSS1B → 10B).
+//
+// Model A note: classes are permanent containers. academic_year_id is
+// recorded on the row but never used as a filter anywhere in the app.
 export async function createClass(
   supabase: SupabaseClient,
   schoolId: string,
@@ -512,6 +515,8 @@ export async function createClass(
     throw new Error('Academic year does not belong to this school');
   }
 
+  // 2. Compute arm metadata up front so the conflict pre-check and the
+  //    insert path use the same values.
   const armsCount =
     data.arms_count && data.arms_count > 0 ? data.arms_count : 1;
 
@@ -522,6 +527,42 @@ export async function createClass(
       ? rawName.replace(/\s*[A-Z]\s*$/, '').trim() || rawName
       : rawName);
 
+  const armLetters = 'ABCDEFGHIJ'.split('');
+  const armTeachers = data.arm_teachers || {};
+
+  // Names that will be inserted — used both for the conflict check and for
+  // the actual rows.
+  const namesToCreate: string[] = [];
+  if (armsCount === 1) {
+    namesToCreate.push(rawName);
+  } else {
+    for (let i = 0; i < armsCount; i++) {
+      namesToCreate.push(`${baseName}${armLetters[i]}`);
+    }
+  }
+
+  // 3. Guard: classes are permanent containers under Model A. Reject any
+  //    name that already exists for this school with a clear message
+  //    instead of surfacing a raw unique-constraint error.
+  const { data: conflicts, error: conflictError } = await supabase
+    .from('classes')
+    .select('name')
+    .eq('school_id', schoolId)
+    .in('name', namesToCreate)
+    .is('is_deleted', false);
+
+  if (conflictError) throw conflictError;
+
+  if (conflicts && conflicts.length > 0) {
+    const existingNames = conflicts.map((c: any) => c.name).join(', ');
+    throw new Error(
+      `A class with this name already exists: ${existingNames}. ` +
+        `Classes are permanent containers — use the Edit flow to add arms or ` +
+        `rename, or restore a soft-deleted class if needed.`
+    );
+  }
+
+  // 4. Derived metadata
   const inferredOrder =
     data.display_order ??
     (() => {
@@ -547,8 +588,7 @@ export async function createClass(
     return letters || 'UN';
   })();
 
-  const armLetters = 'ABCDEFGHIJ'.split('');
-  const armTeachers = data.arm_teachers || {};
+  // 5. Build rows
   const rows: any[] = [];
 
   if (armsCount === 1) {
@@ -578,6 +618,7 @@ export async function createClass(
     }
   }
 
+  // 6. Insert
   const { data: created, error } = await supabase
     .from('classes')
     .insert(rows)
@@ -592,10 +633,7 @@ export async function createClass(
   } as Class;
 }
 
-export async function getClass(
-  supabase: SupabaseClient,
-  id: string
-) {
+export async function getClass(supabase: SupabaseClient, id: string) {
   const { data, error } = await supabase
     .from('classes')
     .select('*, profiles!classes_teacher_id_fkey(full_name)')
@@ -653,10 +691,7 @@ export async function updateClass(
   } as Class;
 }
 
-export async function deleteClass(
-  supabase: SupabaseClient,
-  id: string
-) {
+export async function deleteClass(supabase: SupabaseClient, id: string) {
   const { error } = await supabase
     .from('classes')
     .update({

@@ -1,10 +1,22 @@
+// src/app/api/admin/assign-subject/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabase } from '@/lib/supabase/server';
 
+/**
+ * POST /api/admin/assign-subject
+ * body: { class_id, subject_id, teacher_id }
+ *
+ * Assigns a teacher to a subject for ONE class. For bulk assignment across
+ * a class group, use POST /api/admin/subject-assignment with base_name.
+ *
+ * Idempotent: upserts on (class_id, subject_id).
+ */
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createServerSupabase();
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -16,7 +28,10 @@ export async function POST(request: NextRequest) {
 
     const schoolId = user.app_metadata?.school_id;
     if (!schoolId) {
-      return NextResponse.json({ error: 'No school associated' }, { status: 403 });
+      return NextResponse.json(
+        { error: 'No school associated' },
+        { status: 403 }
+      );
     }
 
     const { class_id, subject_id, teacher_id } = await request.json();
@@ -27,16 +42,55 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Cast to `any` because src/types/supabase.ts is still a placeholder —
-    // Supabase infers `never[]` for the upsert payload without the real types.
     const db = supabase as any;
 
-    const { error } = await db
-      .from('class_subjects')
-      .upsert(
-        { class_id, subject_id, teacher_id },
-        { onConflict: 'class_id,subject_id' }
-      );
+    // Verify class belongs to this school
+    const { data: cls } = await db
+      .from('classes')
+      .select('id')
+      .eq('id', class_id)
+      .eq('school_id', schoolId)
+      .is('is_deleted', false)
+      .maybeSingle();
+
+    if (!cls) {
+      return NextResponse.json({ error: 'Class not found' }, { status: 404 });
+    }
+
+    // Verify subject belongs to this school
+    const { data: subject } = await db
+      .from('subjects')
+      .select('id')
+      .eq('id', subject_id)
+      .eq('school_id', schoolId)
+      .is('is_deleted', false)
+      .maybeSingle();
+
+    if (!subject) {
+      return NextResponse.json({ error: 'Subject not found' }, { status: 404 });
+    }
+
+    // Verify teacher belongs to this school
+    const { data: teacher } = await db
+      .from('profiles')
+      .select('id')
+      .eq('id', teacher_id)
+      .eq('school_id', schoolId)
+      .in('role', ['teacher', 'admin', 'principal'])
+      .eq('is_deleted', false)
+      .maybeSingle();
+
+    if (!teacher) {
+      return NextResponse.json({ error: 'Teacher not found' }, { status: 404 });
+    }
+
+    // Upsert on (class_id, subject_id). Requires the unique constraint
+    // class_subjects_class_id_subject_id_key to be the only one on that
+    // column pair.
+    const { error } = await db.from('class_subjects').upsert(
+      { class_id, subject_id, teacher_id },
+      { onConflict: 'class_id,subject_id' }
+    );
 
     if (error) throw error;
 

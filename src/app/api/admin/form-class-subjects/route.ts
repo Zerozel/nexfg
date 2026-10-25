@@ -1,24 +1,51 @@
+// src/app/api/admin/form-class-subjects/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabase } from '@/lib/supabase/server';
 
 /**
  * Admin-scoped equivalent of /api/teacher/form-class-subjects.
  * Same logic, wider permission check — admin / principal only.
+ *
+ * GET  ?classId=X  → active + available subjects for the class
+ * PUT  { class_id, subject_ids: string[] }  → replace the active set
  */
 
 async function authorize() {
   const supabase = await createServerSupabase();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: 'Unauthorized', status: 401, supabase, user: null, schoolId: null };
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      error: 'Unauthorized',
+      status: 401,
+      supabase,
+      user: null,
+      schoolId: null,
+    };
+  }
 
   const role = user.app_metadata?.role;
   if (!['admin', 'principal', 'super_admin'].includes(role)) {
-    return { error: 'Forbidden', status: 403, supabase, user, schoolId: null };
+    return {
+      error: 'Forbidden',
+      status: 403,
+      supabase,
+      user,
+      schoolId: null,
+    };
   }
 
   const schoolId = user.app_metadata?.school_id;
   if (!schoolId) {
-    return { error: 'No school associated', status: 403, supabase, user, schoolId: null };
+    return {
+      error: 'No school associated',
+      status: 403,
+      supabase,
+      user,
+      schoolId: null,
+    };
   }
 
   return { error: null, status: 200, supabase, user, schoolId };
@@ -34,10 +61,31 @@ export async function GET(request: NextRequest) {
 
     const classId = new URL(request.url).searchParams.get('classId');
     if (!classId) {
-      return NextResponse.json({ error: 'classId is required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'classId is required' },
+        { status: 400 }
+      );
     }
 
-    const { data: allSubjects, error: subjectsError } = await supabase
+    const db = supabase as any;
+
+    // Verify class belongs to this school (prevents cross-tenant reads)
+    const { data: cls } = await db
+      .from('classes')
+      .select('id')
+      .eq('id', classId)
+      .eq('school_id', schoolId)
+      .is('is_deleted', false)
+      .maybeSingle();
+
+    if (!cls) {
+      return NextResponse.json(
+        { error: 'Class not found' },
+        { status: 404 }
+      );
+    }
+
+    const { data: allSubjects, error: subjectsError } = await db
       .from('subjects')
       .select('*')
       .eq('school_id', schoolId)
@@ -46,7 +94,7 @@ export async function GET(request: NextRequest) {
 
     if (subjectsError) throw subjectsError;
 
-    const { data: classSubjects, error: classError } = await supabase
+    const { data: classSubjects, error: classError } = await db
       .from('class_subjects')
       .select('subject_id, teacher_id')
       .eq('class_id', classId);
@@ -88,7 +136,7 @@ export async function PUT(request: NextRequest) {
     if (auth.error) {
       return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
-    const { supabase } = auth;
+    const { supabase, schoolId } = auth;
 
     const body = await request.json();
     const { class_id, subject_ids } = body;
@@ -100,8 +148,26 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // Preserve teacher assignments
-    const { data: existing } = await supabase
+    const db = supabase as any;
+
+    // Verify class belongs to this school
+    const { data: cls } = await db
+      .from('classes')
+      .select('id')
+      .eq('id', class_id)
+      .eq('school_id', schoolId)
+      .is('is_deleted', false)
+      .maybeSingle();
+
+    if (!cls) {
+      return NextResponse.json(
+        { error: 'Class not found' },
+        { status: 404 }
+      );
+    }
+
+    // Preserve teacher assignments for subjects that stay active
+    const { data: existing } = await db
       .from('class_subjects')
       .select('subject_id, teacher_id')
       .eq('class_id', class_id);
@@ -112,7 +178,7 @@ export async function PUT(request: NextRequest) {
     });
 
     // Replace the set — delete then insert
-    const { error: deleteError } = await supabase
+    const { error: deleteError } = await db
       .from('class_subjects')
       .delete()
       .eq('class_id', class_id);
@@ -126,7 +192,7 @@ export async function PUT(request: NextRequest) {
         teacher_id: teacherMap.get(subject_id) || null,
       }));
 
-      const { error: insertError } = await supabase
+      const { error: insertError } = await db
         .from('class_subjects')
         .insert(insertData as never[]);
 
