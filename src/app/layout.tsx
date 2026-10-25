@@ -7,13 +7,23 @@ import "./global.css";
 export const metadata: Metadata = {
   title: "NexaForges — School Management System",
   description: "Offline-first school management information system",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "NexaForge",
+  },
+  icons: {
+    icon: "/icons/icon-192.png",
+    apple: "/icons/icon-192.png",
+  },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,
-  themeColor: "#1a5c3a",
+  themeColor: "#15803d",
 };
 
 export default function RootLayout({
