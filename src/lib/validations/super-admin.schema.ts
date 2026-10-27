@@ -11,15 +11,30 @@ const subscriptionTierEnum = z.enum([
 
 export const createSchoolSchema = z.object({
   name: z.string().min(2, 'School name is required'),
+
+  // ── School identity ──
+  email: z
+    .string()
+    .email('Invalid school email')
+    .optional()
+    .or(z.literal('')),
+  phone: z.string().optional(),
+  address: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  country: z.string().optional().default('Nigeria'),
+
+  // ── First administrator ──
   admin_full_name: z.string().min(2, 'Admin full name is required'),
   admin_email: z.string().email('Invalid email address'),
-  admin_password: z.string()
+  admin_password: z
+    .string()
     .optional()
-    .refine(
-      (val) => !val || val.length >= 8,
-      { message: 'Password must be at least 8 characters' }
-    ),
-  phone: z.string().optional(),
+    .refine((val) => !val || val.length >= 8, {
+      message: 'Password must be at least 8 characters',
+    }),
+
+  // ── Subscription ──
   subscription_tier: subscriptionTierEnum,
 });
 

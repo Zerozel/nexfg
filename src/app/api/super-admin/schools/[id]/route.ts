@@ -13,12 +13,10 @@ export async function GET(
 
     const { id } = await params;
 
-    // Fetch the school WITHOUT the profile join first. If the FK name is
-    // wrong or admin_id is null, this still returns the school row cleanly.
     const { data: school, error } = await supabase
       .from('schools')
       .select(
-        'id, name, slug, subdomain, domain, email, phone, address, logo_url, motto, subscription_status, subscription_tier, subscription_expires_at, created_at, updated_at, admin_id'
+        'id, name, slug, subdomain, domain, email, phone, address, city, state, country, logo_url, motto, subscription_status, subscription_tier, subscription_expires_at, created_at, updated_at, admin_id, principal_id'
       )
       .eq('id', id)
       .maybeSingle();
@@ -35,26 +33,35 @@ export async function GET(
       return NextResponse.json({ error: 'School not found' }, { status: 404 });
     }
 
-    // Fetch the admin separately. If admin_id is null or the profile is
-    // missing, this returns null without breaking the page.
-    let admin: { id: string; full_name: string; avatar_url: string | null } | null =
-      null;
+    // Fetch both admin and principal in one query
+    const profileIds = [school.admin_id, school.principal_id].filter(
+      Boolean
+    ) as string[];
 
-    if (school.admin_id) {
-      const { data: profile } = await supabase
+    const profileMap = new Map<
+      string,
+      { id: string; full_name: string; avatar_url: string | null }
+    >();
+
+    if (profileIds.length > 0) {
+      const { data: profiles } = await supabase
         .from('profiles')
         .select('id, full_name, avatar_url')
-        .eq('id', school.admin_id)
-        .maybeSingle();
+        .in('id', profileIds);
 
-      if (profile) {
-        admin = {
-          id: profile.id,
-          full_name: profile.full_name,
-          avatar_url: profile.avatar_url ?? null,
-        };
-      }
+      (profiles || []).forEach((p: any) => {
+        profileMap.set(p.id, {
+          id: p.id,
+          full_name: p.full_name,
+          avatar_url: p.avatar_url ?? null,
+        });
+      });
     }
+
+    const admin = school.admin_id ? profileMap.get(school.admin_id) || null : null;
+    const principal = school.principal_id
+      ? profileMap.get(school.principal_id) || null
+      : null;
 
     const [
       { count: students },
@@ -102,6 +109,9 @@ export async function GET(
         email: school.email,
         phone: school.phone,
         address: school.address,
+        city: school.city,
+        state: school.state,
+        country: school.country,
         logo_url: school.logo_url,
         motto: school.motto,
         subscription_status: school.subscription_status,
@@ -110,6 +120,7 @@ export async function GET(
         created_at: school.created_at,
         updated_at: school.updated_at,
       },
+      principal,
       admin,
       stats: {
         students: students || 0,

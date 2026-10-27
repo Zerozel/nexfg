@@ -31,8 +31,11 @@ import {
   Phone,
   Building2,
   Calendar,
+  MapPin,
   ClipboardList,
   LoaderCircle,
+  Crown,
+  UserCog,
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
@@ -61,6 +64,7 @@ export default function SchoolDetailPage() {
   const [expiresAt, setExpiresAt] = useState('');
 
   const school = data?.school;
+  const principal = data?.principal;
   const admin = data?.admin;
   const stats = data?.stats;
 
@@ -140,6 +144,10 @@ export default function SchoolDetailPage() {
 
   const isSuspended = school.subscription_status === 'inactive';
 
+  const locationParts = [school.city, school.state, school.country].filter(
+    Boolean
+  );
+
   const statCards = [
     { label: 'Students', value: stats?.students ?? 0, icon: Users },
     { label: 'Teachers', value: stats?.teachers ?? 0, icon: GraduationCap },
@@ -207,37 +215,96 @@ export default function SchoolDetailPage() {
         ))}
       </div>
 
+      {/* ═══ Leadership ═══ */}
+      <Card>
+        <CardHeader>
+          <CardTitle>School Leadership</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Principal — highest authority */}
+          <div className="flex items-start gap-3 p-3 border rounded-lg bg-amber-50/40">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100 flex-shrink-0">
+              <Crown className="h-5 w-5 text-amber-700" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                <span className="text-xs font-semibold text-amber-800 uppercase tracking-wide">
+                  Principal — Highest Authority
+                </span>
+              </div>
+              {principal ? (
+                <p className="font-semibold text-gray-900 truncate">
+                  {principal.full_name}
+                </p>
+              ) : (
+                <p className="text-sm text-muted-foreground italic">
+                  No principal assigned yet — the administrator can create one
+                  from School Settings.
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Administrator — technical operator */}
+          <div className="flex items-start gap-3 p-3 border rounded-lg">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 flex-shrink-0">
+              <UserCog className="h-5 w-5 text-gray-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
+                  Administrator — System Operator
+                </span>
+              </div>
+              {admin ? (
+                <p className="font-semibold text-gray-900 truncate">
+                  {admin.full_name}
+                </p>
+              ) : (
+                <p className="text-sm text-muted-foreground italic">
+                  No administrator assigned
+                </p>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="grid gap-6 md:grid-cols-2">
+        {/* School Information */}
         <Card>
           <CardHeader>
             <CardTitle>School Information</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             <div className="flex items-center gap-2">
-              <Mail className="h-4 w-4 text-muted-foreground" />
+              <Mail className="h-4 w-4 text-muted-foreground flex-shrink-0" />
               <span>{school.email || '—'}</span>
             </div>
             <div className="flex items-center gap-2">
-              <Phone className="h-4 w-4 text-muted-foreground" />
+              <Phone className="h-4 w-4 text-muted-foreground flex-shrink-0" />
               <span>{school.phone || '—'}</span>
             </div>
+            {school.address && (
+              <div className="flex items-start gap-2">
+                <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+                <span>{school.address}</span>
+              </div>
+            )}
+            {locationParts.length > 0 && (
+              <div className="flex items-center gap-2">
+                <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                <span>{locationParts.join(', ')}</span>
+              </div>
+            )}
             <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <Calendar className="h-4 w-4 text-muted-foreground flex-shrink-0" />
               <span>Created {formatDate(school.created_at)}</span>
-            </div>
-            <div className="pt-2 border-t">
-              <p className="text-xs uppercase text-muted-foreground mb-1">
-                School Admin
-              </p>
-              {admin ? (
-                <p className="font-medium">{admin.full_name}</p>
-              ) : (
-                <p className="text-muted-foreground">No admin assigned</p>
-              )}
             </div>
           </CardContent>
         </Card>
 
+        {/* Subscription */}
         <Card>
           <CardHeader>
             <CardTitle>Subscription</CardTitle>
