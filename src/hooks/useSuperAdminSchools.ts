@@ -156,3 +156,38 @@ export function useSuperAdminSchoolDetail(id: string) {
 
   return { data, isLoading, error, refetch: fetchDetail };
 }
+
+export function useSuperAdminUpdateSchool() {
+  const [isLoading, setIsLoading] = useState(false);
+
+  const updateSchool = async (
+    id: string,
+    payload: {
+      name?: string;
+      email?: string | null;
+      phone?: string | null;
+      address?: string | null;
+      city?: string | null;
+      state?: string | null;
+      country?: string | null;
+    }
+  ) => {
+    setIsLoading(true);
+    try {
+      const response = await fetch(`/api/super-admin/schools/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || 'Failed to update school');
+      }
+      return response.json();
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return { updateSchool, isLoading };
+}

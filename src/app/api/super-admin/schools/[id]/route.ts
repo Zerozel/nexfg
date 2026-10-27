@@ -33,7 +33,6 @@ export async function GET(
       return NextResponse.json({ error: 'School not found' }, { status: 404 });
     }
 
-    // Fetch both admin and principal in one query
     const profileIds = [school.admin_id, school.principal_id].filter(
       Boolean
     ) as string[];
@@ -58,7 +57,9 @@ export async function GET(
       });
     }
 
-    const admin = school.admin_id ? profileMap.get(school.admin_id) || null : null;
+    const admin = school.admin_id
+      ? profileMap.get(school.admin_id) || null
+      : null;
     const principal = school.principal_id
       ? profileMap.get(school.principal_id) || null
       : null;
@@ -132,6 +133,73 @@ export async function GET(
     });
   } catch (error: any) {
     console.error('GET /api/super-admin/schools/[id] error:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const guard = await requireSuperAdmin();
+    if (!guard.authorized) return guard.response;
+    const supabase = guard.serviceClient;
+
+    const { id } = await params;
+    const body = await request.json();
+
+    // Whitelist editable fields. Anything else is silently dropped so the
+    // route can't be abused to change admin_id, principal_id, subscription
+    // fields, or is_deleted.
+    const allowed = [
+      'name',
+      'email',
+      'phone',
+      'address',
+      'city',
+      'state',
+      'country',
+    ] as const;
+
+    const patch: Record<string, any> = {};
+    for (const key of allowed) {
+      if (body[key] !== undefined) {
+        patch[key] = body[key] === '' ? null : body[key];
+      }
+    }
+
+    if (Object.keys(patch).length === 0) {
+      return NextResponse.json(
+        { error: 'No editable fields provided' },
+        { status: 400 }
+      );
+    }
+
+    // If name changed, regenerate slug + subdomain. Note this changes the
+    // school's public URL — warn the caller in the UI before they save.
+    if (patch.name) {
+      const newSlug = String(patch.name)
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '');
+
+      patch.slug = newSlug;
+      patch.subdomain = `${newSlug}.nexaforges.me`;
+    }
+
+    patch.updated_at = new Date().toISOString();
+
+    const { error } = await supabase
+      .from('schools')
+      .update(patch)
+      .eq('id', id);
+
+    if (error) throw error;
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error('PATCH /api/super-admin/schools/[id] error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

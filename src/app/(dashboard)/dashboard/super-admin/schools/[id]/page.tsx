@@ -7,8 +7,10 @@ import {
   useSuperAdminSchoolDetail,
   useSuperAdminUpdateStatus,
   useSuperAdminSuspendSchool,
+  useSuperAdminUpdateSchool,
 } from '@/hooks/useSuperAdminSchools';
 import { SchoolStatusBadge } from '@/components/super-admin/SchoolStatusBadge';
+import { SchoolEditModal } from '@/components/super-admin/SchoolEditModal';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -36,6 +38,7 @@ import {
   LoaderCircle,
   Crown,
   UserCog,
+  Pencil,
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
@@ -58,10 +61,12 @@ export default function SchoolDetailPage() {
   const { updateStatus, isLoading: isUpdating } = useSuperAdminUpdateStatus();
   const { suspendSchool, isLoading: isSuspending } =
     useSuperAdminSuspendSchool();
+  const { updateSchool, isLoading: isEditing } = useSuperAdminUpdateSchool();
 
   const [status, setStatus] = useState('active');
   const [tier, setTier] = useState('trial');
   const [expiresAt, setExpiresAt] = useState('');
+  const [showEdit, setShowEdit] = useState(false);
 
   const school = data?.school;
   const principal = data?.principal;
@@ -109,6 +114,21 @@ export default function SchoolDetailPage() {
         title: 'Success',
         description: suspend ? 'School suspended' : 'School reactivated',
       });
+      refetch();
+    } catch (err: any) {
+      toast({
+        title: 'Error',
+        description: err.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleSaveSchool = async (patch: any) => {
+    try {
+      await updateSchool(id, patch);
+      toast({ title: 'Success', description: 'School details updated' });
+      setShowEdit(false);
       refetch();
     } catch (err: any) {
       toast({
@@ -180,8 +200,12 @@ export default function SchoolDetailPage() {
             <p className="text-sm text-muted-foreground">{school.subdomain}</p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 flex-wrap">
           <SchoolStatusBadge status={school.subscription_status} />
+          <Button variant="outline" onClick={() => setShowEdit(true)}>
+            <Pencil className="mr-2 h-4 w-4" />
+            Edit
+          </Button>
           <Button
             variant={isSuspended ? 'default' : 'destructive'}
             onClick={handleToggleSuspend}
@@ -215,13 +239,12 @@ export default function SchoolDetailPage() {
         ))}
       </div>
 
-      {/* ═══ Leadership ═══ */}
+      {/* Leadership */}
       <Card>
         <CardHeader>
           <CardTitle>School Leadership</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Principal — highest authority */}
           <div className="flex items-start gap-3 p-3 border rounded-lg bg-amber-50/40">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100 flex-shrink-0">
               <Crown className="h-5 w-5 text-amber-700" />
@@ -245,7 +268,6 @@ export default function SchoolDetailPage() {
             </div>
           </div>
 
-          {/* Administrator — technical operator */}
           <div className="flex items-start gap-3 p-3 border rounded-lg">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 flex-shrink-0">
               <UserCog className="h-5 w-5 text-gray-600" />
@@ -271,7 +293,6 @@ export default function SchoolDetailPage() {
       </Card>
 
       <div className="grid gap-6 md:grid-cols-2">
-        {/* School Information */}
         <Card>
           <CardHeader>
             <CardTitle>School Information</CardTitle>
@@ -304,7 +325,6 @@ export default function SchoolDetailPage() {
           </CardContent>
         </Card>
 
-        {/* Subscription */}
         <Card>
           <CardHeader>
             <CardTitle>Subscription</CardTitle>
@@ -360,6 +380,23 @@ export default function SchoolDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      <SchoolEditModal
+        open={showEdit}
+        onOpenChange={setShowEdit}
+        initial={{
+          name: school.name,
+          email: school.email,
+          phone: school.phone,
+          address: school.address,
+          city: school.city,
+          state: school.state,
+          country: school.country,
+          slug: school.slug,
+        }}
+        onSubmit={handleSaveSchool}
+        isLoading={isEditing}
+      />
     </div>
   );
 }
