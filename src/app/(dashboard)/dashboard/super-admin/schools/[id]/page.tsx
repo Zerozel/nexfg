@@ -1,3 +1,4 @@
+// src/app/(dashboard)/dashboard/super-admin/schools/[id]/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -52,7 +53,8 @@ export default function SchoolDetailPage() {
 
   const { data, isLoading, error, refetch } = useSuperAdminSchoolDetail(id);
   const { updateStatus, isLoading: isUpdating } = useSuperAdminUpdateStatus();
-  const { suspendSchool, isLoading: isSuspending } = useSuperAdminSuspendSchool();
+  const { suspendSchool, isLoading: isSuspending } =
+    useSuperAdminSuspendSchool();
 
   const [status, setStatus] = useState('active');
   const [tier, setTier] = useState('trial');
@@ -66,7 +68,11 @@ export default function SchoolDetailPage() {
     if (school) {
       setStatus(school.subscription_status);
       setTier(school.subscription_tier);
-      setExpiresAt(school.subscription_expires_at ? school.subscription_expires_at.slice(0, 10) : '');
+      setExpiresAt(
+        school.subscription_expires_at
+          ? school.subscription_expires_at.slice(0, 10)
+          : ''
+      );
     }
   }, [school]);
 
@@ -77,10 +83,17 @@ export default function SchoolDetailPage() {
         tier,
         expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
       });
-      toast({ title: 'Success', description: 'Subscription updated successfully' });
+      toast({
+        title: 'Success',
+        description: 'Subscription updated successfully',
+      });
       refetch();
     } catch (err: any) {
-      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+      toast({
+        title: 'Error',
+        description: err.message,
+        variant: 'destructive',
+      });
     }
   };
 
@@ -94,7 +107,11 @@ export default function SchoolDetailPage() {
       });
       refetch();
     } catch (err: any) {
-      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+      toast({
+        title: 'Error',
+        description: err.message,
+        variant: 'destructive',
+      });
     }
   };
 
@@ -109,8 +126,12 @@ export default function SchoolDetailPage() {
   if (error || !school) {
     return (
       <div className="space-y-4">
-        <Button variant="ghost" onClick={() => router.push('/dashboard/super-admin/schools')}>
-          <ArrowLeft className="mr-2 h-4 w-4" />Back to Schools
+        <Button
+          variant="ghost"
+          onClick={() => router.push('/dashboard/super-admin/schools')}
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to Schools
         </Button>
         <p className="text-destructive">{error || 'School not found'}</p>
       </div>
@@ -124,13 +145,21 @@ export default function SchoolDetailPage() {
     { label: 'Teachers', value: stats?.teachers ?? 0, icon: GraduationCap },
     { label: 'Classes', value: stats?.classes ?? 0, icon: BookOpen },
     { label: 'Subjects', value: stats?.subjects ?? 0, icon: ClipboardList },
-    { label: 'Assessments', value: stats?.assessments ?? 0, icon: ClipboardList },
+    {
+      label: 'Assessments',
+      value: stats?.assessments ?? 0,
+      icon: ClipboardList,
+    },
   ];
 
   return (
     <div className="space-y-6">
-      <Button variant="ghost" onClick={() => router.push('/dashboard/super-admin/schools')}>
-        <ArrowLeft className="mr-2 h-4 w-4" />Back to Schools
+      <Button
+        variant="ghost"
+        onClick={() => router.push('/dashboard/super-admin/schools')}
+      >
+        <ArrowLeft className="mr-2 h-4 w-4" />
+        Back to Schools
       </Button>
 
       <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -166,7 +195,9 @@ export default function SchoolDetailPage() {
         {statCards.map((s) => (
           <Card key={s.label}>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">{s.label}</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                {s.label}
+              </CardTitle>
               <s.icon className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -195,12 +226,11 @@ export default function SchoolDetailPage() {
               <span>Created {formatDate(school.created_at)}</span>
             </div>
             <div className="pt-2 border-t">
-              <p className="text-xs uppercase text-muted-foreground mb-1">School Admin</p>
+              <p className="text-xs uppercase text-muted-foreground mb-1">
+                School Admin
+              </p>
               {admin ? (
-                <>
-                  <p className="font-medium">{admin.full_name}</p>
-                  <p className="text-muted-foreground">{admin.email}</p>
-                </>
+                <p className="font-medium">{admin.full_name}</p>
               ) : (
                 <p className="text-muted-foreground">No admin assigned</p>
               )}
@@ -216,7 +246,9 @@ export default function SchoolDetailPage() {
             <div className="space-y-2">
               <Label>Status</Label>
               <Select value={status} onValueChange={setStatus}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="trial">Trial</SelectItem>
@@ -228,7 +260,9 @@ export default function SchoolDetailPage() {
             <div className="space-y-2">
               <Label>Tier</Label>
               <Select value={tier} onValueChange={setTier}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="trial">Trial</SelectItem>
                   <SelectItem value="free">Free</SelectItem>
@@ -240,10 +274,20 @@ export default function SchoolDetailPage() {
             </div>
             <div className="space-y-2">
               <Label>Expires At</Label>
-              <Input type="date" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} />
+              <Input
+                type="date"
+                value={expiresAt}
+                onChange={(e) => setExpiresAt(e.target.value)}
+              />
             </div>
-            <Button onClick={handleSaveSubscription} disabled={isUpdating} className="w-full">
-              {isUpdating && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
+            <Button
+              onClick={handleSaveSubscription}
+              disabled={isUpdating}
+              className="w-full"
+            >
+              {isUpdating && (
+                <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+              )}
               Save Changes
             </Button>
           </CardContent>
