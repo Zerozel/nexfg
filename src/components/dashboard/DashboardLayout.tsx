@@ -9,6 +9,7 @@ import { SupportWidget } from "@/components/support/SupportWidget";
 import { TeacherWidget } from "@/components/support/TeacherWidget";
 import { useAuth } from "@/hooks/useAuth";
 import type { UserRole } from "@/types";
+import { TermsAcceptanceModal } from '@/components/TermsAcceptanceModal';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -36,6 +37,7 @@ export function DashboardLayout({
       {/* Role-scoped floating widget */}
       {(role === "admin" || role === "principal") && <SupportWidget />}
       {role === "teacher" && <TeacherWidget />}
+    <TermsAcceptanceModal />
     </AuthGuard>
   );
 }

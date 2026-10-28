@@ -32,6 +32,22 @@ const RESERVED_SUBDOMAINS = new Set([
 ]);
 
 /**
+ * Paths that are fully public and require no auth check. Adding a path here
+ * also implicitly bypasses the rewrite logic for custom domains — public
+ * legal pages should be reachable on any hostname.
+ */
+const PUBLIC_PATHS = new Set([
+  '/login',
+  '/super-admin/login',
+  '/forgot-password',
+  '/reset-password',
+  '/terms',
+  '/privacy',
+  '/dpa',
+  '/sla',
+]);
+
+/**
  * Resolve a school slug from a *custom domain* (e.g. `myschool.com`).
  *
  * Only called for genuine custom domains (never for the platform apex or its
@@ -66,6 +82,18 @@ async function getSlugByCustomDomain(domain: string): Promise<string | null> {
 export async function proxy(req: NextRequest) {
   const host = (req.headers.get('host') || '').split(':')[0].toLowerCase();
   const path = req.nextUrl.pathname;
+
+  // ============================================================
+  // Public pages — no auth, no rewrite
+  //
+  // `/terms`, `/privacy`, `/dpa`, `/sla` must be reachable by anyone
+  // (including unauthenticated visitors on a school's custom domain
+  // or subdomain), so we short-circuit before the rewrite logic.
+  // ============================================================
+
+  if (PUBLIC_PATHS.has(path)) {
+    return NextResponse.next();
+  }
 
   // ============================================================
   // Public website routing (subdomain + custom domain -> /school/{slug})
@@ -117,12 +145,6 @@ export async function proxy(req: NextRequest) {
   // paint"). No auth check is needed there — the client-side AuthGuard
   // handles the already-logged-in redirect.
   // ============================================================
-
-  const isAuthPage = path === '/login' || path === '/super-admin/login';
-
-  if (isAuthPage) {
-    return NextResponse.next();
-  }
 
   const isProtectedRoute = path.startsWith('/dashboard');
 
@@ -182,6 +204,12 @@ export const config = {
   matcher: [
     '/login',
     '/super-admin/login',
+    '/forgot-password',
+    '/reset-password',
+    '/terms',
+    '/privacy',
+    '/dpa',
+    '/sla',
     '/dashboard/:path*',
     // Match everything EXCEPT static assets, API routes, and any file with
     // an extension (css, js, woff2, png, ico, etc). This is the critical
