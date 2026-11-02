@@ -18,6 +18,8 @@ import {
   Megaphone,
   Ticket,
   Layers,
+  ArrowRightLeft,
+  CalendarClock,
   type LucideIcon,
 } from "lucide-react";
 
@@ -127,6 +129,18 @@ export const ADMIN_NAV: NavItemWithIcon[] = [
     href: "/dashboard/admin/reports",
     roles: ["admin", "principal"],
     icon: FileText,
+  },
+  {
+    label: "Sessions",
+    href: "/dashboard/admin/sessions",
+    roles: ["admin", "principal"],
+    icon: CalendarClock,
+  },
+  {
+    label: "Promotions",
+    href: "/dashboard/admin/promotions",
+    roles: ["admin", "principal"],
+    icon: ArrowRightLeft,
   },
   {
     label: "Messages",
