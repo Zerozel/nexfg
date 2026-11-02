@@ -14,7 +14,7 @@ interface ScoreRowProps {
     assessmentId: string,
     score: number | null
   ) => void;
-  readOnly?: boolean;  // ← NEW
+  readOnly?: boolean;
 }
 
 export function ScoreRow({
@@ -22,15 +22,17 @@ export function ScoreRow({
   assessments,
   getScore,
   onScoreChange,
-  readOnly = false,  // ← NEW
+  readOnly = false,
 }: ScoreRowProps) {
   return (
     <TableRow>
-      <TableCell className="font-medium whitespace-nowrap min-w-[180px]">
-        <div>
-          <span>{student.full_name}</span>
+      <TableCell
+        className="sticky left-0 z-10 bg-white font-medium min-w-[140px] sm:min-w-[180px] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]"
+      >
+        <div className="min-w-0">
+          <span className="block text-sm truncate">{student.full_name}</span>
           {student.admission_number && (
-            <span className="block text-xs text-gray-400">
+            <span className="block text-xs text-gray-400 truncate">
               {student.admission_number}
             </span>
           )}
@@ -46,7 +48,7 @@ export function ScoreRow({
             onChange={(score) =>
               onScoreChange(student.id, assessment.id, score)
             }
-            readOnly={readOnly}  // ← NEW: Pass readOnly
+            readOnly={readOnly}
           />
         </TableCell>
       ))}

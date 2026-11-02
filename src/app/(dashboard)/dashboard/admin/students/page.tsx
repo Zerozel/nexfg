@@ -9,6 +9,7 @@ import {
 import { useAdminClasses } from '@/hooks/useClasses';
 import { useSubscription } from '@/hooks/useSubscription';
 import { DataTable } from '@/components/admin/DataTable';
+import { StudentGroupList } from '@/components/admin/students/StudentGroupList';
 import { CreateModal } from '@/components/admin/CreateModal';
 import { EditModal } from '@/components/admin/EditModal';
 import { DeleteConfirmation } from '@/components/admin/DeleteConfirmation';
@@ -43,19 +44,15 @@ export default function StudentsPage() {
 
   const { toast } = useToast();
 
-  // Subscription — determines which data source to use
   const { status: subscription, isLoading: subLoading } = useSubscription();
   const isPaidTier =
     subscription?.tier === 'starter' ||
     subscription?.tier === 'growth' ||
     subscription?.tier === 'premium';
 
-  // Flat view (free/trial): paginated from useAdminStudents
   const { data, isLoading: flatLoading, refetch: refetchFlat } =
     useAdminStudents({ page, search });
 
-  // Grouped view (paid tiers): used only to seed the flat table
-  // so all tiers share the same table UI.
   const {
     groups,
     isLoading: groupedLoading,
@@ -191,33 +188,11 @@ export default function StudentsPage() {
     }
   };
 
-  // Columns — trimmed to name + admission + class only.
-  // Guardian/phone/year live in the Edit form, not the list.
   const columns: Column<Student>[] = [
     { key: 'full_name', header: 'Name' },
     { key: 'admission_number', header: 'Admission #' },
     { key: 'class_name', header: 'Class' },
   ];
-
-  // Paid-tier data: flatten the grouped structure into a single array
-  // so DataTable renders it identically to the free view. Applies the
-  // current search filter.
-  const paidTierStudents: any[] = (() => {
-    if (!isPaidTier) return [];
-    const flat: any[] = [];
-    for (const g of groups || []) {
-      for (const s of g.students || []) {
-        flat.push({ ...s, class_name: g.class_name || s.class_name || '—' });
-      }
-    }
-    if (!search) return flat;
-    const q = search.toLowerCase();
-    return flat.filter(
-      (s) =>
-        (s.full_name || '').toLowerCase().includes(q) ||
-        (s.admission_number || '').toLowerCase().includes(q)
-    );
-  })();
 
   const openEdit = (student: any) => {
     setSelectedStudent(student);
@@ -244,11 +219,19 @@ export default function StudentsPage() {
     );
   }
 
-  // Both tiers now use DataTable. Only the data source and pagination differ.
-  const isLoading = isPaidTier ? groupedLoading : flatLoading;
-  const tableData = isPaidTier ? paidTierStudents : data?.data || [];
-  const total = isPaidTier ? paidTierStudents.length : data?.total || 0;
-  const totalPages = isPaidTier ? 1 : data?.totalPages || 1;
+  // Filter groups by search
+  const filteredGroups = search
+    ? groups.map((g) => ({
+        ...g,
+        students: (g.students || []).filter(
+          (s) =>
+            s.full_name.toLowerCase().includes(search.toLowerCase()) ||
+            (s.admission_number || '')
+              .toLowerCase()
+              .includes(search.toLowerCase())
+        ),
+      }))
+    : groups;
 
   return (
     <div className="space-y-6">
@@ -270,23 +253,52 @@ export default function StudentsPage() {
         </Button>
       </div>
 
-      <DataTable
-        columns={columns}
-        data={tableData as any}
-        total={total}
-        page={page}
-        pageSize={isPaidTier ? total || 1 : 10}
-        totalPages={totalPages}
-        onSearch={handleSearch}
-        onPageChange={setPage}
-        onEdit={openEdit}
-        onDelete={(student: any) => {
-          setSelectedStudent(student);
-          setShowDelete(true);
-        }}
-        isLoading={isLoading}
-        searchPlaceholder="Search by name or admission number..."
-      />
+      {isPaidTier ? (
+        <>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search students..."
+              value={search}
+              onChange={(e) => handleSearch(e.target.value)}
+              className="pl-10 max-w-sm"
+            />
+          </div>
+
+          {groupedLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+            </div>
+          ) : (
+            <StudentGroupList
+              groups={filteredGroups as any}
+              onEdit={openEdit}
+              onDelete={(student: any) => {
+                setSelectedStudent(student);
+                setShowDelete(true);
+              }}
+            />
+          )}
+        </>
+      ) : (
+        <DataTable
+          columns={columns}
+          data={(data?.data || []) as any}
+          total={data?.total || 0}
+          page={page}
+          pageSize={10}
+          totalPages={data?.totalPages || 1}
+          onSearch={handleSearch}
+          onPageChange={setPage}
+          onEdit={openEdit}
+          onDelete={(student: any) => {
+            setSelectedStudent(student);
+            setShowDelete(true);
+          }}
+          isLoading={flatLoading}
+          searchPlaceholder="Search students..."
+        />
+      )}
 
       <CreateModal
         open={showCreate}
