@@ -12,41 +12,61 @@ import { ZodError } from 'zod';
 // generateAdmissionNumber
 // ----------------------------------------------------------------------------
 // Produces admission numbers of the form:
-//   <SLUG>/<YEAR>/<PREFIX><SERIAL>
+//   <SCHOOL_CODE>/<YEAR>/<PREFIX><SERIAL>
+//
 // where:
-//   SLUG    — school slug, uppercased
-//   YEAR    — 4-digit enrollment year
-//   PREFIX  — the class's code_prefix column (e.g. 10A for JSS1A)
-//   SERIAL  — per-class-per-year sequence, starting at 01
+//   SCHOOL_CODE — initials of the school name, max 4 chars, uppercased
+//                 "Rock Foundation Academy"        -> "RFA"
+//                 "Green Wood"                     -> "GW"
+//                 "Wisdomgate Academy"             -> "WA"
+//                 "Zoan Nika Institute of Science" -> "ZNIS"
+//   YEAR        — 4-digit enrollment year
+//   PREFIX      — the class's code_prefix column (e.g. 10A for JSS 1A)
+//   SERIAL      — per-class-per-year sequence, 3 digits (001, 002, ...)
 //
 // Examples:
-//   ROCK/2026/10A01  — first student in JSS1A in 2026
-//   ROCK/2026/10A02  — second student
-//   ROCK/2026/10B01  — first student in JSS1B
-//   ROCK/2026/UN01   — student with no class assigned yet
+//   RFA/2026/10A001   — first student in JSS 1A, Rock Foundation Academy
+//   GW/2026/2002      — second student in JSS 2, Green Wood
+//   WA/2026/10A003    — third student in JSS 1A, Wisdomgate Academy
+//   ZNIS/2026/UN001   — unassigned student at Zoan Nika Institute
+//
+// Every school gets its own distinct code, derived from its name — never
+// from the slug (which is a URL segment and can be arbitrarily long).
 // ============================================================================
+
+function schoolAbbreviation(name: string): string {
+  return (
+    name
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((word) => word.charAt(0).toUpperCase())
+      .join('')
+      .slice(0, 4) || 'SCH'
+  );
+}
+
 async function generateAdmissionNumber(
   supabase: any,
   schoolId: string,
   enrollmentYear: number,
   classId: string | null
 ): Promise<string> {
-  // 1. School slug
+  // 1. Fetch school name. We derive the abbreviation from `name`, not `slug`.
   const { data: school, error: schoolError } = await supabase
     .from('schools')
-    .select('slug')
+    .select('name')
     .eq('id', schoolId)
     .single();
 
-  if (schoolError || !school) {
-    console.error('Failed to fetch school slug:', schoolError);
-    const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+  if (schoolError || !school?.name) {
+    console.error('Failed to fetch school for admission number:', schoolError);
+    const random = Math.random().toString(36).substring(2, 5).toUpperCase();
     return `SCH/${enrollmentYear}/XX${random}`;
   }
 
-  const slug = (school.slug as string).toUpperCase();
+  const schoolCode = schoolAbbreviation(school.name);
 
-  // 2. Unassigned students get a shared UN prefix
+  // 2. Unassigned students (no class yet) share an UN prefix
   if (!classId) {
     const { count, error: countError } = await supabase
       .from('students')
@@ -58,14 +78,14 @@ async function generateAdmissionNumber(
 
     if (countError) throw countError;
 
-    const serial = String((count || 0) + 1).padStart(2, '0');
-    return `${slug}/${enrollmentYear}/UN${serial}`;
+    const serial = String((count || 0) + 1).padStart(3, '0');
+    return `${schoolCode}/${enrollmentYear}/UN${serial}`;
   }
 
-  // 3. Resolve the class's code_prefix
+  // 3. Resolve the class's code_prefix (e.g. "10A" for JSS 1A)
   const { data: cls, error: classError } = await supabase
     .from('classes')
-    .select('code_prefix, name')
+    .select('code_prefix')
     .eq('id', classId)
     .eq('school_id', schoolId)
     .maybeSingle();
@@ -74,7 +94,7 @@ async function generateAdmissionNumber(
 
   const prefix = (cls?.code_prefix as string) || 'UN';
 
-  // 4. Count existing students in the same class + year to get the next serial
+  // 4. Count existing students in the same class + year for the next serial
   const { count, error: countError } = await supabase
     .from('students')
     .select('id', { count: 'exact', head: true })
@@ -85,9 +105,10 @@ async function generateAdmissionNumber(
 
   if (countError) throw countError;
 
-  const serial = String((count || 0) + 1).padStart(2, '0');
+  const serial = String((count || 0) + 1).padStart(3, '0');
 
-  return `${slug}/${enrollmentYear}/${prefix}${serial}`;
+  // Result: RFA/2026/10A001 (15 chars)
+  return `${schoolCode}/${enrollmentYear}/${prefix}${serial}`;
 }
 
 export async function GET(request: NextRequest) {
@@ -244,8 +265,6 @@ export async function POST(request: NextRequest) {
 
     const student = await createStudent(supabase, sanitized as any);
 
-    // Sync the enrollments table so report cards / class sheets / batch print
-    // can find this student. `students.class_id` alone is not enough.
     if (student.class_id) {
       try {
         await ensureStudentEnrollment(supabase, student.id, student.class_id);
