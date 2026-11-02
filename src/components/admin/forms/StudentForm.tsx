@@ -30,14 +30,12 @@ export function StudentForm({ data = {}, onChange, classes = [] }: StudentFormPr
         />
       </div>
 
+      {/* Admission number is generated server-side on save. Never editable. */}
       <div className="space-y-2">
-        <Label htmlFor="admission_number">Admission Number</Label>
-        <Input
-          id="admission_number"
-          value={data.admission_number || ''}
-          onChange={(e) => onChange('admission_number', e.target.value)}
-          placeholder="Auto-generated if left empty"
-        />
+        <Label>Admission Number</Label>
+        <div className="px-3 py-2 text-sm text-gray-500 bg-gray-50 border rounded-md">
+          Auto-generated when saved (e.g. RFA/2026/10A001)
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4">

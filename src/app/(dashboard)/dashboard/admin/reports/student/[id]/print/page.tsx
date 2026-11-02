@@ -1,100 +1,56 @@
 "use client";
 
-import { Suspense, useEffect } from "react";
+import { Suspense } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import { useReportCard } from "@/hooks/useReportCard";
-import { ReportCardTemplate } from "@/components/printing/ReportCardTemplate";
-import { Button } from "@/components/ui/button";
-import { Printer, ArrowLeft } from "lucide-react";
+import { FileDown, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
-function StudentReportCardPrint() {
+function StudentReportCardPDF() {
   const params = useParams();
   const searchParams = useSearchParams();
   const studentId = params.id as string;
   const termId = searchParams.get("termId") || "";
   const classId = searchParams.get("classId") || "";
 
-  const { data, isLoading, error } = useReportCard({
-    studentId,
-    termId,
-    classId,
-  });
-
-  useEffect(() => {
-    if (data && !isLoading) {
-      const timer = setTimeout(() => {
-        window.print();
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [data, isLoading]);
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
-          <p className="text-gray-600">Loading report card...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="text-red-500 text-lg mb-4">⚠️ {error}</div>
-          <Link
-            href="/dashboard/admin/reports"
-            className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Reports
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  if (!data) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <p className="text-gray-600 mb-4">No report card data found</p>
-          <Link
-            href="/dashboard/admin/reports"
-            className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Reports
-          </Link>
-        </div>
-      </div>
-    );
-  }
+  const pdfUrl = `/api/report-cards/student/${studentId}/pdf?termId=${termId}&classId=${classId}`;
 
   return (
-    <>
-      <div className="print-content">
-        <ReportCardTemplate data={data} />
-      </div>
+    <div className="flex items-center justify-center min-h-screen bg-gray-50 p-4">
+      <div className="max-w-md w-full bg-white rounded-lg border shadow-sm p-8 text-center">
+        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-100 flex items-center justify-center">
+          <FileDown className="h-8 w-8 text-green-700" />
+        </div>
+        <h1 className="text-xl font-bold mb-2">Report Card PDF</h1>
+        <p className="text-sm text-gray-600 mb-6">
+          Your report card is ready as a PDF. It will open in a new tab.
+        </p>
 
-      <div className="no-print fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-4 flex justify-center gap-4 z-50">
-        <Button onClick={() => window.print()} size="lg">
-          <Printer className="mr-2 h-5 w-5" />
-          Print Report Card
-        </Button>
-        <Link
-          href="/dashboard/admin/reports"
-          className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
-        >
-          <ArrowLeft className="mr-2 h-5 w-5" />
-          Back to Reports
-        </Link>
+        <div className="space-y-3">
+          {/* Native anchor styled like a button — avoids asChild dependency */}
+          <a
+            href={pdfUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex w-full items-center justify-center rounded-md bg-primary px-6 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+          >
+            <FileDown className="mr-2 h-5 w-5" />
+            Download PDF
+          </a>
+
+          <Link
+            href="/dashboard/admin/reports"
+            className="inline-flex w-full items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Reports
+          </Link>
+        </div>
+
+        <p className="text-xs text-gray-400 mt-6">
+          Same template as the batch PDF — consistent output.
+        </p>
       </div>
-    </>
+    </div>
   );
 }
 
@@ -105,12 +61,12 @@ export default function StudentReportCardPrintPage() {
         <div className="flex items-center justify-center min-h-screen">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
-            <p className="text-gray-600">Loading report card...</p>
+            <p className="text-gray-600">Loading...</p>
           </div>
         </div>
       }
     >
-      <StudentReportCardPrint />
+      <StudentReportCardPDF />
     </Suspense>
   );
 }

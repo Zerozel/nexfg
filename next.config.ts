@@ -14,6 +14,7 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     '/api/admin/score-sheets/batches/[id]/pdf': PDF_FONT_FILES,
     '/api/report-cards/class/[classId]/pdf': PDF_FONT_FILES,
+    '/api/report-cards/student/[id]/pdf': PDF_FONT_FILES,
   },
 
   images: {
