@@ -101,27 +101,6 @@ function SubjectRow({
   showCA3: boolean;
 }) {
   const isZebra = index % 2 === 1;
-
-  const hasData =
-    subject &&
-    (subject.score != null ||
-      subject.ca1_score != null ||
-      subject.ca2_score != null ||
-      subject.exam_score != null);
-
-  if (!hasData) {
-    return (
-      <View style={[styles.tableRow, isZebra ? styles.tableRowZebra : {}]}>
-        <Text style={[styles.tableCellSubject, styles.colSubject]}>—</Text>
-        <Text style={[styles.tableCell, styles.colCA]}>—</Text>
-        <Text style={[styles.tableCell, styles.colExam]}>—</Text>
-        <Text style={[styles.tableCell, styles.colTotal]}>—</Text>
-        <Text style={[styles.tableCellGrade, styles.colGrade]}>—</Text>
-        <Text style={[styles.tableCellRemark, styles.colRemark]}>—</Text>
-      </View>
-    );
-  }
-
   const caTotal =
     (subject.ca1_score || 0) +
     (subject.ca2_score || 0) +
@@ -150,28 +129,14 @@ export function ClassicNigerianPage({ data }: { data: IndividualReportCardData }
   const safeStudent: any = data?.student || {};
   const safeClass: any = data?.class || {};
   const safeTerm: any = data?.term || {};
-  const rawSubjects: any[] = Array.isArray(data?.subjects) ? data.subjects : [];
+  const subjects: any[] = Array.isArray(data?.subjects) ? data.subjects : [];
   const safeOverall: any = data?.overall || {};
 
   const primaryColor = safeSchool.primary_color || COLOR.primary;
   const caCount: number = safeSchool.ca_count ?? 2;
   const showCA3 = caCount >= 3;
 
-  const SUBJECT_ROW_COUNT = 16;
-  const paddedSubjects: any[] =
-    rawSubjects.length === 0
-      ? []
-      : rawSubjects.length >= SUBJECT_ROW_COUNT
-        ? rawSubjects
-        : [
-            ...rawSubjects,
-            ...Array.from(
-              { length: SUBJECT_ROW_COUNT - rawSubjects.length },
-              () => null
-            ),
-          ];
-
-  const scoredSubjects = rawSubjects.filter((s) => s && s.score != null);
+  const scoredSubjects = subjects.filter((s) => s && s.score != null);
   const totalObtained = scoredSubjects.reduce(
     (sum, s) => sum + Number(s.score || 0),
     0
@@ -256,7 +221,7 @@ export function ClassicNigerianPage({ data }: { data: IndividualReportCardData }
           <Text style={[styles.tableCellHeader, styles.colRemark]}>Remark</Text>
         </View>
 
-        {paddedSubjects.length === 0 ? (
+        {subjects.length === 0 ? (
           <View style={styles.tableRow}>
             <Text
               style={[
@@ -268,7 +233,7 @@ export function ClassicNigerianPage({ data }: { data: IndividualReportCardData }
             </Text>
           </View>
         ) : (
-          paddedSubjects.map((subject, idx) => (
+          subjects.map((subject, idx) => (
             <SubjectRow
               key={subject?.id || `row-${idx}`}
               subject={subject}
