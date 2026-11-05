@@ -40,6 +40,11 @@ export interface ExtractionContext {
     ca3: number;
     exam: number;
   };
+  /**
+   * Number of CA columns on the sheet (2 or 3). Controls whether the prompt
+   * asks the model for CA3 or not.
+   */
+  caCount: number;
   /** Names of students who should be on the sheet, in print order */
   expectedStudentNames: string[];
 }

@@ -1,21 +1,16 @@
-// src/app/api/report-cards/student/[id]/pdf/route.tsx
 import { NextRequest, NextResponse } from "next/server";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { fetchCompiledResultsByStudent } from "@/lib/printing/compiled-results";
 import { transformStudentReportData } from "@/lib/printing/data-transform";
-import { ReportCardBatchDocument } from "@/lib/pdf/ReportCardDocument";
+import { getReportCardComponent } from "@/lib/pdf";
 import type { IndividualReportCardData } from "@/types/printing";
+import { Document } from "@react-pdf/renderer";
+import React from "react";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
-/**
- * GET /api/report-cards/student/[id]/pdf?termId=X&classId=Y
- *
- * Renders a single student's report card as a PDF using the same
- * ReportCardDocument template as the batch PDF endpoint.
- */
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -43,7 +38,6 @@ export async function GET(
       );
     }
 
-    // Fetch student
     const studentResult = await supabase
       .from("students")
       .select("id, full_name, admission_number, avatar_url:profile_image_url, school_id")
@@ -58,7 +52,6 @@ export async function GET(
     }
     const student: any = studentResult.data;
 
-    // Permission check
     const role = user.app_metadata?.role;
     const userSchoolId = user.app_metadata?.school_id;
     if (role !== "super_admin" && userSchoolId !== student.school_id) {
@@ -90,8 +83,7 @@ export async function GET(
       }
     }
 
-    // Fetch school, class, term, compiled results in parallel
-    const [schoolResult, classResult, termResult, compiledMap] =
+    const [schoolResult, classResult, termResult, compiledMap, affectiveRes, psychomotorRes] =
       await Promise.all([
         supabase
           .from("schools")
@@ -113,6 +105,16 @@ export async function GET(
           termId,
           studentIds: [studentId],
         }),
+        supabase
+          .from("student_affective_traits")
+          .select("*")
+          .eq("student_id", studentId)
+          .eq("term_id", termId),
+        supabase
+          .from("student_psychomotor_skills")
+          .select("*")
+          .eq("student_id", studentId)
+          .eq("term_id", termId),
       ]);
 
     if (!schoolResult.data) {
@@ -142,7 +144,6 @@ export async function GET(
       ? term.academic_years[0]?.name
       : term.academic_years?.name;
 
-    // Teacher name
     let teacherName: string | null = null;
     if (classInfo.teacher_id) {
       const teacherResult: any = await supabase
@@ -168,6 +169,8 @@ export async function GET(
       principal_name: school.principal_name,
       principal_signature_url: school.principal_signature_url,
       grading_system: school.grading_system || null,
+      ca_count: (school.ca_count as number | null) ?? 2,
+      report_card_template: school.report_card_template || "classic_nigerian",
     };
 
     const classPayload = {
@@ -210,21 +213,19 @@ export async function GET(
         : new Date().toISOString().split("T")[0],
       has_compiled_results: subjects.length > 0,
       attendance: null,
-      affective_traits: null,
-      psychomotor_skills: null,
+      affective_traits: affectiveRes.data || null,
+      psychomotor_skills: psychomotorRes.data || null,
     };
 
     const reportData: IndividualReportCardData =
       transformStudentReportData(raw);
 
-    // Render one-page PDF
+    const templateName = schoolPayload.report_card_template;
+    const TemplateComponent = getReportCardComponent(templateName, reportData);
+    const pageElement = (TemplateComponent.props as any).children;
+
     const pdfBuffer = await renderToBuffer(
-      <ReportCardBatchDocument
-        school={schoolPayload}
-        class={classPayload}
-        term={termPayload}
-        students={[reportData]}
-      />
+      <Document>{pageElement}</Document>
     );
 
     const pdfBytes = new Uint8Array(pdfBuffer);

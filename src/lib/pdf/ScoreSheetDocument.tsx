@@ -14,12 +14,13 @@ import {
  * Layout:
  *   Header       — school logo (if any), school name, sheet title
  *   Meta row     — class, subject, term, teacher
- *   Table        — #, Adm. No., Student Name, CA1, CA2, CA3, Exam
+ *   Table        — #, Adm. No., Student Name, CA1, CA2, [CA3], Exam
  *   Extra rows   — 3 blank rows for late students
  *   Footer       — teacher signature, date, sheet generated stamp
  *
- * The extra 3 rows are ALWAYS present. They cost nothing on paper and save
- * a reprint when a student joins late.
+ * The CA3 column is rendered only when `data.caCount >= 3`. The extra 3 rows
+ * are ALWAYS present. They cost nothing on paper and save a reprint when a
+ * student joins late.
  */
 
 export interface ScoreSheetStudent {
@@ -43,6 +44,8 @@ export interface ScoreSheetData {
     ca3: number;
     exam: number;
   };
+  /** Number of CA columns (2 or 3). Controls whether CA3 is rendered. */
+  caCount: number;
   generatedAt: string; // ISO
   extraBlankRows?: number;
 }
@@ -232,6 +235,8 @@ const ROWS_PER_PAGE = 28;
 
 export function ScoreSheetDocument({ data }: { data: ScoreSheetData }) {
   const extraRows = data.extraBlankRows ?? 3;
+  const hasCA3 = (data.caCount ?? 2) >= 3;
+
   const allRows = [
     ...data.students.map((s) => ({ type: "student" as const, student: s })),
     ...Array.from({ length: extraRows }, () => ({
@@ -336,10 +341,12 @@ export function ScoreSheetDocument({ data }: { data: ScoreSheetData }) {
                   <Text style={styles.headerText}>CA2</Text>
                   <Text style={styles.maxBadge}>({data.maxScores.ca2})</Text>
                 </View>
-                <View style={styles.cellScore}>
-                  <Text style={styles.headerText}>CA3</Text>
-                  <Text style={styles.maxBadge}>({data.maxScores.ca3})</Text>
-                </View>
+                {hasCA3 && (
+                  <View style={styles.cellScore}>
+                    <Text style={styles.headerText}>CA3</Text>
+                    <Text style={styles.maxBadge}>({data.maxScores.ca3})</Text>
+                  </View>
+                )}
                 <View style={styles.cellScoreLast}>
                   <Text style={styles.headerText}>Exam</Text>
                   <Text style={styles.maxBadge}>({data.maxScores.exam})</Text>
@@ -377,9 +384,11 @@ export function ScoreSheetDocument({ data }: { data: ScoreSheetData }) {
                     <View style={styles.cellScore}>
                       <Text> </Text>
                     </View>
-                    <View style={styles.cellScore}>
-                      <Text> </Text>
-                    </View>
+                    {hasCA3 && (
+                      <View style={styles.cellScore}>
+                        <Text> </Text>
+                      </View>
+                    )}
                     <View style={styles.cellScoreLast}>
                       <Text> </Text>
                     </View>

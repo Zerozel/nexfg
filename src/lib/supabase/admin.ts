@@ -1124,15 +1124,23 @@ export async function deleteSubject(
 // assignTeacherToSubject.
 
 // ============================================================================
-// ← NEW: ensureClassSubjectAssessments
+// ensureClassSubjectAssessments
 // ----------------------------------------------------------------------------
-// Called whenever a subject is attached to a class. Creates the 4 standard
-// assessments (CA1, CA2, CA3, Exam) × every term in the class's academic year
-// × this subject, all stamped with class_id + term_id + subject_id so the
-// compile pipeline can find them.
+// Called whenever a subject is attached to a class. Creates the standard
+// assessments × every term in the class's academic year × this subject,
+// all stamped with class_id + term_id + subject_id so the compile pipeline
+// can find them.
 //
-// Idempotent: if an assessment already exists for
-// (class_id, term_id, subject_id, name), it is skipped.
+// The number of CA components and their weights are read from
+// `schools.ca_count`:
+//   2 → CA1(15) + CA2(15) + Exam(70) = 100
+//   3 → CA1(10) + CA2(10) + CA3(10) + Exam(70) = 100
+//
+// Idempotent: existing (class_id, term_id, subject_id, name) rows are skipped.
+// Transitions handled:
+//   3 → 2: soft-deletes CA3 rows (scores preserved); existing CA1/CA2/Exam
+//          keep their max_score unless explicitly re-tuned
+//   2 → 3: restores soft-deleted CA3 rows or creates them
 // ============================================================================
 async function ensureClassSubjectAssessments(
   supabase: SupabaseClient,
@@ -1154,7 +1162,17 @@ async function ensureClassSubjectAssessments(
     throw new Error('Class does not belong to this school');
   }
 
-  // 2. Fetch all terms for that academic year
+  // 2. Read the school's CA count (default 2)
+  const { data: school, error: schoolError } = await supabase
+    .from('schools')
+    .select('ca_count')
+    .eq('id', schoolId)
+    .maybeSingle();
+
+  if (schoolError) throw schoolError;
+  const caCount = (school?.ca_count as number) ?? 2;
+
+  // 3. Fetch all terms for that academic year
   const { data: terms, error: termsError } = await supabase
     .from('terms')
     .select('id, name, "order"')
@@ -1168,7 +1186,7 @@ async function ensureClassSubjectAssessments(
     throw new Error('No terms found for this academic year');
   }
 
-  // 3. Which assessments already exist for this class + subject?
+  // 4. Which active assessments already exist for this class + subject?
   const { data: existing, error: existingError } = await supabase
     .from('assessments')
     .select('id, term_id, name')
@@ -1183,15 +1201,45 @@ async function ensureClassSubjectAssessments(
     (existing || []).map((a: any) => `${a.term_id}:${a.name}`)
   );
 
-  // 4. Define the 4 assessment templates
-  const templateTypes = [
-    { name: 'CA1', type: 'test', max_score: 10, weight: 0.1 },
-    { name: 'CA2', type: 'test', max_score: 10, weight: 0.1 },
-    { name: 'CA3', type: 'test', max_score: 10, weight: 0.1 },
-    { name: 'Exam', type: 'exam', max_score: 70, weight: 0.7 },
-  ];
+  // 5. Which soft-deleted assessments exist? (used to restore CA3 on 2→3)
+  const { data: existingDeleted, error: deletedError } = await supabase
+    .from('assessments')
+    .select('id, term_id, name')
+    .eq('school_id', schoolId)
+    .eq('class_id', classId)
+    .eq('subject_id', subjectId)
+    .eq('is_deleted', true);
 
-  // 5. Build the cartesian product: term × template
+  if (deletedError) throw deletedError;
+
+  const deletedByName = new Map<string, any[]>();
+  for (const a of (existingDeleted || []) as any[]) {
+    const key = a.name as string;
+    if (!deletedByName.has(key)) deletedByName.set(key, []);
+    deletedByName.get(key)!.push(a);
+  }
+
+  // 6. Build template list — WEIGHTS DEPEND ON ca_count
+  //    2 CA → CA1(15) + CA2(15) + Exam(70)
+  //    3 CA → CA1(10) + CA2(10) + CA3(10) + Exam(70)
+  const caMax = caCount >= 3 ? 10 : 15;
+  const caWeight = caMax / 100; // 0.10 or 0.15
+
+  const templateTypes: Array<{
+    name: string;
+    type: string;
+    max_score: number;
+    weight: number;
+  }> = [
+    { name: 'CA1', type: 'test', max_score: caMax, weight: caWeight },
+    { name: 'CA2', type: 'test', max_score: caMax, weight: caWeight },
+  ];
+  if (caCount >= 3) {
+    templateTypes.push({ name: 'CA3', type: 'test', max_score: caMax, weight: caWeight });
+  }
+  templateTypes.push({ name: 'Exam', type: 'exam', max_score: 70, weight: 0.7 });
+
+  // 7. Insert missing assessments (per term × template)
   const toInsert: any[] = [];
   for (const term of terms) {
     for (const template of templateTypes) {
@@ -1211,17 +1259,75 @@ async function ensureClassSubjectAssessments(
     }
   }
 
-  if (toInsert.length === 0) {
-    return; // already fully provisioned
+  if (toInsert.length > 0) {
+    const { error: insertError } = await supabase
+      .from('assessments')
+      .insert(toInsert);
+
+    if (insertError) {
+      console.error('Failed to create class-scoped assessments:', insertError);
+      throw insertError;
+    }
   }
 
-  const { error: insertError } = await supabase
+  // 8. Reconcile max_score for existing rows to match the current mode.
+  //    This ensures that if a school switches modes, all existing CA1/CA2
+  //    (and CA3 when 3-mode) get the correct max_score.
+  //    Only touches rows that are still active.
+  const { error: updateError } = await supabase
     .from('assessments')
-    .insert(toInsert);
+    .update({ max_score: caMax, weight: caWeight })
+    .eq('school_id', schoolId)
+    .eq('class_id', classId)
+    .eq('subject_id', subjectId)
+    .in('name', ['CA1', 'CA2'])
+    .is('is_deleted', false);
 
-  if (insertError) {
-    console.error('Failed to create class-scoped assessments:', insertError);
-    throw insertError;
+  if (updateError) {
+    console.error('Failed to update CA1/CA2 max_score:', updateError);
+  }
+
+  // 9. Transition: CA3 exists but shouldn't (3 → 2)
+  if (caCount === 2) {
+    const { error: softDeleteError } = await supabase
+      .from('assessments')
+      .update({ is_deleted: true, deleted_at: new Date().toISOString() })
+      .eq('school_id', schoolId)
+      .eq('class_id', classId)
+      .eq('subject_id', subjectId)
+      .eq('name', 'CA3')
+      .is('is_deleted', false);
+
+    if (softDeleteError) {
+      console.error('Failed to soft-delete CA3 assessments:', softDeleteError);
+    }
+  }
+
+  // 10. Transition: CA3 was soft-deleted but should exist now (2 → 3)
+  if (caCount === 3) {
+    const softDeletedCA3 = deletedByName.get('CA3') || [];
+    if (softDeletedCA3.length > 0) {
+      const activeTermIds = new Set(terms.map((t: any) => t.id));
+      const idsToRestore = softDeletedCA3
+        .filter((a: any) => activeTermIds.has(a.term_id))
+        .map((a: any) => a.id);
+
+      if (idsToRestore.length > 0) {
+        const { error: restoreError } = await supabase
+          .from('assessments')
+          .update({
+            is_deleted: false,
+            deleted_at: null,
+            max_score: caMax,
+            weight: caWeight,
+          })
+          .in('id', idsToRestore);
+
+        if (restoreError) {
+          console.error('Failed to restore CA3 assessments:', restoreError);
+        }
+      }
+    }
   }
 }
 
@@ -1903,6 +2009,81 @@ export async function ensureAssessmentTemplates(
 }
 
 
+
+// ============ RECONCILE ASSESSMENTS AFTER CA COUNT CHANGE ============
+
+/**
+ * Re-provision assessments across every class+subject pair when the school
+ * changes its CA count (2 ↔ 3).
+ *
+ * For each (class, subject):
+ *   - `ensureClassSubjectAssessments` handles the transition:
+ *       3 → 2: soft-deletes CA3, updates CA1/CA2 max_score to 15
+ *       2 → 3: restores or creates CA3, updates CA1/CA2/CA3 max_score to 10
+ *
+ * Returns a summary the UI can display.
+ */
+export async function reconcileAssessmentsForSchool(
+  supabase: SupabaseClient,
+  schoolId: string,
+  newCaCount: 2 | 3
+): Promise<{
+  classes_processed: number;
+  subjects_processed: number;
+  errors: string[];
+}> {
+  const errors: string[] = [];
+  let classesProcessed = 0;
+  let subjectsProcessed = 0;
+
+  // 1. Load every active class_subject pair for this school
+  const { data: classes, error: classError } = await supabase
+    .from('classes')
+    .select('id')
+    .eq('school_id', schoolId)
+    .is('is_deleted', false);
+
+  if (classError) throw classError;
+
+  const classIds = (classes || []).map((c: any) => c.id);
+  if (classIds.length === 0) {
+    return { classes_processed: 0, subjects_processed: 0, errors };
+  }
+
+  const { data: assignments, error: assignError } = await supabase
+    .from('class_subjects')
+    .select('class_id, subject_id')
+    .in('class_id', classIds);
+
+  if (assignError) throw assignError;
+
+  // 2. Re-run provisioning for each pair
+  for (const assignment of assignments || []) {
+    try {
+      await ensureClassSubjectAssessments(
+        supabase,
+        schoolId,
+        assignment.class_id,
+        assignment.subject_id
+      );
+      subjectsProcessed++;
+    } catch (err: any) {
+      errors.push(
+        `Class ${assignment.class_id} / Subject ${assignment.subject_id}: ${
+          err.message || err
+        }`
+      );
+    }
+  }
+
+  classesProcessed = classIds.length;
+
+  return {
+    classes_processed: classesProcessed,
+    subjects_processed: subjectsProcessed,
+    errors,
+  };
+}
 // ============ STUDENT ENROLLMENT HELPERS ============
 //
 // These keep the `enrollments` table in sync with `students.class_id`.

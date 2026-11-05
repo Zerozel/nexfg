@@ -3,6 +3,7 @@ import { createServerSupabase } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requirePaidAdmin } from "@/lib/score-sheets/subscription-guard";
 import { visionProvider } from "@/lib/ai";
+
 /**
  * POST /api/admin/score-sheets/batches/[id]/extract
  * body: multipart/form-data with field "file"
@@ -10,12 +11,12 @@ import { visionProvider } from "@/lib/ai";
  * Steps:
  *   1. Verify batch is in a re-extractable state (not confirmed)
  *   2. Upload image to Supabase Storage (`score-sheets` bucket)
- *   3. Fetch batch metadata + expected student roster (excluding
- *      soft-deleted / inactive students)
- *   4. Call vision provider to extract scores
- *   5. Match extracted names to roster students
- *   6. Save extractions (raw_* columns)
- *   7. Update batch status to 'uploaded'
+ *   3. Fetch batch metadata + expected student roster
+ *   4. Read school.ca_count to know whether the sheet has CA3
+ *   5. Call vision provider to extract scores
+ *   6. Match extracted names to roster students
+ *   7. Save extractions (raw_* columns)
+ *   8. Update batch status to 'uploaded'
  */
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -61,8 +62,6 @@ export async function POST(
       return NextResponse.json({ error: "Batch not found" }, { status: 404 });
     }
 
-    // Confirmed batches cannot be re-extracted — scores are already saved
-    // and re-extraction would desync the audit trail.
     if (batch.status === "confirmed") {
       return NextResponse.json(
         {
@@ -117,9 +116,6 @@ export async function POST(
     const arrayBuffer = await file.arrayBuffer();
     const storagePath = `${schoolId}/${id}/source.${ext}`;
 
-        // Storage operations bypass RLS via the service-role client. Authorization
-    // is already enforced by requirePaidAdmin() above, and the storage path is
-    // scoped to the caller's schoolId, so cross-tenant writes are impossible.
     const adminStorage = createAdminClient();
 
     const { error: uploadError } = await adminStorage.storage
@@ -142,6 +138,14 @@ export async function POST(
       );
     }
 
+    // ── Read school's ca_count ──
+    const { data: schoolCa } = (await supabase
+      .from("schools")
+      .select("ca_count")
+      .eq("id", schoolId)
+      .maybeSingle()) as unknown as { data: { ca_count: number | null } | null };
+    const caCount = (schoolCa?.ca_count as number) ?? 2;
+
     // ── Load assessment max scores ──
     const { data: assessments } = (await supabase
       .from("assessments")
@@ -153,7 +157,16 @@ export async function POST(
       data: { name: string; max_score: number }[] | null;
     };
 
-    const maxScores = { ca1: 10, ca2: 10, ca3: 10, exam: 70 };
+    // Default max scores depend on ca_count:
+    //   2 CA → CA1(15), CA2(15), Exam(70)
+    //   3 CA → CA1(10), CA2(10), CA3(10), Exam(70)
+    const defaultCaMax = caCount >= 3 ? 10 : 15;
+    const maxScores = {
+      ca1: defaultCaMax,
+      ca2: defaultCaMax,
+      ca3: defaultCaMax,
+      exam: 70,
+    };
     for (const a of assessments || []) {
       const n = a.name.toUpperCase().trim();
       if (n === "CA1") maxScores.ca1 = a.max_score;
@@ -182,6 +195,7 @@ export async function POST(
       subjectName,
       termName,
       maxScores,
+      caCount,
       expectedStudentNames: roster.map((r) => r.name),
     });
 
@@ -195,7 +209,6 @@ export async function POST(
 
     const rosterByNorm = new Map(roster.map((r) => [normalize(r.name), r]));
 
-    // ── Replace prior extractions (re-extract is allowed pre-confirm) ──
     await (supabase as any)
       .from("score_sheet_extractions")
       .delete()
@@ -211,7 +224,7 @@ export async function POST(
         name_on_sheet: s.name_on_sheet,
         raw_ca1: s.ca1,
         raw_ca2: s.ca2,
-        raw_ca3: s.ca3,
+        raw_ca3: caCount >= 3 ? s.ca3 : null,
         raw_exam: s.exam,
         matched: !!matchedStudent,
         is_extra: !matchedStudent && !!s.name_on_sheet,
@@ -225,7 +238,6 @@ export async function POST(
       if (insertError) throw insertError;
     }
 
-    // ── Update batch ──
     await (supabase as any)
       .from("score_sheet_batches")
       .update({

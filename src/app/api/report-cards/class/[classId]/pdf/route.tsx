@@ -1,9 +1,10 @@
+import React from "react";
 import { NextRequest, NextResponse } from "next/server";
-import { renderToBuffer } from "@react-pdf/renderer";
+import { renderToBuffer, Document } from "@react-pdf/renderer";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { fetchCompiledResultsByStudent } from "@/lib/printing/compiled-results";
 import { transformStudentReportData } from "@/lib/printing/data-transform";
-import { ReportCardBatchDocument } from "@/lib/pdf/ReportCardDocument";
+import { getReportCardComponent } from "@/lib/pdf";
 import type { IndividualReportCardData } from "@/types/printing";
 
 export const runtime = "nodejs";
@@ -11,13 +12,6 @@ export const maxDuration = 60;
 
 /**
  * GET /api/report-cards/class/[classId]/pdf?termId=X
- *
- * Renders all report cards for a class + term as a single multi-page PDF.
- *
- * Permissions:
- *   - super_admin: any class
- *   - admin/principal: their school's classes
- *   - teacher: only assigned/owned classes
  */
 export async function GET(
   request: NextRequest,
@@ -45,7 +39,6 @@ export async function GET(
       );
     }
 
-    // ── Load class ──
     const classResult = await supabase
       .from("classes")
       .select("id, name, school_id, teacher_id")
@@ -60,7 +53,6 @@ export async function GET(
     }
     const classInfo: any = classResult.data;
 
-    // ── Permissions ──
     const role = user.app_metadata?.role;
     const userSchoolId = user.app_metadata?.school_id;
 
@@ -93,7 +85,6 @@ export async function GET(
       }
     }
 
-    // ── Load school ──
     const schoolResult = await supabase
       .from("schools")
       .select("*")
@@ -107,7 +98,6 @@ export async function GET(
     }
     const school: any = schoolResult.data;
 
-    // ── Load term ──
     const termResult = await supabase
       .from("terms")
       .select("*, academic_years:academic_year_id(name)")
@@ -124,7 +114,6 @@ export async function GET(
       ? term.academic_years[0]?.name
       : term.academic_years?.name;
 
-    // ── Teacher name ──
     let teacherName: string | null = null;
     if (classInfo.teacher_id) {
       const teacherResult: any = await supabase
@@ -135,7 +124,6 @@ export async function GET(
       teacherName = teacherResult?.data?.full_name || null;
     }
 
-    // ── Enrolled students ──
     const enrollmentsResult = await supabase
       .from("enrollments")
       .select(
@@ -162,6 +150,8 @@ export async function GET(
       principal_name: school.principal_name,
       principal_signature_url: school.principal_signature_url,
       grading_system: school.grading_system || null,
+      ca_count: (school.ca_count as number | null) ?? 2,
+      report_card_template: school.report_card_template || "classic_nigerian",
     };
 
     const classPayload = {
@@ -186,7 +176,6 @@ export async function GET(
       );
     }
 
-    // ── Aggregate compiled results ──
     const studentIds = enrollments.map((e: any) => e.student_id);
     const resultsMap = await fetchCompiledResultsByStudent(supabase, {
       classId,
@@ -194,7 +183,43 @@ export async function GET(
       studentIds,
     });
 
-    // ── Build IndividualReportCardData per student ──
+    // Fetch traits for all students in bulk
+    const [affectiveRes, psychomotorRes] = await Promise.all([
+      supabase
+        .from("student_affective_traits")
+        .select("*")
+        .in("student_id", studentIds)
+        .eq("term_id", termId),
+      supabase
+        .from("student_psychomotor_skills")
+        .select("*")
+        .in("student_id", studentIds)
+        .eq("term_id", termId),
+    ]);
+
+    type TraitRow = {
+      student_id: string;
+      trait: string;
+      rating: string;
+    };
+    type SkillRow = {
+      student_id: string;
+      skill: string;
+      rating: string;
+    };
+
+    const affectiveMap = new Map<string, TraitRow[]>();
+    ((affectiveRes.data as TraitRow[] | null | undefined) || []).forEach((r) => {
+      if (!affectiveMap.has(r.student_id)) affectiveMap.set(r.student_id, []);
+      affectiveMap.get(r.student_id)!.push(r);
+    });
+
+    const psychomotorMap = new Map<string, SkillRow[]>();
+    ((psychomotorRes.data as SkillRow[] | null | undefined) || []).forEach((r) => {
+      if (!psychomotorMap.has(r.student_id)) psychomotorMap.set(r.student_id, []);
+      psychomotorMap.get(r.student_id)!.push(r);
+    });
+
     const reportData: IndividualReportCardData[] = enrollments
       .map((enrollment: any) => {
         const student = Array.isArray(enrollment.students)
@@ -225,22 +250,27 @@ export async function GET(
           issued_date: new Date().toISOString().split("T")[0],
           has_compiled_results: !!result && (result.subjects?.length || 0) > 0,
           attendance: null,
-          affective_traits: null,
-          psychomotor_skills: null,
+          affective_traits: affectiveMap.get(enrollment.student_id) || null,
+          psychomotor_skills: psychomotorMap.get(enrollment.student_id) || null,
         };
 
         return transformStudentReportData(raw);
       })
       .sort((a, b) => a.overall.position - b.overall.position);
 
-    // ── Render PDF ──
+    // Determine which template to use
+    const templateName = schoolPayload.report_card_template;
+
+    // Build the document
     const pdfBuffer = await renderToBuffer(
-      <ReportCardBatchDocument
-        school={schoolPayload}
-        class={classPayload}
-        term={termPayload}
-        students={reportData}
-      />
+      <Document>
+        {reportData.map((data, i) => {
+          const TemplateComponent = getReportCardComponent(templateName, data);
+          // Extract the Page from the Template's Document to make it multi-page
+          const pageElement = (TemplateComponent.props as any).children;
+          return <React.Fragment key={i}>{pageElement}</React.Fragment>;
+        })}
+      </Document>
     );
 
     const pdfBytes = new Uint8Array(pdfBuffer);

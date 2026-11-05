@@ -14,6 +14,7 @@ import {
  * Idempotent and deterministic — same input always produces the same PDF.
  *
  * Student roster excludes soft-deleted / inactive students.
+ * The CA3 column is rendered only when the school's ca_count is 3.
  */
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -43,7 +44,7 @@ export async function GET(
         classes:class_id(name),
         subjects:subject_id(name),
         terms:term_id(name, academic_years:academic_year_id(name)),
-        schools:school_id(name, logo_url),
+        schools:school_id(name, logo_url, ca_count),
         profiles:teacher_id(full_name)
       `
       )
@@ -68,13 +69,15 @@ export async function GET(
       ? batch.profiles[0]
       : batch.profiles;
 
+    const caCount = (school?.ca_count as number) ?? 2;
+
     const academicSession = term?.academic_years
       ? Array.isArray(term.academic_years)
         ? term.academic_years[0]?.name || ""
         : term.academic_years?.name || ""
       : "";
 
-    // ── Load enrolled students (excludes deleted/inactive) ──
+    // ── Load enrolled students ──
     const { data: enrollments } = (await supabase
       .from("enrollments")
       .select(
@@ -114,7 +117,13 @@ export async function GET(
       data: { name: string; max_score: number }[] | null;
     };
 
-    const maxScores = { ca1: 10, ca2: 10, ca3: 10, exam: 70 };
+    const defaultCaMax = caCount >= 3 ? 10 : 15;
+    const maxScores = {
+      ca1: defaultCaMax,
+      ca2: defaultCaMax,
+      ca3: defaultCaMax,
+      exam: 70,
+    };
     for (const a of assessments || []) {
       const n = a.name.toUpperCase().trim();
       if (n === "CA1") maxScores.ca1 = a.max_score;
@@ -133,11 +142,11 @@ export async function GET(
       teacherName: teacher?.full_name || null,
       students: students as ScoreSheetData["students"],
       maxScores,
+      caCount,
       generatedAt: new Date().toISOString(),
       extraBlankRows: 3,
     };
 
-    // ── Render PDF ──
     const pdfBuffer = await renderToBuffer(
       <ScoreSheetDocument data={docData} />
     );

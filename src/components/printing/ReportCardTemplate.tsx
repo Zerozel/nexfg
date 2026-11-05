@@ -37,7 +37,17 @@ export function ReportCardTemplate({ data }: ReportCardTemplateProps) {
     psychomotor_skills,
   } = data;
 
+  // CA count drives whether the CA3 column appears.
+  // Falls back to 2 if the school record doesn't have ca_count yet.
+  const caCount = (school as any).ca_count ?? 2;
+  const hasCA3 = caCount >= 3;
+
+  // showBreakdown means at least one subject has CA/Exam scores.
+  // If true, we render the multi-column CA layout. If the school is on
+  // 2 CAs, the CA3 column is hidden even when breakdown is shown.
   const showBreakdown = hasAssessmentBreakdown(subjects);
+  const caSpan = hasCA3 ? 3 : 2;
+  const totalCols = 6 + caSpan; // Subject + CAs + Exam + Total + Grade + Pos + Remarks
 
   return (
     <div className="report-card-template">
@@ -87,10 +97,10 @@ export function ReportCardTemplate({ data }: ReportCardTemplateProps) {
           <thead>
             {showBreakdown ? (
               <tr>
-                <th rowSpan={2} style={{ width: "24%" }}>
+                <th rowSpan={2} style={{ width: hasCA3 ? "24%" : "28%" }}>
                   Subject
                 </th>
-                <th colSpan={3} style={{ textAlign: "center" }}>
+                <th colSpan={caSpan} style={{ textAlign: "center" }}>
                   Continuous Assessment
                 </th>
                 <th rowSpan={2} style={{ width: "9%" }}>
@@ -105,7 +115,7 @@ export function ReportCardTemplate({ data }: ReportCardTemplateProps) {
                 <th rowSpan={2} style={{ width: "8%" }}>
                   Pos
                 </th>
-                <th rowSpan={2} style={{ width: "18%" }}>
+                <th rowSpan={2} style={{ width: hasCA3 ? "18%" : "22%" }}>
                   Remarks
                 </th>
               </tr>
@@ -122,7 +132,9 @@ export function ReportCardTemplate({ data }: ReportCardTemplateProps) {
               <tr>
                 <th style={{ textAlign: "center", fontSize: "8pt" }}>CA1</th>
                 <th style={{ textAlign: "center", fontSize: "8pt" }}>CA2</th>
-                <th style={{ textAlign: "center", fontSize: "8pt" }}>CA3</th>
+                {hasCA3 && (
+                  <th style={{ textAlign: "center", fontSize: "8pt" }}>CA3</th>
+                )}
               </tr>
             )}
           </thead>
@@ -134,7 +146,11 @@ export function ReportCardTemplate({ data }: ReportCardTemplateProps) {
                     <td className="subject-name">{subject.name}</td>
                     <td className="score">{formatCell(subject.ca1_score)}</td>
                     <td className="score">{formatCell(subject.ca2_score)}</td>
-                    <td className="score">{formatCell(subject.ca3_score)}</td>
+                    {hasCA3 && (
+                      <td className="score">
+                        {formatCell(subject.ca3_score)}
+                      </td>
+                    )}
                     <td className="score">{formatCell(subject.exam_score)}</td>
                     <td className="score">{subject.score.toFixed(1)}</td>
                     <td>
@@ -170,7 +186,7 @@ export function ReportCardTemplate({ data }: ReportCardTemplateProps) {
             ) : (
               <tr>
                 <td
-                  colSpan={showBreakdown ? 9 : 5}
+                  colSpan={showBreakdown ? totalCols : 5}
                   style={{ textAlign: "center", padding: "20px" }}
                 >
                   {has_compiled_results === false

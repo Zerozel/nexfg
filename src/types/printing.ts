@@ -12,6 +12,8 @@ export interface SchoolInfo {
   principal_name: string | null;
   principal_signature_url: string | null;
   grading_system?: GradingSystem | null;
+  /** Number of continuous assessment components (2 or 3). */
+  ca_count?: number | null;
 }
 
 export interface StudentInfo {

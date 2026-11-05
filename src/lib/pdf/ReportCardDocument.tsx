@@ -21,6 +21,9 @@ import type {
  *   - Deterministic layout: all widths explicit, no flex-wrap.
  *   - Signature + date pinned to the bottom of every page regardless of
  *     content length, so short cards don't leave an awkward gap.
+ *
+ * CA count: schools on 2 CAs render CA1 + CA2 + Exam. Schools on 3 CAs
+ * render CA1 + CA2 + CA3 + Exam. Driven by `school.ca_count`.
  */
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -37,43 +40,36 @@ const COLOR = {
   tableHeadBg: "#f3f4f6",
   zebraBg: "#fafafa",
 
-  // Grade bands
-  gradeA: "#15803d", // green
-  gradeB: "#1d4ed8", // blue
-  gradeC: "#b45309", // amber
-  gradeD: "#c2410c", // orange
-  gradeF: "#b91c1c", // red
+  gradeA: "#15803d",
+  gradeB: "#1d4ed8",
+  gradeC: "#b45309",
+  gradeD: "#c2410c",
+  gradeF: "#b91c1c",
 
   white: "#ffffff",
 } as const;
 
 const PAGE = {
-  marginX: 56, // ~20mm
+  marginX: 56,
   marginTop: 48,
   marginBottom: 48,
 } as const;
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Styles
+// Styles (unchanged)
 // ═══════════════════════════════════════════════════════════════════════════
 
 const styles = StyleSheet.create({
   page: {
     paddingTop: PAGE.marginTop,
     paddingHorizontal: PAGE.marginX,
-    // Reserve room for the pinned signature (~90pt) + footer (~20pt).
     paddingBottom: 130,
     fontFamily: "Helvetica",
     fontSize: 9,
     color: COLOR.black,
     backgroundColor: COLOR.white,
   },
-
-  // ── Header ──
-  header: {
-    alignItems: "center",
-    marginBottom: 12,
-  },
+  header: { alignItems: "center", marginBottom: 12 },
   logo: {
     width: 56,
     height: 56,
@@ -100,8 +96,6 @@ const styles = StyleSheet.create({
     color: COLOR.darkGrey,
     textAlign: "center",
   },
-
-  // ── Title bar ──
   titleBar: {
     paddingVertical: 6,
     marginBottom: 12,
@@ -115,8 +109,6 @@ const styles = StyleSheet.create({
     color: COLOR.white,
     textAlign: "center",
   },
-
-  // ── Student identity ──
   identity: {
     flexDirection: "row",
     borderTopWidth: 0.5,
@@ -126,20 +118,10 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     marginBottom: 14,
   },
-  identityColumn: {
-    flex: 1,
-    paddingRight: 8,
-  },
-  identityColumnLast: {
-    flex: 1,
-  },
-  identityRow: {
-    flexDirection: "row",
-    marginBottom: 5,
-  },
-  identityRowLast: {
-    flexDirection: "row",
-  },
+  identityColumn: { flex: 1, paddingRight: 8 },
+  identityColumnLast: { flex: 1 },
+  identityRow: { flexDirection: "row", marginBottom: 5 },
+  identityRowLast: { flexDirection: "row" },
   identityLabel: {
     width: 62,
     fontFamily: "Helvetica-Bold",
@@ -155,11 +137,7 @@ const styles = StyleSheet.create({
     fontFamily: "Helvetica-Bold",
     color: COLOR.black,
   },
-
-  // ── Subject table ──
-  table: {
-    marginBottom: 12,
-  },
+  table: { marginBottom: 12 },
   tableHeaderRow: {
     flexDirection: "row",
     backgroundColor: COLOR.tableHeadBg,
@@ -178,9 +156,7 @@ const styles = StyleSheet.create({
     borderBottomColor: COLOR.ruleGrey,
     minHeight: 18,
   },
-  tableRowZebra: {
-    backgroundColor: COLOR.zebraBg,
-  },
+  tableRowZebra: { backgroundColor: COLOR.zebraBg },
   headerCell: {
     fontFamily: "Helvetica-Bold",
     fontSize: 7,
@@ -207,24 +183,11 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     color: COLOR.black,
   },
-  cellCenter: {
-    textAlign: "center",
-  },
-  cellRight: {
-    textAlign: "right",
-  },
-  cellMuted: {
-    color: COLOR.midGrey,
-  },
-  cellBold: {
-    fontFamily: "Helvetica-Bold",
-  },
-
-  // ── Overall banner ──
-  banner: {
-    flexDirection: "row",
-    marginBottom: 12,
-  },
+  cellCenter: { textAlign: "center" },
+  cellRight: { textAlign: "right" },
+  cellMuted: { color: COLOR.midGrey },
+  cellBold: { fontFamily: "Helvetica-Bold" },
+  banner: { flexDirection: "row", marginBottom: 12 },
   bannerItem: {
     flex: 1,
     paddingLeft: 8,
@@ -250,8 +213,6 @@ const styles = StyleSheet.create({
     fontFamily: "Helvetica-Bold",
     color: COLOR.black,
   },
-
-  // ── Section headers ──
   sectionLabel: {
     fontSize: 7.5,
     fontFamily: "Helvetica-Bold",
@@ -263,40 +224,18 @@ const styles = StyleSheet.create({
     paddingBottom: 3,
     marginBottom: 6,
   },
-
-  // ── Attendance ──
-  attendanceRow: {
-    flexDirection: "row",
-    marginBottom: 12,
-  },
-
-  // ── Traits / Skills ──
-  traitsRow: {
-    flexDirection: "row",
-    marginBottom: 12,
-  },
-  traitsCol: {
-    flex: 1,
-    marginRight: 12,
-  },
-  traitsColLast: {
-    flex: 1,
-  },
+  attendanceRow: { flexDirection: "row", marginBottom: 12 },
+  traitsRow: { flexDirection: "row", marginBottom: 12 },
+  traitsCol: { flex: 1, marginRight: 12 },
+  traitsColLast: { flex: 1 },
   traitRow: {
     flexDirection: "row",
     borderBottomWidth: 0.5,
     borderBottomColor: COLOR.ruleGrey,
     paddingVertical: 3,
   },
-  traitRowLast: {
-    flexDirection: "row",
-    paddingVertical: 3,
-  },
-  traitName: {
-    flex: 2,
-    fontSize: 8,
-    color: COLOR.black,
-  },
+  traitRowLast: { flexDirection: "row", paddingVertical: 3 },
+  traitName: { flex: 2, fontSize: 8, color: COLOR.black },
   traitRating: {
     flex: 1,
     fontSize: 8,
@@ -304,11 +243,7 @@ const styles = StyleSheet.create({
     textAlign: "right",
     color: COLOR.darkGrey,
   },
-
-  // ── Comments ──
-  comment: {
-    marginBottom: 12,
-  },
+  comment: { marginBottom: 12 },
   commentLabel: {
     fontSize: 7.5,
     fontFamily: "Helvetica-Bold",
@@ -325,8 +260,6 @@ const styles = StyleSheet.create({
     lineHeight: 1.4,
     color: COLOR.black,
   },
-
-  // ── Signature block (pinned to bottom of page) ──
   signatureBlock: {
     position: "absolute",
     bottom: 42,
@@ -338,10 +271,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 0.5,
     borderTopColor: COLOR.ruleGrey,
   },
-  signatureItem: {
-    width: "30%",
-    alignItems: "center",
-  },
+  signatureItem: { width: "30%", alignItems: "center" },
   signatureImage: {
     width: 90,
     height: 26,
@@ -369,8 +299,6 @@ const styles = StyleSheet.create({
     color: COLOR.midGrey,
     textAlign: "center",
   },
-
-  // ── Footer (pinned below signature) ──
   footer: {
     position: "absolute",
     bottom: 16,
@@ -435,16 +363,33 @@ function gradeColor(grade: string | null | undefined): string {
 
 export function ReportCardPage({ data }: { data: IndividualReportCardData }) {
   const { school, student, class: classInfo, term, subjects, overall } = data;
+
+  // CA count drives column layout. Defaults to 2 if the school record
+  // doesn't have ca_count set yet.
+  const caCount = (school as any).ca_count ?? 2;
+  const hasCA3 = caCount >= 3;
+
+  // Show breakdown if any subject has CA or Exam scores (this is what
+  // decides between the detailed table and the compact "score only" table).
   const showBreakdown = hasBreakdown(subjects);
+
   const primaryColor = school.primary_color || "#1e40af";
 
   const contactParts = [school.address, school.phone, school.email].filter(
     Boolean
   );
 
+  // Flex weights for CA columns depend on whether CA3 is shown.
+  // 3 CA: 1.2 / 1.2 / 1.2 (three equal CA cells)
+  // 2 CA: 1.2 / 1.2 (two equal CA cells)
+  // The "Continuous Assessment" header spans 2 or 3, so its flex
+  // is caCount * 1.2.
+  const caSpanFlex = (hasCA3 ? 3 : 2) * 1.2;
+  const caCellFlex = 1.2;
+
   return (
     <Page size="A4" style={styles.page}>
-      {/* ══ Header ══ */}
+      {/* Header */}
       <View style={styles.header}>
         {school.logo_url ? (
           <Image src={school.logo_url} style={styles.logo} />
@@ -458,12 +403,12 @@ export function ReportCardPage({ data }: { data: IndividualReportCardData }) {
         ) : null}
       </View>
 
-      {/* ══ Title bar ══ */}
+      {/* Title bar */}
       <View style={[styles.titleBar, { backgroundColor: primaryColor }]}>
         <Text style={styles.titleBarText}>Student Report Card</Text>
       </View>
 
-      {/* ══ Student identity ══ */}
+      {/* Student identity */}
       <View style={styles.identity}>
         <View style={styles.identityColumn}>
           <View style={styles.identityRow}>
@@ -492,14 +437,13 @@ export function ReportCardPage({ data }: { data: IndividualReportCardData }) {
         </View>
       </View>
 
-      {/* ══ Subject table ══ */}
+      {/* Subject table */}
       <View style={styles.table}>
-        {/* Header row */}
         <View style={styles.tableHeaderRow} fixed>
           {showBreakdown ? (
             <>
               <Text style={[styles.headerCellLeft, { flex: 3.4 }]}>Subject</Text>
-              <Text style={[styles.headerCell, { flex: 3.6 }]}>
+              <Text style={[styles.headerCell, { flex: caSpanFlex }]}>
                 Continuous Assessment
               </Text>
               <Text style={[styles.headerCell, { flex: 1.2 }]}>Exam</Text>
@@ -519,13 +463,15 @@ export function ReportCardPage({ data }: { data: IndividualReportCardData }) {
           )}
         </View>
 
-        {/* Sub-header row for CA1/CA2/CA3 */}
+        {/* Sub-header row: CA1, CA2, [CA3] */}
         {showBreakdown && (
           <View style={styles.tableSubHeaderRow}>
             <Text style={[styles.headerCell, { flex: 3.4 }]} />
-            <Text style={[styles.headerCell, { flex: 1.2 }]}>CA1</Text>
-            <Text style={[styles.headerCell, { flex: 1.2 }]}>CA2</Text>
-            <Text style={[styles.headerCell, { flex: 1.2 }]}>CA3</Text>
+            <Text style={[styles.headerCell, { flex: caCellFlex }]}>CA1</Text>
+            <Text style={[styles.headerCell, { flex: caCellFlex }]}>CA2</Text>
+            {hasCA3 && (
+              <Text style={[styles.headerCell, { flex: caCellFlex }]}>CA3</Text>
+            )}
             <Text style={[styles.headerCell, { flex: 1.2 }]} />
             <Text style={[styles.headerCell, { flex: 1.2 }]} />
             <Text style={[styles.headerCell, { flex: 1.1 }]} />
@@ -551,20 +497,26 @@ export function ReportCardPage({ data }: { data: IndividualReportCardData }) {
                     {subject.name}
                   </Text>
                   <Text
-                    style={[styles.cell, styles.cellCenter, { flex: 1.2 }]}
+                    style={[styles.cell, styles.cellCenter, { flex: caCellFlex }]}
                   >
                     {formatCell(subject.ca1_score)}
                   </Text>
                   <Text
-                    style={[styles.cell, styles.cellCenter, { flex: 1.2 }]}
+                    style={[styles.cell, styles.cellCenter, { flex: caCellFlex }]}
                   >
                     {formatCell(subject.ca2_score)}
                   </Text>
-                  <Text
-                    style={[styles.cell, styles.cellCenter, { flex: 1.2 }]}
-                  >
-                    {formatCell(subject.ca3_score)}
-                  </Text>
+                  {hasCA3 && (
+                    <Text
+                      style={[
+                        styles.cell,
+                        styles.cellCenter,
+                        { flex: caCellFlex },
+                      ]}
+                    >
+                      {formatCell(subject.ca3_score)}
+                    </Text>
+                  )}
                   <Text
                     style={[styles.cell, styles.cellCenter, { flex: 1.2 }]}
                   >
@@ -673,13 +625,10 @@ export function ReportCardPage({ data }: { data: IndividualReportCardData }) {
         )}
       </View>
 
-      {/* ══ Overall banner ══ */}
+      {/* Overall banner */}
       <View style={styles.banner}>
         <View
-          style={[
-            styles.bannerItem,
-            { borderLeftColor: primaryColor },
-          ]}
+          style={[styles.bannerItem, { borderLeftColor: primaryColor }]}
         >
           <Text style={styles.bannerLabel}>Overall Average</Text>
           <Text style={styles.bannerValue}>{overall.average.toFixed(1)}%</Text>
@@ -694,10 +643,7 @@ export function ReportCardPage({ data }: { data: IndividualReportCardData }) {
           <Text style={styles.bannerValue}>{overall.grade || "—"}</Text>
         </View>
         <View
-          style={[
-            styles.bannerItemLast,
-            { borderLeftColor: primaryColor },
-          ]}
+          style={[styles.bannerItemLast, { borderLeftColor: primaryColor }]}
         >
           <Text style={styles.bannerLabel}>Position</Text>
           <Text style={styles.bannerValue}>
@@ -706,16 +652,13 @@ export function ReportCardPage({ data }: { data: IndividualReportCardData }) {
         </View>
       </View>
 
-      {/* ══ Attendance ══ */}
+      {/* Attendance */}
       {data.attendance && (
         <View wrap={false} style={{ marginBottom: 12 }}>
           <Text style={styles.sectionLabel}>Attendance Record</Text>
           <View style={styles.attendanceRow}>
             <View
-              style={[
-                styles.bannerItem,
-                { borderLeftColor: primaryColor },
-              ]}
+              style={[styles.bannerItem, { borderLeftColor: primaryColor }]}
             >
               <Text style={styles.bannerLabel}>School Days</Text>
               <Text style={styles.bannerValue}>
@@ -723,19 +666,13 @@ export function ReportCardPage({ data }: { data: IndividualReportCardData }) {
               </Text>
             </View>
             <View
-              style={[
-                styles.bannerItem,
-                { borderLeftColor: primaryColor },
-              ]}
+              style={[styles.bannerItem, { borderLeftColor: primaryColor }]}
             >
               <Text style={styles.bannerLabel}>Present</Text>
               <Text style={styles.bannerValue}>{data.attendance.present}</Text>
             </View>
             <View
-              style={[
-                styles.bannerItemLast,
-                { borderLeftColor: primaryColor },
-              ]}
+              style={[styles.bannerItemLast, { borderLeftColor: primaryColor }]}
             >
               <Text style={styles.bannerLabel}>Absent</Text>
               <Text style={styles.bannerValue}>{data.attendance.absent}</Text>
@@ -744,8 +681,8 @@ export function ReportCardPage({ data }: { data: IndividualReportCardData }) {
         </View>
       )}
 
-      {/* ══ Affective Traits / Psychomotor Skills ══ */}
-      {(data.affective_traits?.length || data.psychomotor_skills?.length) ? (
+      {/* Affective Traits / Psychomotor Skills */}
+      {data.affective_traits?.length || data.psychomotor_skills?.length ? (
         <View style={styles.traitsRow} wrap={false}>
           {data.affective_traits && data.affective_traits.length > 0 && (
             <View
@@ -792,7 +729,7 @@ export function ReportCardPage({ data }: { data: IndividualReportCardData }) {
         </View>
       ) : null}
 
-      {/* ══ Comments ══ */}
+      {/* Comments */}
       {data.teacher_comment && (
         <View style={styles.comment} wrap={false}>
           <Text style={styles.commentLabel}>Class Teacher&apos;s Comment</Text>
@@ -806,7 +743,7 @@ export function ReportCardPage({ data }: { data: IndividualReportCardData }) {
         </View>
       )}
 
-      {/* ══ Signature block — pinned to bottom of page ══ */}
+      {/* Signature block */}
       <View style={styles.signatureBlock}>
         {classInfo.teacher_name && (
           <View style={styles.signatureItem}>
@@ -837,7 +774,7 @@ export function ReportCardPage({ data }: { data: IndividualReportCardData }) {
         )}
       </View>
 
-      {/* ══ Footer — pinned to bottom edge ══ */}
+      {/* Footer */}
       <View style={styles.footer} fixed>
         <Text>Issued {formatDate(data.issued_date)}</Text>
         <Text>Powered by NexaForges</Text>

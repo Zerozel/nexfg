@@ -8,10 +8,9 @@ import { requirePaidAdmin } from "@/lib/score-sheets/subscription-guard";
  * Returns the roster of enrolled students for the class + term, along with:
  *   - the subject teacher's name (pre-fill on the print sheet)
  *   - the assessment max scores for the class + subject + term
+ *   - the school's ca_count (2 or 3)
  *
  * Excludes soft-deleted enrollments and soft-deleted / inactive students.
- *
- * Used by the print/PDF endpoint and the batch creator preview.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -71,6 +70,16 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Term not found" }, { status: 404 });
     }
 
+    // ── Read school's ca_count ──
+    const { data: schoolCa } = (await supabase
+      .from("schools")
+      .select("ca_count")
+      .eq("id", schoolId)
+      .maybeSingle()) as unknown as {
+      data: { ca_count: number | null } | null;
+    };
+    const caCount = (schoolCa?.ca_count as number) ?? 2;
+
     // ── Load roster (excludes deleted/inactive students) ──
     const { data: enrollments, error } = (await supabase
       .from("enrollments")
@@ -128,7 +137,16 @@ export async function GET(request: NextRequest) {
       data: { name: string; max_score: number }[] | null;
     };
 
-    const maxScores = { ca1: 10, ca2: 10, ca3: 10, exam: 70 };
+    // Default max scores depend on ca_count:
+    //   2 CA → CA1(15), CA2(15), Exam(70)
+    //   3 CA → CA1(10), CA2(10), CA3(10), Exam(70)
+    const defaultCaMax = caCount >= 3 ? 10 : 15;
+    const maxScores = {
+      ca1: defaultCaMax,
+      ca2: defaultCaMax,
+      ca3: defaultCaMax,
+      exam: 70,
+    };
     for (const a of assessments || []) {
       const n = a.name.toUpperCase().trim();
       if (n === "CA1") maxScores.ca1 = a.max_score;
@@ -139,7 +157,12 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      data: { students, teacher_name: teacherName, max_scores: maxScores },
+      data: {
+        students,
+        teacher_name: teacherName,
+        max_scores: maxScores,
+        ca_count: caCount,
+      },
     });
   } catch (error: any) {
     console.error("GET /api/admin/score-sheets/enrolled-students error:", error);

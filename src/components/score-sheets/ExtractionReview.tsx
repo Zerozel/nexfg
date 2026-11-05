@@ -35,6 +35,8 @@ interface Props {
   imageUrl: string | null;
   onSaved: () => void;
   readOnly?: boolean;
+  /** 2 or 3 — controls whether the CA3 column is rendered. */
+  caCount?: number;
 }
 
 interface EditableRow {
@@ -57,10 +59,13 @@ export function ExtractionReview({
   imageUrl,
   onSaved,
   readOnly = false,
+  caCount = 2,
 }: Props) {
   const { toast } = useToast();
   const [rows, setRows] = useState<EditableRow[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+
+  const hasCA3 = caCount >= 3;
 
   useEffect(() => {
     setRows(
@@ -123,7 +128,7 @@ export function ExtractionReview({
             student_id: r.student_id,
             ca1: r.ca1,
             ca2: r.ca2,
-            ca3: r.ca3,
+            ca3: hasCA3 ? r.ca3 : null,
             exam: r.exam,
           }))
       );
@@ -152,6 +157,9 @@ export function ExtractionReview({
       setIsSaving(false);
     }
   };
+
+  // Total columns: Row, Student, CA1, CA2, [CA3], Exam, [Remove]
+  const totalColumns = 5 + (hasCA3 ? 1 : 0) + (readOnly ? 0 : 1);
 
   return (
     <div className="space-y-4">
@@ -206,7 +214,9 @@ export function ExtractionReview({
                 <th className="p-2 text-left w-[160px]">Student</th>
                 <th className="p-2 text-center w-20">CA1</th>
                 <th className="p-2 text-center w-20">CA2</th>
-                <th className="p-2 text-center w-20">CA3</th>
+                {hasCA3 && (
+                  <th className="p-2 text-center w-20">CA3</th>
+                )}
                 <th className="p-2 text-center w-20">Exam</th>
                 {!readOnly && <th className="p-2 w-10" />}
               </tr>
@@ -226,7 +236,7 @@ export function ExtractionReview({
                     >
                       <td
                         className="p-2 text-gray-400 line-through"
-                        colSpan={readOnly ? 6 : 7}
+                        colSpan={totalColumns}
                       >
                         Removed: {row.name_on_sheet || "unnamed row"}
                         {!readOnly && (
@@ -336,18 +346,20 @@ export function ExtractionReview({
                         }
                       />
                     </td>
-                    <td className="p-1">
-                      <Input
-                        type="number"
-                        inputMode="numeric"
-                        className="h-9 w-full text-sm text-center px-1"
-                        value={row.ca3 ?? ""}
-                        disabled={readOnly}
-                        onChange={(e) =>
-                          updateRow(idx, { ca3: parseNum(e.target.value) })
-                        }
-                      />
-                    </td>
+                    {hasCA3 && (
+                      <td className="p-1">
+                        <Input
+                          type="number"
+                          inputMode="numeric"
+                          className="h-9 w-full text-sm text-center px-1"
+                          value={row.ca3 ?? ""}
+                          disabled={readOnly}
+                          onChange={(e) =>
+                            updateRow(idx, { ca3: parseNum(e.target.value) })
+                          }
+                        />
+                      </td>
+                    )}
                     <td className="p-1">
                       <Input
                         type="number"

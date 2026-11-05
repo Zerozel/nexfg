@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { useSchoolSettings } from '@/hooks/useSchoolSettings';
 import { SchoolProfileForm } from '@/components/admin/school-settings/SchoolProfileForm';
 import { BrandingForm } from '@/components/admin/school-settings/BrandingForm';
+import { AssessmentStructureForm } from '@/components/admin/school-settings/AssessmentStructureForm';
 import { WebsiteContentForm } from '@/components/admin/school-settings/WebsiteContentForm';
 import { SocialLinksForm } from '@/components/admin/school-settings/SocialLinksForm';
 import { SignatureUpload } from '@/components/admin/school-settings/SignatureUpload';
@@ -204,6 +205,8 @@ export default function SchoolSettingsPage() {
     );
   }
 
+  const currentCaCount = (data as any)?.ca_count ?? 2;
+
   return (
     <div className="space-y-6">
       <div>
@@ -295,6 +298,12 @@ export default function SchoolSettingsPage() {
               Branding
             </TabsTrigger>
             <TabsTrigger
+              value="assessments"
+              className="flex-shrink-0 rounded-none border-b-2 border-transparent data-[active]:border-primary data-[active]:text-foreground px-4 py-3 text-sm font-medium whitespace-nowrap"
+            >
+              Assessments
+            </TabsTrigger>
+            <TabsTrigger
               value="documents"
               className="flex-shrink-0 rounded-none border-b-2 border-transparent data-[active]:border-primary data-[active]:text-foreground px-4 py-3 text-sm font-medium whitespace-nowrap"
             >
@@ -359,6 +368,13 @@ export default function SchoolSettingsPage() {
               />
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="assessments" className="mt-6">
+          <AssessmentStructureForm
+            currentCaCount={currentCaCount}
+            onUpdated={refetch}
+          />
         </TabsContent>
 
         <TabsContent value="documents" className="mt-6">
