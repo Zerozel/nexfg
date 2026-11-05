@@ -9,7 +9,6 @@ import {
 } from "@react-pdf/renderer";
 import type { IndividualReportCardData } from "@/types/printing";
 
-// Define the schema for the trait ratings as stored in DB
 type RatingValue = "Excellent" | "Good" | "Fair" | "Poor" | null;
 
 const getRatingValue = (
@@ -310,16 +309,26 @@ export function ClassicNigerianDocument({
 }: {
   data: IndividualReportCardData;
 }) {
-  const { school, student, class: classInfo, term, subjects, overall } = data;
-  const primaryColor = school.primary_color || "#000";
+  // ── DEFENSIVE DEFAULTS (Prevents the PDF from crashing on missing data) ──
+  const safeSchool = data?.school || ({} as any);
+  const safeStudent = data?.student || ({} as any);
+  const safeClass = data?.class || ({} as any);
+  const safeTerm = data?.term || ({} as any);
+  const safeSubjects = Array.isArray(data?.subjects) ? data.subjects : [];
+  const safeOverall = data?.overall || ({} as any);
+  
+  const primaryColor = safeSchool.primary_color || "#000";
+  const safeAverage = typeof safeOverall.average === "number" ? safeOverall.average : 0;
+  const safePosition = typeof safeOverall.position === "number" ? safeOverall.position : 0;
+  const safeTotalStudents = typeof safeOverall.total_students === "number" ? safeOverall.total_students : 0;
 
   // Split subjects into two columns for compactness
-  const midPoint = Math.ceil(subjects.length / 2);
-  const leftSubjects = subjects.slice(0, midPoint);
-  const rightSubjects = subjects.slice(midPoint);
+  const midPoint = Math.ceil(safeSubjects.length / 2);
+  const leftSubjects = safeSubjects.slice(0, midPoint);
+  const rightSubjects = safeSubjects.slice(midPoint);
 
-  const totalScore = subjects.reduce((sum, s) => sum + s.score, 0);
-  const totalMaxScore = subjects.length * 100;
+  const totalScore = safeSubjects.reduce((sum, s) => sum + (s.score || 0), 0);
+  const totalMaxScore = safeSubjects.length * 100;
   const percentage =
     totalMaxScore > 0 ? ((totalScore / totalMaxScore) * 100).toFixed(1) : "0.0";
 
@@ -338,12 +347,16 @@ export function ClassicNigerianDocument({
         return (
           <View style={styles.tableRow} key={subj.id || idx}>
             <Text style={[styles.tableCell, styles.tableCellSubject]}>
-              {subj.name}
+              {subj.name || "Unknown"}
             </Text>
             <Text style={styles.tableCell}>{caTotal}</Text>
             <Text style={styles.tableCell}>{subj.exam_score || 0}</Text>
-            <Text style={[styles.tableCell, styles.bold]}>{subj.score}</Text>
-            <Text style={[styles.tableCell, styles.bold]}>{subj.grade}</Text>
+            <Text style={[styles.tableCell, styles.bold]}>
+              {subj.score || 0}
+            </Text>
+            <Text style={[styles.tableCell, styles.bold]}>
+              {subj.grade || "-"}
+            </Text>
           </View>
         );
       })}
@@ -355,16 +368,16 @@ export function ClassicNigerianDocument({
       <Page size="A4" style={styles.page}>
         {/* ── Header ── */}
         <View style={styles.headerContainer}>
-          {school.logo_url && (
-            <Image src={school.logo_url} style={styles.schoolLogo} />
+          {safeSchool.logo_url && (
+            <Image src={safeSchool.logo_url} style={styles.schoolLogo} />
           )}
-          <Text style={styles.schoolName}>{school.name}</Text>
-          {school.address && (
-            <Text style={styles.schoolAddress}>{school.address}</Text>
+          <Text style={styles.schoolName}>{safeSchool.name || "School Name"}</Text>
+          {safeSchool.address && (
+            <Text style={styles.schoolAddress}>{safeSchool.address}</Text>
           )}
-          {(school.phone || school.email) && (
+          {(safeSchool.phone || safeSchool.email) && (
             <Text style={styles.schoolAddress}>
-              {[school.phone, school.email].filter(Boolean).join(" | ")}
+              {[safeSchool.phone, safeSchool.email].filter(Boolean).join(" | ")}
             </Text>
           )}
         </View>
@@ -379,31 +392,31 @@ export function ClassicNigerianDocument({
           <View style={styles.identityRow}>
             <Text style={styles.identityText}>
               <Text style={styles.bold}>Name: </Text>
-              {student.full_name}
+              {safeStudent.full_name || "Unknown Student"}
             </Text>
             <Text style={styles.identityText}>
               <Text style={styles.bold}>Admission No: </Text>
-              {student.admission_number || "N/A"}
+              {safeStudent.admission_number || "N/A"}
             </Text>
           </View>
           <View style={styles.identityRow}>
             <Text style={styles.identityText}>
               <Text style={styles.bold}>Class: </Text>
-              {classInfo.name}
+              {safeClass.name || "N/A"}
             </Text>
             <Text style={styles.identityText}>
               <Text style={styles.bold}>Term: </Text>
-              {term.name}
+              {safeTerm.name || "N/A"}
             </Text>
           </View>
           <View style={styles.identityRow}>
             <Text style={styles.identityText}>
               <Text style={styles.bold}>Session: </Text>
-              {term.academic_session}
+              {safeTerm.academic_session || "N/A"}
             </Text>
             <Text style={styles.identityText}>
               <Text style={styles.bold}>Date Issued: </Text>
-              {data.issued_date}
+              {data.issued_date || "N/A"}
             </Text>
           </View>
         </View>
@@ -424,12 +437,12 @@ export function ClassicNigerianDocument({
           </View>
           <View style={styles.bannerCell}>
             <Text style={styles.bannerLabel}>Average</Text>
-            <Text style={styles.bannerValue}>{overall.average.toFixed(1)}%</Text>
+            <Text style={styles.bannerValue}>{safeAverage.toFixed(1)}%</Text>
           </View>
           <View style={styles.bannerCell}>
             <Text style={styles.bannerLabel}>Position</Text>
             <Text style={styles.bannerValue}>
-              {overall.position} of {overall.total_students}
+              {safePosition} of {safeTotalStudents}
             </Text>
           </View>
         </View>
@@ -504,9 +517,9 @@ export function ClassicNigerianDocument({
             <Text style={styles.signatureLabel}>Class Teacher</Text>
           </View>
           <View style={styles.signatureBlock}>
-            {school.principal_signature_url ? (
+            {safeSchool.principal_signature_url ? (
               <Image
-                src={school.principal_signature_url}
+                src={safeSchool.principal_signature_url}
                 style={styles.signatureImage}
               />
             ) : (
@@ -514,7 +527,7 @@ export function ClassicNigerianDocument({
             )}
             <View style={styles.signatureLine} />
             <Text style={styles.signatureLabel}>
-              {school.principal_name || "Principal"}
+              {safeSchool.principal_name || "Principal"}
             </Text>
           </View>
         </View>
