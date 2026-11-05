@@ -1,7 +1,9 @@
+// src/components/admin/forms/StudentForm.tsx
 'use client';
 
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { MaskedDateInput } from '@/components/ui/MaskedDateInput'; // IMPORT HERE
 import {
   Select,
   SelectContent,
@@ -9,7 +11,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Student } from '@/types/admin';
 
 interface StudentFormProps {
   data?: Record<string, any>;
@@ -18,6 +19,21 @@ interface StudentFormProps {
 }
 
 export function StudentForm({ data = {}, onChange, classes = [] }: StudentFormProps) {
+  // Helper to calculate age on the fly for display
+  const calculateAge = (dob: string) => {
+    if (!dob) return null;
+    const birthDate = new Date(dob);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const m = today.getMonth() - birthDate.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age >= 0 ? age : null;
+  };
+
+  const age = calculateAge(data.date_of_birth);
+
   return (
     <div className="space-y-4">
       <div className="space-y-2">
@@ -30,7 +46,6 @@ export function StudentForm({ data = {}, onChange, classes = [] }: StudentFormPr
         />
       </div>
 
-      {/* Admission number is generated server-side on save. Never editable. */}
       <div className="space-y-2">
         <Label>Admission Number</Label>
         <div className="px-3 py-2 text-sm text-gray-500 bg-gray-50 border rounded-md">
@@ -40,13 +55,17 @@ export function StudentForm({ data = {}, onChange, classes = [] }: StudentFormPr
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="date_of_birth">Date of Birth</Label>
-          <Input
+          <Label htmlFor="date_of_birth">
+            Date of Birth {age !== null && <span className="text-green-600 font-medium">({age} yrs)</span>}
+          </Label>
+          
+          {/* REPLACED NATIVE DATE INPUT WITH MASKED INPUT */}
+          <MaskedDateInput
             id="date_of_birth"
-            type="date"
             value={data.date_of_birth || ''}
-            onChange={(e) => onChange('date_of_birth', e.target.value)}
+            onChange={(isoDate) => onChange('date_of_birth', isoDate)}
           />
+          
         </div>
         <div className="space-y-2">
           <Label htmlFor="gender">Gender</Label>
