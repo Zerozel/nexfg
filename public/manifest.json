@@ -2,7 +2,7 @@
   "name": "NexaForge — School Management",
   "short_name": "NexaForge",
   "description": "The operating system for modern African schools. Manage students, teachers, scores, and report cards from one place.",
-  "start_url": "/dashboard",
+  "start_url": "/login",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",

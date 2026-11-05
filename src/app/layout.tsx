@@ -24,6 +24,8 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 5,
   themeColor: "#15803d",
+  // FIX: Ensures the PWA extends into the notch/safe areas on iOS
+  viewportFit: "cover", 
 };
 
 export default function RootLayout({
