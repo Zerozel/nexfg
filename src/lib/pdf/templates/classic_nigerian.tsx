@@ -2,7 +2,7 @@
 import React from "react";
 import { Document, Page, Text, View, Image } from "@react-pdf/renderer";
 import type { IndividualReportCardData } from "@/types/printing";
-import { styles, COLOR } from "./report-card-styles";
+import { styles, COLOR, PAGE } from "./report-card-styles";
 
 type RatingValue = "Excellent" | "Good" | "Fair" | "Poor" | null;
 
@@ -161,6 +161,7 @@ export function ClassicNigerianPage({ data }: { data: IndividualReportCardData }
 
   return (
     <Page size="A4" style={styles.page}>
+      {/* ── TOP: HEADER ── */}
       <View style={styles.header}>
         {safeSchool.logo_url ? (
           <Image src={safeSchool.logo_url} style={styles.logo} />
@@ -173,10 +174,12 @@ export function ClassicNigerianPage({ data }: { data: IndividualReportCardData }
         ) : null}
       </View>
 
+      {/* ── TOP: TITLE BAR ── */}
       <View style={[styles.titleBar, { backgroundColor: primaryColor }]}>
         <Text style={styles.titleText}>Student Report Card</Text>
       </View>
 
+      {/* ── TOP: IDENTITY ── */}
       <View style={styles.identityBlock}>
         <View style={styles.identityColumn}>
           <View style={styles.identityRow}>
@@ -209,6 +212,7 @@ export function ClassicNigerianPage({ data }: { data: IndividualReportCardData }
         </View>
       </View>
 
+      {/* ── TOP: SUBJECT TABLE ── */}
       <View style={styles.tableBlock}>
         <View style={styles.tableHeaderRow}>
           <Text style={[styles.tableCellHeaderLeft, styles.colSubject]}>
@@ -244,6 +248,7 @@ export function ClassicNigerianPage({ data }: { data: IndividualReportCardData }
         )}
       </View>
 
+      {/* ── TOP: OVERALL BANNER ── */}
       <View style={styles.bannerRow}>
         <View style={[styles.bannerCell, { borderLeftColor: primaryColor }]}>
           <Text style={styles.bannerLabel}>Total Obtained</Text>
@@ -263,87 +268,91 @@ export function ClassicNigerianPage({ data }: { data: IndividualReportCardData }
         </View>
       </View>
 
-      <View style={styles.traitsRow}>
-        <View style={styles.traitsColumn}>
-          <Text style={styles.sectionTitle}>Affective Traits</Text>
-          <View style={styles.legendRow}>
-            <Text style={styles.legendItem}>E = Excellent</Text>
-            <Text style={styles.legendItem}>G = Good</Text>
-            <Text style={styles.legendItem}>F = Fair</Text>
-            <Text style={styles.legendItem}>P = Poor</Text>
-          </View>
-          {AFFECTIVE_TRAITS.map((trait) => (
-            <CheckboxGroup
-              key={trait}
-              label={trait}
-              value={getRatingValue(data.affective_traits, trait, "trait")}
-            />
-          ))}
-        </View>
-
-        <View style={styles.traitsColumnLast}>
-          <Text style={styles.sectionTitle}>Psychomotor Skills</Text>
-          <View style={styles.legendRow}>
-            <Text style={styles.legendItem}>E = Excellent</Text>
-            <Text style={styles.legendItem}>G = Good</Text>
-            <Text style={styles.legendItem}>F = Fair</Text>
-            <Text style={styles.legendItem}>P = Poor</Text>
-          </View>
-          {PSYCHOMOTOR_SKILLS.map((skill) => (
-            <CheckboxGroup
-              key={skill}
-              label={skill}
-              value={getRatingValue(data.psychomotor_skills, skill, "skill")}
-            />
-          ))}
-        </View>
-      </View>
-
-      <View style={styles.remarksBlock}>
-        <View style={styles.remarkRow}>
-          <Text style={styles.remarkLabel}>Teacher's Remark</Text>
-          <Text style={styles.remarkLine}>{data.teacher_comment || " "}</Text>
-        </View>
-        <View style={styles.remarkRow}>
-          <Text style={styles.remarkLabel}>Principal's Remark</Text>
-          <Text style={styles.remarkLine}>{data.principal_comment || " "}</Text>
-        </View>
-
-        <View style={styles.signatureRow}>
-          <View style={styles.signatureBlock}>
-            <View style={styles.signatureLine} />
-            <Text style={styles.signatureName}>
-              {safeClass.teacher_name || " "}
-            </Text>
-            <Text style={styles.signatureTitle}>Class Teacher</Text>
-          </View>
-
-          <View style={styles.signatureBlock}>
-            <View style={styles.signatureLine} />
-            <Text style={styles.signatureName}>
-              {formatDate(data.issued_date || new Date().toISOString())}
-            </Text>
-            <Text style={styles.signatureTitle}>Date</Text>
-          </View>
-
-          <View style={styles.signatureBlock}>
-            {safeSchool.principal_signature_url ? (
-              <Image
-                src={safeSchool.principal_signature_url}
-                style={styles.signatureImage}
+      {/* ── BOTTOM: AFFECTIVE + PSYCHOMOTOR + REMARKS + SIGNATURES (PINNED) ── */}
+      <View style={styles.bottomBlock}>
+        <View style={styles.traitsRow}>
+          <View style={styles.traitsColumn}>
+            <Text style={styles.sectionTitle}>Affective Traits</Text>
+            <View style={styles.legendRow}>
+              <Text style={styles.legendItem}>E = Excellent</Text>
+              <Text style={styles.legendItem}>G = Good</Text>
+              <Text style={styles.legendItem}>F = Fair</Text>
+              <Text style={styles.legendItem}>P = Poor</Text>
+            </View>
+            {AFFECTIVE_TRAITS.map((trait) => (
+              <CheckboxGroup
+                key={trait}
+                label={trait}
+                value={getRatingValue(data.affective_traits, trait, "trait")}
               />
-            ) : (
-              <View style={{ height: 22 }} />
-            )}
-            <View style={styles.signatureLine} />
-            <Text style={styles.signatureName}>
-              {safeSchool.principal_name || "Principal"}
-            </Text>
-            <Text style={styles.signatureTitle}>Principal</Text>
+            ))}
+          </View>
+
+          <View style={styles.traitsColumnLast}>
+            <Text style={styles.sectionTitle}>Psychomotor Skills</Text>
+            <View style={styles.legendRow}>
+              <Text style={styles.legendItem}>E = Excellent</Text>
+              <Text style={styles.legendItem}>G = Good</Text>
+              <Text style={styles.legendItem}>F = Fair</Text>
+              <Text style={styles.legendItem}>P = Poor</Text>
+            </View>
+            {PSYCHOMOTOR_SKILLS.map((skill) => (
+              <CheckboxGroup
+                key={skill}
+                label={skill}
+                value={getRatingValue(data.psychomotor_skills, skill, "skill")}
+              />
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.remarksBlock}>
+          <View style={styles.remarkRow}>
+            <Text style={styles.remarkLabel}>Teacher's Remark</Text>
+            <Text style={styles.remarkLine}>{data.teacher_comment || " "}</Text>
+          </View>
+          <View style={styles.remarkRow}>
+            <Text style={styles.remarkLabel}>Principal's Remark</Text>
+            <Text style={styles.remarkLine}>{data.principal_comment || " "}</Text>
+          </View>
+
+          <View style={styles.signatureRow}>
+            <View style={styles.signatureBlock}>
+              <View style={styles.signatureLine} />
+              <Text style={styles.signatureName}>
+                {safeClass.teacher_name || " "}
+              </Text>
+              <Text style={styles.signatureTitle}>Class Teacher</Text>
+            </View>
+
+            <View style={styles.signatureBlock}>
+              <View style={styles.signatureLine} />
+              <Text style={styles.signatureName}>
+                {formatDate(data.issued_date || new Date().toISOString())}
+              </Text>
+              <Text style={styles.signatureTitle}>Date</Text>
+            </View>
+
+            <View style={styles.signatureBlock}>
+              {safeSchool.principal_signature_url ? (
+                <Image
+                  src={safeSchool.principal_signature_url}
+                  style={styles.signatureImage}
+                />
+              ) : (
+                <View style={{ height: 22 }} />
+              )}
+              <View style={styles.signatureLine} />
+              <Text style={styles.signatureName}>
+                {safeSchool.principal_name || "Principal"}
+              </Text>
+              <Text style={styles.signatureTitle}>Principal</Text>
+            </View>
           </View>
         </View>
       </View>
 
+      {/* ── FOOTER (absolute) ── */}
       <View style={styles.footer} fixed>
         <Text>
           Issued {formatDate(data.issued_date || new Date().toISOString())}
