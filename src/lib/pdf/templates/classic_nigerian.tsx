@@ -1,23 +1,11 @@
 // src/lib/pdf/templates/classic_nigerian.tsx
 import React from "react";
-import {
-  Document,
-  Page,
-  Text,
-  View,
-  Image,
-} from "@react-pdf/renderer";
+import { Document, Page, Text, View, Image } from "@react-pdf/renderer";
 import type { IndividualReportCardData } from "@/types/printing";
 import { styles, COLOR } from "./report-card-styles";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// TYPES
-// ─────────────────────────────────────────────────────────────────────────────
 type RatingValue = "Excellent" | "Good" | "Fair" | "Poor" | null;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CONSTANTS
-// ─────────────────────────────────────────────────────────────────────────────
 const AFFECTIVE_TRAITS = [
   "Punctuality",
   "Obedience",
@@ -46,14 +34,6 @@ const RATING_OPTIONS: Array<{ key: Exclude<RatingValue, null>; label: string }> 
   { key: "Poor", label: "P" },
 ];
 
-// The report card is calibrated for a maximum of 16 subject rows.
-// If a student has fewer, we pad with empty rows (score 0) so the layout
-// remains identical across the class. If a student has more, we print all.
-const SUBJECT_ROW_COUNT = 16;
-
-// ─────────────────────────────────────────────────────────────────────────────
-// HELPERS
-// ─────────────────────────────────────────────────────────────────────────────
 function getRatingValue(
   traits: any[] | null | undefined,
   targetName: string,
@@ -71,17 +51,6 @@ function getRatingValue(
   if (val === "fair" || val === "c") return "Fair";
   if (val === "poor" || val === "d" || val === "f") return "Poor";
   return null;
-}
-
-function gradeColor(grade: string | null | undefined): string {
-  if (!grade) return COLOR.darkGrey;
-  const g = grade.trim().toUpperCase();
-  if (/^A/.test(g)) return COLOR.gradeA;
-  if (/^B/.test(g)) return COLOR.gradeB;
-  if (/^C/.test(g)) return COLOR.gradeC;
-  if (/^D|^E/.test(g)) return COLOR.gradeD;
-  if (/^F/.test(g)) return COLOR.gradeF;
-  return COLOR.darkGrey;
 }
 
 function getOrdinal(n: number): string {
@@ -104,9 +73,6 @@ function formatDate(dateString: string): string {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SUB-COMPONENTS
-// ─────────────────────────────────────────────────────────────────────────────
 function CheckboxGroup({ label, value }: { label: string; value: RatingValue }) {
   return (
     <View style={styles.traitRow}>
@@ -125,7 +91,7 @@ function CheckboxGroup({ label, value }: { label: string; value: RatingValue }) 
   );
 }
 
-function SubjectTableRow({
+function SubjectRow({
   subject,
   index,
   showCA3,
@@ -135,38 +101,50 @@ function SubjectTableRow({
   showCA3: boolean;
 }) {
   const isZebra = index % 2 === 1;
+
+  const hasData =
+    subject &&
+    (subject.score != null ||
+      subject.ca1_score != null ||
+      subject.ca2_score != null ||
+      subject.exam_score != null);
+
+  if (!hasData) {
+    return (
+      <View style={[styles.tableRow, isZebra ? styles.tableRowZebra : {}]}>
+        <Text style={[styles.tableCellSubject, styles.colSubject]}>—</Text>
+        <Text style={[styles.tableCell, styles.colCA]}>—</Text>
+        <Text style={[styles.tableCell, styles.colExam]}>—</Text>
+        <Text style={[styles.tableCell, styles.colTotal]}>—</Text>
+        <Text style={[styles.tableCellGrade, styles.colGrade]}>—</Text>
+        <Text style={[styles.tableCellRemark, styles.colRemark]}>—</Text>
+      </View>
+    );
+  }
+
   const caTotal =
-    (subject?.ca1_score || 0) +
-    (subject?.ca2_score || 0) +
-    (showCA3 ? subject?.ca3_score || 0 : 0);
-  const exam = subject?.exam_score || 0;
-  const total = subject?.score || caTotal + exam;
-  const grade = subject?.grade || "—";
+    (subject.ca1_score || 0) +
+    (subject.ca2_score || 0) +
+    (showCA3 ? subject.ca3_score || 0 : 0);
+  const exam = subject.exam_score || 0;
+  const total = subject.score != null ? subject.score : caTotal + exam;
+  const grade = subject.grade || "—";
+  const remark = subject.remarks || "—";
 
   return (
     <View style={[styles.tableRow, isZebra ? styles.tableRowZebra : {}]}>
       <Text style={[styles.tableCellSubject, styles.colSubject]}>
-        {subject?.name || "—"}
+        {subject.name || "—"}
       </Text>
       <Text style={[styles.tableCell, styles.colCA]}>{caTotal}</Text>
       <Text style={[styles.tableCell, styles.colExam]}>{exam}</Text>
       <Text style={[styles.tableCellBold, styles.colTotal]}>{total}</Text>
-      <Text
-        style={[
-          styles.tableCellGrade,
-          styles.colGrade,
-          { color: gradeColor(grade) },
-        ]}
-      >
-        {grade}
-      </Text>
+      <Text style={[styles.tableCellGrade, styles.colGrade]}>{grade}</Text>
+      <Text style={[styles.tableCellRemark, styles.colRemark]}>{remark}</Text>
     </View>
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PAGE
-// ─────────────────────────────────────────────────────────────────────────────
 export function ClassicNigerianPage({ data }: { data: IndividualReportCardData }) {
   const safeSchool: any = data?.school || {};
   const safeStudent: any = data?.student || {};
@@ -179,19 +157,20 @@ export function ClassicNigerianPage({ data }: { data: IndividualReportCardData }
   const caCount: number = safeSchool.ca_count ?? 2;
   const showCA3 = caCount >= 3;
 
-  // Pad to exactly SUBJECT_ROW_COUNT rows; if more, keep all.
+  const SUBJECT_ROW_COUNT = 16;
   const paddedSubjects: any[] =
-    rawSubjects.length >= SUBJECT_ROW_COUNT
-      ? rawSubjects
-      : [
-          ...rawSubjects,
-          ...Array.from(
-            { length: SUBJECT_ROW_COUNT - rawSubjects.length },
-            () => null
-          ),
-        ];
+    rawSubjects.length === 0
+      ? []
+      : rawSubjects.length >= SUBJECT_ROW_COUNT
+        ? rawSubjects
+        : [
+            ...rawSubjects,
+            ...Array.from(
+              { length: SUBJECT_ROW_COUNT - rawSubjects.length },
+              () => null
+            ),
+          ];
 
-  // ── Results math ──
   const scoredSubjects = rawSubjects.filter((s) => s && s.score != null);
   const totalObtained = scoredSubjects.reduce(
     (sum, s) => sum + Number(s.score || 0),
@@ -209,7 +188,6 @@ export function ClassicNigerianPage({ data }: { data: IndividualReportCardData }
       ? safeOverall.total_students
       : 0;
 
-  // ── Contact parts ──
   const contactParts = [
     safeSchool.address,
     safeSchool.phone,
@@ -218,9 +196,6 @@ export function ClassicNigerianPage({ data }: { data: IndividualReportCardData }
 
   return (
     <Page size="A4" style={styles.page}>
-      {/* ═══════════════════════════════════════════════════════════════
-          ZONE 1 — HEADER
-      ═══════════════════════════════════════════════════════════════ */}
       <View style={styles.header}>
         {safeSchool.logo_url ? (
           <Image src={safeSchool.logo_url} style={styles.logo} />
@@ -233,16 +208,10 @@ export function ClassicNigerianPage({ data }: { data: IndividualReportCardData }
         ) : null}
       </View>
 
-      {/* ═══════════════════════════════════════════════════════════════
-          ZONE 2 — TITLE BAR
-      ═══════════════════════════════════════════════════════════════ */}
       <View style={[styles.titleBar, { backgroundColor: primaryColor }]}>
         <Text style={styles.titleText}>Student Report Card</Text>
       </View>
 
-      {/* ═══════════════════════════════════════════════════════════════
-          ZONE 3 — IDENTITY
-      ═══════════════════════════════════════════════════════════════ */}
       <View style={styles.identityBlock}>
         <View style={styles.identityColumn}>
           <View style={styles.identityRow}>
@@ -275,9 +244,6 @@ export function ClassicNigerianPage({ data }: { data: IndividualReportCardData }
         </View>
       </View>
 
-      {/* ═══════════════════════════════════════════════════════════════
-          ZONE 4 — SUBJECT TABLE (single-column, full-width)
-      ═══════════════════════════════════════════════════════════════ */}
       <View style={styles.tableBlock}>
         <View style={styles.tableHeaderRow}>
           <Text style={[styles.tableCellHeaderLeft, styles.colSubject]}>
@@ -287,21 +253,32 @@ export function ClassicNigerianPage({ data }: { data: IndividualReportCardData }
           <Text style={[styles.tableCellHeader, styles.colExam]}>Exam</Text>
           <Text style={[styles.tableCellHeader, styles.colTotal]}>Total</Text>
           <Text style={[styles.tableCellHeader, styles.colGrade]}>Grade</Text>
+          <Text style={[styles.tableCellHeader, styles.colRemark]}>Remark</Text>
         </View>
 
-        {paddedSubjects.map((subject, idx) => (
-          <SubjectTableRow
-            key={subject?.id || `row-${idx}`}
-            subject={subject}
-            index={idx}
-            showCA3={showCA3}
-          />
-        ))}
+        {paddedSubjects.length === 0 ? (
+          <View style={styles.tableRow}>
+            <Text
+              style={[
+                styles.tableCell,
+                { flex: 1, textAlign: "center", paddingVertical: 14 },
+              ]}
+            >
+              No compiled results available
+            </Text>
+          </View>
+        ) : (
+          paddedSubjects.map((subject, idx) => (
+            <SubjectRow
+              key={subject?.id || `row-${idx}`}
+              subject={subject}
+              index={idx}
+              showCA3={showCA3}
+            />
+          ))
+        )}
       </View>
 
-      {/* ═══════════════════════════════════════════════════════════════
-          ZONE 4b — OVERALL BANNER
-      ═══════════════════════════════════════════════════════════════ */}
       <View style={styles.bannerRow}>
         <View style={[styles.bannerCell, { borderLeftColor: primaryColor }]}>
           <Text style={styles.bannerLabel}>Total Obtained</Text>
@@ -309,7 +286,7 @@ export function ClassicNigerianPage({ data }: { data: IndividualReportCardData }
             {totalObtained} of {totalMax} ({percentage}%)
           </Text>
         </View>
-        <View style={[styles.bannerCell, { borderLeftColor: gradeColor(safeOverall.grade) }]}>
+        <View style={[styles.bannerCell, { borderLeftColor: primaryColor }]}>
           <Text style={styles.bannerLabel}>Average</Text>
           <Text style={styles.bannerValue}>{average.toFixed(1)}%</Text>
         </View>
@@ -321,9 +298,6 @@ export function ClassicNigerianPage({ data }: { data: IndividualReportCardData }
         </View>
       </View>
 
-      {/* ═══════════════════════════════════════════════════════════════
-          ZONE 5 — AFFECTIVE + PSYCHOMOTOR
-      ═══════════════════════════════════════════════════════════════ */}
       <View style={styles.traitsRow}>
         <View style={styles.traitsColumn}>
           <Text style={styles.sectionTitle}>Affective Traits</Text>
@@ -333,7 +307,7 @@ export function ClassicNigerianPage({ data }: { data: IndividualReportCardData }
             <Text style={styles.legendItem}>F = Fair</Text>
             <Text style={styles.legendItem}>P = Poor</Text>
           </View>
-          {AFFECTIVE_TRAITS.map((trait, idx) => (
+          {AFFECTIVE_TRAITS.map((trait) => (
             <CheckboxGroup
               key={trait}
               label={trait}
@@ -360,10 +334,7 @@ export function ClassicNigerianPage({ data }: { data: IndividualReportCardData }
         </View>
       </View>
 
-      {/* ═══════════════════════════════════════════════════════════════
-          ZONE 6 — REMARKS + SIGNATURES (absolute, bottom of page)
-      ═══════════════════════════════════════════════════════════════ */}
-      <View style={styles.bottomBlock}>
+      <View style={styles.remarksBlock}>
         <View style={styles.remarkRow}>
           <Text style={styles.remarkLabel}>Teacher's Remark</Text>
           <Text style={styles.remarkLine}>{data.teacher_comment || " "}</Text>
@@ -397,7 +368,7 @@ export function ClassicNigerianPage({ data }: { data: IndividualReportCardData }
                 style={styles.signatureImage}
               />
             ) : (
-              <View style={{ height: 20 }} />
+              <View style={{ height: 22 }} />
             )}
             <View style={styles.signatureLine} />
             <Text style={styles.signatureName}>
@@ -408,20 +379,16 @@ export function ClassicNigerianPage({ data }: { data: IndividualReportCardData }
         </View>
       </View>
 
-      {/* ═══════════════════════════════════════════════════════════════
-          FOOTER (absolute, always on page 1)
-      ═══════════════════════════════════════════════════════════════ */}
       <View style={styles.footer} fixed>
-        <Text>Issued {formatDate(data.issued_date || new Date().toISOString())}</Text>
+        <Text>
+          Issued {formatDate(data.issued_date || new Date().toISOString())}
+        </Text>
         <Text>Powered by NexaForges</Text>
       </View>
     </Page>
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// BATCH DOCUMENT
-// ─────────────────────────────────────────────────────────────────────────────
 export function ClassicNigerianBatchDocument({
   students,
 }: {
