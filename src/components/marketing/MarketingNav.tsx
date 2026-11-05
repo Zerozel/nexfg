@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
 import { COLORS, NAV_LINKS } from "@/lib/marketing/constants";
 
 export function MarketingNav() {
@@ -130,7 +129,9 @@ export function MarketingNav() {
               {link.label}
             </button>
           ))}
-          <Link
+          
+          {/* CHANGED: Using <a> tag to force hard reload and fix CSS swapping issue */}
+          <a
             href="/login"
             style={{
               color: "rgba(255,255,255,0.65)",
@@ -148,7 +149,8 @@ export function MarketingNav() {
             }}
           >
             School Login
-          </Link>
+          </a>
+          
           <button
             onClick={() => scrollTo("cta")}
             style={{
@@ -192,7 +194,9 @@ export function MarketingNav() {
             </button>
           ))}
           <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 10 }}>
-            <Link
+            
+            {/* CHANGED: Using <a> tag to force hard reload and fix CSS swapping issue */}
+            <a
               href="/login"
               onClick={() => setMenuOpen(false)}
               style={{
@@ -213,7 +217,8 @@ export function MarketingNav() {
               }}
             >
               School Login
-            </Link>
+            </a>
+            
             <button
               onClick={() => scrollTo("cta")}
               style={{
