@@ -2,58 +2,88 @@
 import { StyleSheet } from "@react-pdf/renderer";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Design tokens
+// DESIGN TOKENS — NexaForge green primary, tuned harmonizing grades
 // ═══════════════════════════════════════════════════════════════════════════
 export const COLOR = {
-  black: "#111111",
-  darkGrey: "#333333",
-  midGrey: "#666666",
-  softGrey: "#888888",
-  ruleGrey: "#cccccc",
-  lightGrey: "#e5e5e5",
-  tableHeadBg: "#f3f4f6",
-  zebraBg: "#fafafa",
+  // NexaForge brand green (from global.css --primary)
+  primary: "#15803d",
+  primaryDark: "#0f5c2c",
+  primaryTint: "#e8f5ee",
 
-  gradeA: "#15803d",
-  gradeB: "#1d4ed8",
-  gradeC: "#b45309",
-  gradeD: "#c2410c",
-  gradeF: "#b91c1c",
+  // Paper
+  paper: "#ffffff",
+  paperTint: "#fbfdfa",
+
+  // Ink
+  black: "#111111",
+  darkGrey: "#2f2f2f",
+  midGrey: "#666666",
+  softGrey: "#8a8a8a",
+  hairline: "#d4d4d4",
+  ruleGrey: "#c8c8c8",
+  tableHeadBg: "#f0f7f2",
+  zebraBg: "#f8fbf9",
+
+  // Grades — harmonized with green (analogous + one warning red)
+  gradeA: "#15803d", // green (primary)
+  gradeB: "#0f766e", // teal (analogous)
+  gradeC: "#a16207", // amber-700 (warm neutral)
+  gradeD: "#b45309", // orange-700 (warm)
+  gradeF: "#b91c1c", // red-700 (only warning color)
 
   white: "#ffffff",
 } as const;
 
 export const PAGE = {
-  marginX: 30,
-  marginTop: 24,
-  marginBottom: 15, // For footer
+  marginX: 32,
+  marginTop: 22,
+  marginBottom: 14,
+  // A4 = 210 × 297mm = 595.28 × 841.89 pt
+  width: 595.28,
+  height: 841.89,
 } as const;
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Styles
+// STYLES — verified against @react-pdf/renderer 4.9.0
+//   No `gap`. No `borderStyle: "dotted"`. No `boxSizing`. Explicit margins.
 // ═══════════════════════════════════════════════════════════════════════════
 export const styles = StyleSheet.create({
+  // ── Page ──
   page: {
+    width: PAGE.width,
+    height: PAGE.height,
     paddingTop: PAGE.marginTop,
     paddingHorizontal: PAGE.marginX,
     paddingBottom: PAGE.marginBottom,
+    backgroundColor: COLOR.paper,
     fontFamily: "Helvetica",
     fontSize: 8,
     color: COLOR.black,
-    backgroundColor: COLOR.white,
-    flexDirection: "column", // Needed for the flex spacer
-    height: "100%", // Needed for the flex spacer
+    // NOTE: do NOT set flexDirection:column or height:100% here — we use
+    // absolute positioning for the footer only, and vertical flow for zones.
   },
-  
-  // ── Header ──
-  header: { alignItems: "center", marginBottom: 6 },
-  logo: { width: 36, height: 36, marginBottom: 2, objectFit: "contain" },
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // ZONE 1 — HEADER
+  // ═══════════════════════════════════════════════════════════════════════
+  header: {
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  logo: {
+    width: 42,
+    height: 42,
+    marginBottom: 3,
+    objectFit: "contain",
+  },
   schoolName: {
-    fontSize: 14,
+    fontSize: 15,
     fontFamily: "Helvetica-Bold",
-    letterSpacing: 0.8,
+    letterSpacing: 1,
     textTransform: "uppercase",
+    color: COLOR.primary,
     textAlign: "center",
+    marginBottom: 1,
   },
   schoolContact: {
     fontSize: 7,
@@ -62,218 +92,339 @@ export const styles = StyleSheet.create({
     marginTop: 1,
   },
 
-  // ── Title Banner ──
-  titleBanner: {
-    paddingVertical: 3,
+  // ═══════════════════════════════════════════════════════════════════════
+  // ZONE 2 — TITLE BAR (NexaForge green)
+  // ═══════════════════════════════════════════════════════════════════════
+  titleBar: {
+    backgroundColor: COLOR.primary,
+    paddingVertical: 4,
     alignItems: "center",
     marginBottom: 6,
   },
   titleText: {
-    fontSize: 9,
+    fontSize: 9.5,
     fontFamily: "Helvetica-Bold",
-    letterSpacing: 2,
+    letterSpacing: 3,
     textTransform: "uppercase",
     color: COLOR.white,
-    textAlign: "center",
   },
 
-  // ── Identity ──
+  // ═══════════════════════════════════════════════════════════════════════
+  // ZONE 3 — IDENTITY
+  // ═══════════════════════════════════════════════════════════════════════
+  identityBlock: {
+    flexDirection: "row",
+    borderTopWidth: 0.5,
+    borderBottomWidth: 0.5,
+    borderColor: COLOR.ruleGrey,
+    paddingVertical: 5,
+    marginBottom: 6,
+  },
+  identityColumn: {
+    flex: 1,
+    paddingRight: 8,
+  },
+  identityColumnLast: {
+    flex: 1,
+  },
   identityRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 1,
+    marginBottom: 3,
   },
-  identityText: {
-    fontSize: 8,
+  identityRowLast: {
+    flexDirection: "row",
   },
-  bold: {
+  identityLabel: {
+    width: 52,
+    fontSize: 6.5,
     fontFamily: "Helvetica-Bold",
+    color: COLOR.midGrey,
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+    paddingTop: 0.5,
+  },
+  identityValue: {
+    flex: 1,
+    fontSize: 8,
+    fontFamily: "Helvetica-Bold",
+    color: COLOR.black,
   },
 
-  // ── Table ──
-  tableContainer: { flexDirection: "row", marginBottom: 6 },
-  tableCol: { flex: 1 },
+  // ═══════════════════════════════════════════════════════════════════════
+  // ZONE 4 — SUBJECT TABLE (single-column, full-width)
+  // ═══════════════════════════════════════════════════════════════════════
+  tableBlock: {
+    marginBottom: 5,
+  },
   tableHeaderRow: {
     flexDirection: "row",
-    backgroundColor: COLOR.tableHeadBg,
+    backgroundColor: COLOR.primaryTint,
+    borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderBottomColor: COLOR.black,
-    minHeight: 14,
+    borderColor: COLOR.primary,
+    paddingVertical: 3,
   },
   tableRow: {
     flexDirection: "row",
     borderBottomWidth: 0.5,
-    borderBottomColor: COLOR.ruleGrey,
+    borderBottomColor: COLOR.hairline,
+    paddingVertical: 2.5,
+    minHeight: 14,
     alignItems: "center",
-    minHeight: 13,
+  },
+  tableRowZebra: {
+    backgroundColor: COLOR.zebraBg,
+  },
+  tableCellHeader: {
+    fontSize: 6.5,
+    fontFamily: "Helvetica-Bold",
+    color: COLOR.primaryDark,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+    textAlign: "center",
+    paddingHorizontal: 2,
+  },
+  tableCellHeaderLeft: {
+    fontSize: 6.5,
+    fontFamily: "Helvetica-Bold",
+    color: COLOR.primaryDark,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+    textAlign: "left",
+    paddingHorizontal: 4,
   },
   tableCell: {
-    flex: 1,
-    paddingVertical: 1,
+    fontSize: 7.5,
+    color: COLOR.black,
     paddingHorizontal: 2,
     textAlign: "center",
-    fontSize: 7,
   },
   tableCellSubject: {
-    flex: 3,
+    fontSize: 7.5,
+    color: COLOR.black,
+    paddingHorizontal: 4,
     textAlign: "left",
-    paddingLeft: 3,
   },
   tableCellBold: {
+    fontSize: 7.5,
     fontFamily: "Helvetica-Bold",
+    color: COLOR.black,
+    paddingHorizontal: 2,
+    textAlign: "center",
   },
+  tableCellGrade: {
+    fontSize: 7.5,
+    fontFamily: "Helvetica-Bold",
+    paddingHorizontal: 2,
+    textAlign: "center",
+  },
+  // Column flex weights (sum to full row)
+  colSubject: { flex: 3.2 },
+  colCA: { flex: 1.1 },
+  colExam: { flex: 1.1 },
+  colTotal: { flex: 1.1 },
+  colGrade: { flex: 1.0 },
 
-  // ── Banner ──
-  bannerContainer: {
+  // ═══════════════════════════════════════════════════════════════════════
+  // ZONE 4b — OVERALL BANNER
+  // ═══════════════════════════════════════════════════════════════════════
+  bannerRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
     marginBottom: 6,
-    gap: 4,
   },
   bannerCell: {
     flex: 1,
-    borderWidth: 0.5,
-    borderColor: COLOR.black,
-    padding: 3,
-    alignItems: "center",
+    borderLeftWidth: 3,
+    borderLeftColor: COLOR.primary,
+    paddingLeft: 6,
+    paddingVertical: 3,
+    marginRight: 4,
+  },
+  bannerCellLast: {
+    flex: 1,
+    borderLeftWidth: 3,
+    borderLeftColor: COLOR.primary,
+    paddingLeft: 6,
+    paddingVertical: 3,
   },
   bannerLabel: {
     fontSize: 6,
+    letterSpacing: 0.5,
     textTransform: "uppercase",
     color: COLOR.midGrey,
+    marginBottom: 1,
   },
   bannerValue: {
-    fontSize: 10,
+    fontSize: 11,
     fontFamily: "Helvetica-Bold",
+    color: COLOR.black,
   },
 
-  // ── Spacer (pushes bottom content down) ──
-  spacer: {
-    flexGrow: 1,
-  },
-
-  // ── Bottom Content Container ──
-  bottomContainer: {
-    marginTop: 10,
-  },
-
-  // ── Traits Grid ──
-  gridContainer: {
+  // ═══════════════════════════════════════════════════════════════════════
+  // ZONE 5 — AFFECTIVE + PSYCHOMOTOR (two columns)
+  // ═══════════════════════════════════════════════════════════════════════
+  traitsRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
     marginBottom: 6,
   },
-  gridColumn: {
-    width: "48%",
+  traitsColumn: {
+    flex: 1,
+    paddingRight: 8,
+  },
+  traitsColumnLast: {
+    flex: 1,
   },
   sectionTitle: {
     fontSize: 7,
     fontFamily: "Helvetica-Bold",
+    letterSpacing: 0.8,
     textTransform: "uppercase",
+    color: COLOR.primaryDark,
     borderBottomWidth: 0.5,
-    borderBottomColor: COLOR.black,
-    marginBottom: 2,
-    paddingBottom: 1,
+    borderBottomColor: COLOR.primary,
+    paddingBottom: 2,
+    marginBottom: 3,
   },
   legendRow: {
     flexDirection: "row",
+    marginBottom: 3,
     justifyContent: "flex-end",
-    gap: 6,
-    marginBottom: 2,
+  },
+  legendItem: {
     fontSize: 6,
     color: COLOR.midGrey,
+    marginLeft: 6,
   },
   traitRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 1.5,
+    paddingVertical: 1.5,
+    borderBottomWidth: 0.3,
+    borderBottomColor: COLOR.hairline,
+  },
+  traitRowLast: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 1.5,
   },
   traitLabel: {
-    width: 65,
+    flex: 1.6,
     fontSize: 7,
+    color: COLOR.black,
   },
+  // CRITICAL for react-pdf 4.9.0: NO `gap`. Explicit marginRight per box.
   checkboxGroup: {
     flexDirection: "row",
-    gap: 3,
-    flex: 1,
+    flex: 1.2,
     justifyContent: "flex-end",
+  },
+  checkboxWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginLeft: 5,
   },
   checkbox: {
     width: 6,
     height: 6,
-    borderWidth: 0.5,
+    borderWidth: 0.6,
     borderColor: COLOR.black,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 1,
+    marginRight: 1.5,
   },
   checkboxInner: {
-    width: 3,
-    height: 3,
+    width: 3.2,
+    height: 3.2,
     backgroundColor: COLOR.black,
   },
   checkboxLabel: {
     fontSize: 6,
-    marginRight: 3,
+    color: COLOR.darkGrey,
   },
 
-  // ── Remarks ──
+  // ═══════════════════════════════════════════════════════════════════════
+  // ZONE 6 — REMARKS + SIGNATURES (pinned to bottom via absolute)
+  // ═══════════════════════════════════════════════════════════════════════
+  bottomBlock: {
+    position: "absolute",
+    bottom: 30,
+    left: PAGE.marginX,
+    right: PAGE.marginX,
+  },
   remarkRow: {
     flexDirection: "row",
     marginBottom: 3,
-    alignItems: "flex-start",
+    alignItems: "flex-end",
   },
   remarkLabel: {
-    width: 85,
+    width: 78,
+    fontSize: 6.5,
     fontFamily: "Helvetica-Bold",
-    fontSize: 7,
+    color: COLOR.midGrey,
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
   },
-  remarkValue: {
+  remarkLine: {
     flex: 1,
-    fontSize: 7,
     borderBottomWidth: 0.5,
     borderBottomColor: COLOR.softGrey,
-    borderStyle: "dotted",
-    minHeight: 10,
+    height: 11,
+    paddingHorizontal: 3,
+    fontSize: 7,
+    color: COLOR.black,
+    paddingBottom: 1,
   },
-
-  // ── Signatures ──
   signatureRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 10,
-    alignItems: "flex-end",
+    marginTop: 8,
   },
   signatureBlock: {
-    width: "40%",
+    width: "30%",
     alignItems: "center",
+  },
+  signatureImage: {
+    width: 70,
+    height: 20,
+    objectFit: "contain",
+    marginBottom: 1,
   },
   signatureLine: {
     width: "100%",
-    borderTopWidth: 0.5,
+    borderTopWidth: 0.6,
     borderTopColor: COLOR.black,
+    marginTop: 12,
     marginBottom: 2,
-    marginTop: 10,
   },
-  signatureLabel: {
-    fontSize: 6,
+  signatureName: {
+    fontSize: 7,
+    fontFamily: "Helvetica-Bold",
+    color: COLOR.black,
+    textAlign: "center",
+  },
+  signatureTitle: {
+    fontSize: 5.5,
+    color: COLOR.midGrey,
+    letterSpacing: 0.4,
     textTransform: "uppercase",
-  },
-  signatureImage: {
-    height: 20,
-    width: 50,
-    objectFit: "contain",
-    marginBottom: 2,
+    textAlign: "center",
+    marginTop: 0.5,
   },
 
-  // ── Footer ──
+  // ═══════════════════════════════════════════════════════════════════════
+  // FOOTER (absolute, always on page 1)
+  // ═══════════════════════════════════════════════════════════════════════
   footer: {
     position: "absolute",
-    bottom: 15,
+    bottom: 12,
     left: PAGE.marginX,
     right: PAGE.marginX,
-    textAlign: "center",
-    fontSize: 6,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    fontSize: 5.5,
     color: COLOR.softGrey,
+    paddingTop: 3,
+    borderTopWidth: 0.4,
+    borderTopColor: COLOR.hairline,
   },
 });
