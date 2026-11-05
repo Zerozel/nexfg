@@ -1,10 +1,18 @@
 // src/lib/pdf/templates/report-card-styles.ts
 import { StyleSheet } from "@react-pdf/renderer";
 
+// ═══════════════════════════════════════════════════════════════════════════
+// DESIGN TOKENS — Deep green + black only. Prints cleanly in B&W.
+// ═══════════════════════════════════════════════════════════════════════════
 export const COLOR = {
+  // Deep green (banner, headings) — safe in grayscale
   primary: "#14532d",
   primaryTint: "#eaf4ee",
+
+  // Paper
   paper: "#ffffff",
+
+  // Ink
   black: "#111111",
   darkGrey: "#2a2a2a",
   midGrey: "#555555",
@@ -13,7 +21,10 @@ export const COLOR = {
   ruleGrey: "#bbbbbb",
   tableHeadBg: "#e8f0ea",
   zebraBg: "#f7faf8",
+
+  // All grades = black. Differentiation is by weight/style only.
   gradeText: "#111111",
+
   white: "#ffffff",
 } as const;
 
@@ -25,6 +36,9 @@ export const PAGE = {
   height: 841.89,
 } as const;
 
+// ═══════════════════════════════════════════════════════════════════════════
+// STYLES — verified against @react-pdf/renderer 4.9.0
+// ═══════════════════════════════════════════════════════════════════════════
 export const styles = StyleSheet.create({
   page: {
     width: PAGE.width,
@@ -38,8 +52,17 @@ export const styles = StyleSheet.create({
     color: COLOR.black,
   },
 
-  header: { alignItems: "center", marginBottom: 7 },
-  logo: { width: 44, height: 44, marginBottom: 3, objectFit: "contain" },
+  // ── ZONE 1 — HEADER ──
+  header: {
+    alignItems: "center",
+    marginBottom: 7,
+  },
+  logo: {
+    width: 44,
+    height: 44,
+    marginBottom: 3,
+    objectFit: "contain",
+  },
   schoolName: {
     fontSize: 16,
     fontFamily: "Helvetica-Bold",
@@ -56,6 +79,7 @@ export const styles = StyleSheet.create({
     marginTop: 1,
   },
 
+  // ── ZONE 2 — TITLE BAR (deep green) ──
   titleBar: {
     backgroundColor: COLOR.primary,
     paddingVertical: 5,
@@ -70,6 +94,7 @@ export const styles = StyleSheet.create({
     color: COLOR.white,
   },
 
+  // ── ZONE 3 — IDENTITY ──
   identityBlock: {
     flexDirection: "row",
     borderTopWidth: 0.5,
@@ -98,7 +123,10 @@ export const styles = StyleSheet.create({
     color: COLOR.black,
   },
 
-  tableBlock: { marginBottom: 6 },
+  // ── ZONE 4 — SUBJECT TABLE ──
+  tableBlock: {
+    marginBottom: 6,
+  },
   tableHeaderRow: {
     flexDirection: "row",
     backgroundColor: COLOR.tableHeadBg,
@@ -115,7 +143,9 @@ export const styles = StyleSheet.create({
     minHeight: 17,
     alignItems: "center",
   },
-  tableRowZebra: { backgroundColor: COLOR.zebraBg },
+  tableRowZebra: {
+    backgroundColor: COLOR.zebraBg,
+  },
   tableCellHeader: {
     fontSize: 7.5,
     fontFamily: "Helvetica-Bold",
@@ -167,7 +197,7 @@ export const styles = StyleSheet.create({
     textAlign: "left",
   },
 
-  // Column flex weights (now with Remarks)
+  // Column flex weights
   colSubject: { flex: 3.0 },
   colCA: { flex: 0.9 },
   colExam: { flex: 0.9 },
@@ -175,7 +205,11 @@ export const styles = StyleSheet.create({
   colGrade: { flex: 0.9 },
   colRemark: { flex: 2.3 },
 
-  bannerRow: { flexDirection: "row", marginBottom: 7 },
+  // ── ZONE 4b — OVERALL BANNER ──
+  bannerRow: {
+    flexDirection: "row",
+    marginBottom: 7,
+  },
   bannerCell: {
     flex: 1,
     borderLeftWidth: 3,
@@ -204,7 +238,11 @@ export const styles = StyleSheet.create({
     color: COLOR.black,
   },
 
-  traitsRow: { flexDirection: "row", marginBottom: 6 },
+  // ── ZONE 5 — AFFECTIVE + PSYCHOMOTOR ──
+  traitsRow: {
+    flexDirection: "row",
+    marginBottom: 6,
+  },
   traitsColumn: { flex: 1, paddingRight: 10 },
   traitsColumnLast: { flex: 1 },
   sectionTitle: {
@@ -258,7 +296,10 @@ export const styles = StyleSheet.create({
   checkboxInner: { width: 3.8, height: 3.8, backgroundColor: COLOR.black },
   checkboxLabel: { fontSize: 6.5, color: COLOR.darkGrey },
 
-  remarksBlock: { marginBottom: 8 },
+  // ── ZONE 6 — REMARKS + SIGNATURES ──
+  remarksBlock: {
+    marginBottom: 8,
+  },
   remarkRow: {
     flexDirection: "row",
     marginBottom: 4,
@@ -287,7 +328,10 @@ export const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginTop: 10,
   },
-  signatureBlock: { width: "30%", alignItems: "center" },
+  signatureBlock: {
+    width: "30%",
+    alignItems: "center",
+  },
   signatureImage: {
     width: 72,
     height: 22,
@@ -316,6 +360,15 @@ export const styles = StyleSheet.create({
     marginTop: 0.5,
   },
 
+  // ── BOTTOM BLOCK (pins traits + remarks + signatures to page bottom) ──
+  bottomBlock: {
+    position: "absolute",
+    bottom: 28,
+    left: PAGE.marginX,
+    right: PAGE.marginX,
+  },
+
+  // ── FOOTER ──
   footer: {
     position: "absolute",
     bottom: 12,
