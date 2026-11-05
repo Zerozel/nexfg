@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { renderToBuffer } from "@react-pdf/renderer";
+import { renderToBuffer, Document } from "@react-pdf/renderer";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { fetchCompiledResultsByStudent } from "@/lib/printing/compiled-results";
 import { transformStudentReportData } from "@/lib/printing/data-transform";
-import { getReportCardComponent } from "@/lib/pdf";
+import { ClassicNigerianPage } from "@/lib/pdf/templates/classic_nigerian";
 import type { IndividualReportCardData } from "@/types/printing";
-import { Document } from "@react-pdf/renderer";
 import React from "react";
 
 export const runtime = "nodejs";
@@ -220,12 +219,10 @@ export async function GET(
     const reportData: IndividualReportCardData =
       transformStudentReportData(raw);
 
-    const templateName = schoolPayload.report_card_template;
-    const TemplateComponent = getReportCardComponent(templateName, reportData);
-    const pageElement = (TemplateComponent.props as any).children;
-
     const pdfBuffer = await renderToBuffer(
-      <Document>{pageElement}</Document>
+      <Document>
+        <ClassicNigerianPage data={reportData} />
+      </Document>
     );
 
     const pdfBytes = new Uint8Array(pdfBuffer);

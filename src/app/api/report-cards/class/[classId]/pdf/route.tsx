@@ -1,18 +1,15 @@
 import React from "react";
 import { NextRequest, NextResponse } from "next/server";
-import { renderToBuffer, Document } from "@react-pdf/renderer";
+import { renderToBuffer } from "@react-pdf/renderer";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { fetchCompiledResultsByStudent } from "@/lib/printing/compiled-results";
 import { transformStudentReportData } from "@/lib/printing/data-transform";
-import { getReportCardComponent } from "@/lib/pdf";
+import { ClassicNigerianBatchDocument } from "@/lib/pdf/templates/classic_nigerian";
 import type { IndividualReportCardData } from "@/types/printing";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-/**
- * GET /api/report-cards/class/[classId]/pdf?termId=X
- */
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ classId: string }> }
@@ -183,7 +180,6 @@ export async function GET(
       studentIds,
     });
 
-    // Fetch traits for all students in bulk
     const [affectiveRes, psychomotorRes] = await Promise.all([
       supabase
         .from("student_affective_traits")
@@ -258,19 +254,8 @@ export async function GET(
       })
       .sort((a, b) => a.overall.position - b.overall.position);
 
-    // Determine which template to use
-    const templateName = schoolPayload.report_card_template;
-
-    // Build the document
     const pdfBuffer = await renderToBuffer(
-      <Document>
-        {reportData.map((data, i) => {
-          const TemplateComponent = getReportCardComponent(templateName, data);
-          // Extract the Page from the Template's Document to make it multi-page
-          const pageElement = (TemplateComponent.props as any).children;
-          return <React.Fragment key={i}>{pageElement}</React.Fragment>;
-        })}
-      </Document>
+      <ClassicNigerianBatchDocument students={reportData} />
     );
 
     const pdfBytes = new Uint8Array(pdfBuffer);

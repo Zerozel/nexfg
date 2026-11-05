@@ -9,6 +9,35 @@ import {
 } from "@react-pdf/renderer";
 import type { IndividualReportCardData } from "@/types/printing";
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Design tokens
+// ─────────────────────────────────────────────────────────────────────────────
+const COLOR = {
+  black: "#111111",
+  darkGrey: "#333333",
+  midGrey: "#666666",
+  softGrey: "#888888",
+  ruleGrey: "#cccccc",
+  lightGrey: "#e5e5e5",
+  tableHeadBg: "#f3f4f6",
+  zebraBg: "#fafafa",
+  gradeA: "#15803d",
+  gradeB: "#1d4ed8",
+  gradeC: "#b45309",
+  gradeD: "#c2410c",
+  gradeF: "#b91c1c",
+  white: "#ffffff",
+} as const;
+
+const PAGE = {
+  marginX: 56,
+  marginTop: 48,
+  marginBottom: 48,
+} as const;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Types & Helpers
+// ─────────────────────────────────────────────────────────────────────────────
 type RatingValue = "Excellent" | "Good" | "Fair" | "Poor" | null;
 
 const getRatingValue = (
@@ -30,269 +59,332 @@ const getRatingValue = (
 };
 
 const AFFECTIVE_TRAITS = [
-  "Punctuality",
-  "Obedience",
-  "Readiness to Help",
-  "Self Control",
-  "Courteousness",
-  "Politeness",
-  "Honesty",
-  "Neatness",
-  "Attentiveness",
+  "Punctuality", "Obedience", "Readiness to Help", "Self Control",
+  "Courteousness", "Politeness", "Honesty", "Neatness", "Attentiveness",
 ];
 
 const PSYCHOMOTOR_SKILLS = [
-  "Handwriting",
-  "Verbal Fluency",
-  "Games/Sports",
-  "Drawing & Painting",
-  "Handling Tools",
-  "Musical Skills",
+  "Handwriting", "Verbal Fluency", "Games/Sports", "Drawing & Painting",
+  "Handling Tools", "Musical Skills",
 ];
 
+function formatCell(v: number | null | undefined): string {
+  if (v === null || v === undefined) return "—";
+  return Number.isInteger(v) ? String(v) : v.toFixed(1);
+}
+
+function getOrdinal(n: number): string {
+  if (!Number.isFinite(n) || n <= 0) return "—";
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
+function hasBreakdown(subjects: any[]): boolean {
+  return subjects.some(
+    (s) =>
+      s.ca1_score !== null ||
+      s.ca2_score !== null ||
+      s.ca3_score !== null ||
+      s.exam_score !== null
+  );
+}
+
+function formatDate(dateString: string): string {
+  const date = new Date(dateString);
+  return date.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function gradeColor(grade: string | null | undefined): string {
+  if (!grade) return COLOR.darkGrey;
+  const g = grade.trim().toUpperCase();
+  if (/^A/.test(g)) return COLOR.gradeA;
+  if (/^B/.test(g)) return COLOR.gradeB;
+  if (/^C/.test(g)) return COLOR.gradeC;
+  if (/^D|^E/.test(g)) return COLOR.gradeD;
+  if (/^F/.test(g)) return COLOR.gradeF;
+  return COLOR.darkGrey;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Styles (Merged from working ReportCardDocument + new traits/checkbox styles)
+// ─────────────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   page: {
-    padding: 30,
-    fontSize: 9,
+    paddingTop: PAGE.marginTop,
+    paddingHorizontal: PAGE.marginX,
+    paddingBottom: 130,
     fontFamily: "Helvetica",
-    color: "#000",
+    fontSize: 9,
+    color: COLOR.black,
+    backgroundColor: COLOR.white,
   },
-  headerContainer: {
-    alignItems: "center",
-    marginBottom: 10,
-    borderBottomWidth: 2,
-    borderBottomColor: "#000",
-    paddingBottom: 5,
-  },
-  schoolLogo: {
-    width: 50,
-    height: 50,
-    marginBottom: 4,
-  },
+  header: { alignItems: "center", marginBottom: 12 },
+  logo: { width: 56, height: 56, marginBottom: 6, objectFit: "contain" },
   schoolName: {
     fontSize: 16,
-    fontWeight: "bold",
+    fontFamily: "Helvetica-Bold",
+    letterSpacing: 0.8,
     textTransform: "uppercase",
-    letterSpacing: 1,
+    textAlign: "center",
     marginBottom: 2,
   },
-  schoolAddress: {
+  motto: {
     fontSize: 8,
-    marginBottom: 1,
+    fontStyle: "italic",
+    color: COLOR.midGrey,
+    textAlign: "center",
+    marginBottom: 3,
   },
-  titleBanner: {
-    paddingVertical: 4,
-    alignItems: "center",
-    marginBottom: 10,
+  contact: {
+    fontSize: 7.5,
+    color: COLOR.darkGrey,
+    textAlign: "center",
   },
-  titleText: {
-    color: "#fff",
-    fontSize: 11,
-    fontWeight: "bold",
+  titleBar: {
+    paddingVertical: 6,
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  titleBarText: {
+    fontSize: 10,
+    fontFamily: "Helvetica-Bold",
     letterSpacing: 2,
     textTransform: "uppercase",
+    color: COLOR.white,
+    textAlign: "center",
   },
-  identityRow: {
+  identity: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 2,
+    borderTopWidth: 0.5,
+    borderTopColor: COLOR.ruleGrey,
+    borderBottomWidth: 0.5,
+    borderBottomColor: COLOR.ruleGrey,
+    paddingVertical: 8,
+    marginBottom: 14,
   },
-  identityText: {
-    fontSize: 9,
+  identityColumn: { flex: 1, paddingRight: 8 },
+  identityColumnLast: { flex: 1 },
+  identityRow: { flexDirection: "row", marginBottom: 5 },
+  identityRowLast: { flexDirection: "row" },
+  identityLabel: {
+    width: 62,
+    fontFamily: "Helvetica-Bold",
+    fontSize: 7,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+    color: COLOR.midGrey,
+    paddingTop: 1,
   },
-  bold: {
-    fontWeight: "bold",
+  identityValue: {
+    flex: 1,
+    fontSize: 9.5,
+    fontFamily: "Helvetica-Bold",
+    color: COLOR.black,
   },
-  table: {
-    width: "100%",
-    borderStyle: "solid",
-    borderWidth: 1,
-    borderColor: "#000",
-    marginBottom: 10,
+  table: { marginBottom: 12 },
+  tableHeaderRow: {
+    flexDirection: "row",
+    backgroundColor: COLOR.tableHeadBg,
+    borderBottomWidth: 1.5,
+    borderBottomColor: COLOR.black,
+  },
+  tableSubHeaderRow: {
+    flexDirection: "row",
+    backgroundColor: COLOR.tableHeadBg,
+    borderBottomWidth: 1,
+    borderBottomColor: COLOR.black,
   },
   tableRow: {
     flexDirection: "row",
-    borderBottomWidth: 1,
-    borderBottomColor: "#000",
-    alignItems: "center",
-    minHeight: 16,
+    borderBottomWidth: 0.5,
+    borderBottomColor: COLOR.ruleGrey,
+    minHeight: 18,
   },
-  tableHeader: {
-    backgroundColor: "#f0f0f0",
-    fontWeight: "bold",
-  },
-  tableCell: {
-    flex: 1,
-    paddingVertical: 3,
-    paddingHorizontal: 2,
+  tableRowZebra: { backgroundColor: COLOR.zebraBg },
+  headerCell: {
+    fontFamily: "Helvetica-Bold",
+    fontSize: 7,
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
     textAlign: "center",
-    borderRightWidth: 1,
-    borderRightColor: "#000",
-    fontSize: 8,
+    paddingHorizontal: 3,
+    paddingVertical: 5,
+    color: COLOR.darkGrey,
   },
-  tableCellSubject: {
-    flex: 2,
+  headerCellLeft: {
+    fontFamily: "Helvetica-Bold",
+    fontSize: 7,
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
     textAlign: "left",
-    paddingLeft: 4,
+    paddingHorizontal: 3,
+    paddingVertical: 5,
+    color: COLOR.darkGrey,
   },
-  bannerContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 10,
-    gap: 5,
+  cell: {
+    fontSize: 8.5,
+    paddingHorizontal: 4,
+    paddingVertical: 4,
+    color: COLOR.black,
   },
-  bannerCell: {
+  cellCenter: { textAlign: "center" },
+  cellRight: { textAlign: "right" },
+  cellMuted: { color: COLOR.midGrey },
+  cellBold: { fontFamily: "Helvetica-Bold" },
+  banner: { flexDirection: "row", marginBottom: 12 },
+  bannerItem: {
     flex: 1,
-    borderStyle: "solid",
-    borderWidth: 1,
-    borderColor: "#000",
-    padding: 5,
-    alignItems: "center",
+    paddingLeft: 8,
+    paddingVertical: 4,
+    marginRight: 6,
+    borderLeftWidth: 3,
+  },
+  bannerItemLast: {
+    flex: 1,
+    paddingLeft: 8,
+    paddingVertical: 4,
+    borderLeftWidth: 3,
   },
   bannerLabel: {
     fontSize: 7,
+    letterSpacing: 0.6,
     textTransform: "uppercase",
-    marginBottom: 2,
-    color: "#555",
+    color: COLOR.midGrey,
+    marginBottom: 3,
   },
   bannerValue: {
-    fontSize: 12,
-    fontWeight: "bold",
+    fontSize: 15,
+    fontFamily: "Helvetica-Bold",
+    color: COLOR.black,
   },
-  gridContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 10,
-  },
-  gridColumn: {
-    width: "48%",
-  },
-  sectionTitle: {
-    fontSize: 9,
-    fontWeight: "bold",
+  sectionLabel: {
+    fontSize: 7.5,
+    fontFamily: "Helvetica-Bold",
+    letterSpacing: 1,
     textTransform: "uppercase",
-    borderBottomWidth: 1,
-    borderBottomColor: "#000",
-    marginBottom: 4,
-    paddingBottom: 2,
+    color: COLOR.midGrey,
+    borderBottomWidth: 0.5,
+    borderBottomColor: COLOR.ruleGrey,
+    paddingBottom: 3,
+    marginBottom: 6,
   },
+  traitsRow: { flexDirection: "row", marginBottom: 12 },
+  traitsCol: { flex: 1, marginRight: 12 },
+  traitsColLast: { flex: 1 },
   traitRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 3,
+    borderBottomWidth: 0.5,
+    borderBottomColor: COLOR.ruleGrey,
+    paddingVertical: 3,
   },
-  traitLabel: {
-    width: 80,
-    fontSize: 8,
-  },
-  checkboxGroup: {
-    flexDirection: "row",
-    gap: 4,
-    flex: 1,
-  },
+  traitLabel: { flex: 2, fontSize: 8, color: COLOR.black },
+  
+  // Checkbox specific styles
+  checkboxGroup: { flexDirection: "row", gap: 4, flex: 1, justifyContent: "flex-end" },
   checkbox: {
-    width: 7,
-    height: 7,
-    borderWidth: 1,
-    borderColor: "#000",
+    width: 8,
+    height: 8,
+    borderWidth: 0.8,
+    borderColor: COLOR.black,
     alignItems: "center",
     justifyContent: "center",
     marginRight: 2,
   },
-  checkboxInner: {
-    width: 4,
-    height: 4,
-    backgroundColor: "#000",
-  },
-  checkboxLabel: {
-    fontSize: 7,
-    marginRight: 4,
-  },
+  checkboxInner: { width: 4, height: 4, backgroundColor: COLOR.black },
+  checkboxLabel: { fontSize: 7, marginRight: 4, color: COLOR.darkGrey },
   legendRow: {
     flexDirection: "row",
-    justifyContent: "center",
+    justifyContent: "flex-end",
     gap: 10,
-    marginBottom: 5,
-    fontSize: 7,
-  },
-  remarksContainer: {
-    marginBottom: 10,
-  },
-  remarkRow: {
-    flexDirection: "row",
     marginBottom: 4,
-    alignItems: "flex-start",
+    fontSize: 6.5,
+    color: COLOR.midGrey,
   },
-  remarkLabel: {
-    width: 100,
-    fontWeight: "bold",
-    fontSize: 8,
+
+  comment: { marginBottom: 12 },
+  commentLabel: {
+    fontSize: 7.5,
+    fontFamily: "Helvetica-Bold",
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+    color: COLOR.midGrey,
+    borderBottomWidth: 0.5,
+    borderBottomColor: COLOR.ruleGrey,
+    paddingBottom: 3,
+    marginBottom: 4,
   },
-  remarkValue: {
-    flex: 1,
-    fontSize: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: "#ccc",
-    borderStyle: "dotted",
-    minHeight: 12,
-  },
-  signatureRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 15,
-    alignItems: "flex-end",
+  commentText: {
+    fontSize: 8.5,
+    lineHeight: 1.4,
+    color: COLOR.black,
   },
   signatureBlock: {
-    width: "40%",
-    alignItems: "center",
+    position: "absolute",
+    bottom: 42,
+    left: PAGE.marginX,
+    right: PAGE.marginX,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingTop: 8,
+    borderTopWidth: 0.5,
+    borderTopColor: COLOR.ruleGrey,
   },
-  signatureLine: {
-    width: "100%",
-    borderTopWidth: 1,
-    borderTopColor: "#000",
-    marginBottom: 2,
-    marginTop: 15,
-  },
-  signatureLabel: {
-    fontSize: 7,
-    textTransform: "uppercase",
-  },
+  signatureItem: { width: "30%", alignItems: "center" },
   signatureImage: {
-    height: 25,
-    width: 60,
+    width: 90,
+    height: 26,
     objectFit: "contain",
     marginBottom: 2,
   },
+  signatureLine: {
+    width: "100%",
+    borderBottomWidth: 0.75,
+    borderBottomColor: COLOR.black,
+    height: 22,
+    marginBottom: 2,
+  },
+  signatureName: {
+    fontSize: 8,
+    fontFamily: "Helvetica-Bold",
+    textAlign: "center",
+    color: COLOR.black,
+    marginBottom: 1,
+  },
+  signatureTitle: {
+    fontSize: 6.5,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+    color: COLOR.midGrey,
+    textAlign: "center",
+  },
   footer: {
     position: "absolute",
-    bottom: 15,
-    left: 30,
-    right: 30,
-    textAlign: "center",
-    fontSize: 7,
-    color: "#888",
-    borderTopWidth: 1,
-    borderTopColor: "#ccc",
-    paddingTop: 4,
+    bottom: 16,
+    left: PAGE.marginX,
+    right: PAGE.marginX,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    fontSize: 6.5,
+    color: COLOR.softGrey,
   },
 });
 
-function CheckboxGroup({
-  label,
-  value,
-}: {
-  label: string;
-  value: RatingValue;
-}) {
+// ─────────────────────────────────────────────────────────────────────────────
+// Sub-components
+// ─────────────────────────────────────────────────────────────────────────────
+function CheckboxGroup({ label, value }: { label: string; value: RatingValue }) {
   return (
     <View style={styles.traitRow}>
       <Text style={styles.traitLabel}>{label}</Text>
       <View style={styles.checkboxGroup}>
         {(["Excellent", "Good", "Fair", "Poor"] as const).map((opt) => (
-          <View
-            key={opt}
-            style={{ flexDirection: "row", alignItems: "center" }}
-          >
+          <View key={opt} style={{ flexDirection: "row", alignItems: "center" }}>
             <View style={styles.checkbox}>
               {value === opt && <View style={styles.checkboxInner} />}
             </View>
@@ -304,12 +396,10 @@ function CheckboxGroup({
   );
 }
 
-export function ClassicNigerianDocument({
-  data,
-}: {
-  data: IndividualReportCardData;
-}) {
-  // ── DEFENSIVE DEFAULTS (Prevents the PDF from crashing on missing data) ──
+// ─────────────────────────────────────────────────────────────────────────────
+// The Page Component
+// ─────────────────────────────────────────────────────────────────────────────
+export function ClassicNigerianPage({ data }: { data: IndividualReportCardData }) {
   const safeSchool = data?.school || ({} as any);
   const safeStudent = data?.student || ({} as any);
   const safeClass = data?.class || ({} as any);
@@ -317,226 +407,205 @@ export function ClassicNigerianDocument({
   const safeSubjects = Array.isArray(data?.subjects) ? data.subjects : [];
   const safeOverall = data?.overall || ({} as any);
   
-  const primaryColor = safeSchool.primary_color || "#000";
+  const primaryColor = safeSchool.primary_color || "#1e40af";
   const safeAverage = typeof safeOverall.average === "number" ? safeOverall.average : 0;
   const safePosition = typeof safeOverall.position === "number" ? safeOverall.position : 0;
   const safeTotalStudents = typeof safeOverall.total_students === "number" ? safeOverall.total_students : 0;
 
-  // Split subjects into two columns for compactness
+  const showBreakdown = hasBreakdown(safeSubjects);
+  const contactParts = [safeSchool.address, safeSchool.phone, safeSchool.email].filter(Boolean);
+
+  const caCount = (safeSchool as any).ca_count ?? 2;
+  const hasCA3 = caCount >= 3;
+  const caSpanFlex = (hasCA3 ? 3 : 2) * 1.2;
+  const caCellFlex = 1.2;
+
   const midPoint = Math.ceil(safeSubjects.length / 2);
   const leftSubjects = safeSubjects.slice(0, midPoint);
   const rightSubjects = safeSubjects.slice(midPoint);
 
   const totalScore = safeSubjects.reduce((sum, s) => sum + (s.score || 0), 0);
   const totalMaxScore = safeSubjects.length * 100;
-  const percentage =
-    totalMaxScore > 0 ? ((totalScore / totalMaxScore) * 100).toFixed(1) : "0.0";
+  const percentage = totalMaxScore > 0 ? ((totalScore / totalMaxScore) * 100).toFixed(1) : "0.0";
 
   const renderSubjectTable = (subjectsList: any[], isRight: boolean) => (
-    <View style={{ flex: 1, marginRight: isRight ? 0 : 4 }}>
-      <View style={[styles.tableRow, styles.tableHeader]}>
-        <Text style={[styles.tableCell, styles.tableCellSubject]}>SUBJECT</Text>
-        <Text style={styles.tableCell}>CA</Text>
-        <Text style={styles.tableCell}>EXAM</Text>
-        <Text style={styles.tableCell}>TOTAL</Text>
-        <Text style={styles.tableCell}>GRADE</Text>
+    <View style={{ flex: 1, marginRight: isRight ? 0 : 8 }}>
+      <View style={[styles.tableHeaderRow, { borderBottomWidth: 1.5 }]}>
+        <Text style={[styles.headerCellLeft, { flex: 3.4 }]}>Subject</Text>
+        <Text style={[styles.headerCell, { flex: caSpanFlex }]}>CA</Text>
+        <Text style={[styles.headerCell, { flex: 1.2 }]}>Exam</Text>
+        <Text style={[styles.headerCell, { flex: 1.2 }]}>Total</Text>
+        <Text style={[styles.headerCell, { flex: 1.1 }]}>Grade</Text>
       </View>
-      {subjectsList.map((subj, idx) => {
-        const caTotal =
-          (subj.ca1_score || 0) + (subj.ca2_score || 0) + (subj.ca3_score || 0);
-        return (
-          <View style={styles.tableRow} key={subj.id || idx}>
-            <Text style={[styles.tableCell, styles.tableCellSubject]}>
-              {subj.name || "Unknown"}
-            </Text>
-            <Text style={styles.tableCell}>{caTotal}</Text>
-            <Text style={styles.tableCell}>{subj.exam_score || 0}</Text>
-            <Text style={[styles.tableCell, styles.bold]}>
-              {subj.score || 0}
-            </Text>
-            <Text style={[styles.tableCell, styles.bold]}>
-              {subj.grade || "-"}
-            </Text>
+
+      {showBreakdown && (
+        <View style={styles.tableSubHeaderRow}>
+          <Text style={[styles.headerCell, { flex: 3.4 }]} />
+          <Text style={[styles.headerCell, { flex: caCellFlex }]}>CA1</Text>
+          <Text style={[styles.headerCell, { flex: caCellFlex }]}>CA2</Text>
+          {hasCA3 && <Text style={[styles.headerCell, { flex: caCellFlex }]}>CA3</Text>}
+          <Text style={[styles.headerCell, { flex: 1.2 }]} />
+          <Text style={[styles.headerCell, { flex: 1.2 }]} />
+          <Text style={[styles.headerCell, { flex: 1.1 }]} />
+        </View>
+      )}
+
+      {subjectsList.length > 0 ? (
+        subjectsList.map((subj, idx) => (
+          <View style={[styles.tableRow, idx % 2 === 1 ? styles.tableRowZebra : {}]} key={subj.id || idx} wrap={false}>
+            {showBreakdown ? (
+              <>
+                <Text style={[styles.cell, { flex: 3.4 }]}>{subj.name || "Unknown"}</Text>
+                <Text style={[styles.cell, styles.cellCenter, { flex: caCellFlex }]}>{formatCell(subj.ca1_score)}</Text>
+                <Text style={[styles.cell, styles.cellCenter, { flex: caCellFlex }]}>{formatCell(subj.ca2_score)}</Text>
+                {hasCA3 && <Text style={[styles.cell, styles.cellCenter, { flex: caCellFlex }]}>{formatCell(subj.ca3_score)}</Text>}
+                <Text style={[styles.cell, styles.cellCenter, { flex: 1.2 }]}>{formatCell(subj.exam_score)}</Text>
+                <Text style={[styles.cell, styles.cellBold, styles.cellCenter, { flex: 1.2 }]}>{Number(subj.score || 0).toFixed(1)}</Text>
+                <Text style={[styles.cell, styles.cellBold, styles.cellCenter, { flex: 1.1, color: gradeColor(subj.grade) }]}>{subj.grade || "—"}</Text>
+              </>
+            ) : (
+              <>
+                <Text style={[styles.cell, { flex: 3.4 }]}>{subj.name || "Unknown"}</Text>
+                <Text style={[styles.cell, styles.cellBold, styles.cellCenter, { flex: 1.2 }]}>{Number(subj.score || 0).toFixed(1)}</Text>
+                <Text style={[styles.cell, styles.cellBold, styles.cellCenter, { flex: 1.1, color: gradeColor(subj.grade) }]}>{subj.grade || "—"}</Text>
+              </>
+            )}
           </View>
-        );
-      })}
+        ))
+      ) : (
+        <View style={styles.tableRow}>
+          <Text style={[styles.cell, styles.cellCenter, { flex: 1, paddingVertical: 14 }]}>No subjects</Text>
+        </View>
+      )}
     </View>
   );
 
   return (
+    <Page size="A4" style={styles.page}>
+      <View style={styles.header}>
+        {safeSchool.logo_url ? <Image src={safeSchool.logo_url} style={styles.logo} /> : null}
+        <Text style={[styles.schoolName, { color: primaryColor }]}>{safeSchool.name || "School Name"}</Text>
+        {safeSchool.motto ? <Text style={styles.motto}>{safeSchool.motto}</Text> : null}
+        {contactParts.length > 0 ? <Text style={styles.contact}>{contactParts.join("   ·   ")}</Text> : null}
+      </View>
+
+      <View style={[styles.titleBar, { backgroundColor: primaryColor }]}>
+        <Text style={styles.titleBarText}>Student Report Card</Text>
+      </View>
+
+      <View style={styles.identity}>
+        <View style={styles.identityColumn}>
+          <View style={styles.identityRow}>
+            <Text style={styles.identityLabel}>Student</Text>
+            <Text style={styles.identityValue}>{safeStudent.full_name || "Unknown"}</Text>
+          </View>
+          <View style={styles.identityRowLast}>
+            <Text style={styles.identityLabel}>Adm. No.</Text>
+            <Text style={styles.identityValue}>{safeStudent.admission_number || "—"}</Text>
+          </View>
+        </View>
+        <View style={styles.identityColumnLast}>
+          <View style={styles.identityRow}>
+            <Text style={styles.identityLabel}>Class</Text>
+            <Text style={styles.identityValue}>{safeClass.name || "—"}</Text>
+          </View>
+          <View style={styles.identityRowLast}>
+            <Text style={styles.identityLabel}>Term</Text>
+            <Text style={styles.identityValue}>{safeTerm.name || "—"}{safeTerm.academic_session ? `  ·  ${safeTerm.academic_session}` : ""}</Text>
+          </View>
+        </View>
+      </View>
+
+      <View style={{ flexDirection: "row", marginBottom: 12 }}>
+        {renderSubjectTable(leftSubjects, false)}
+        {renderSubjectTable(rightSubjects, true)}
+      </View>
+
+      <View style={styles.banner}>
+        <View style={[styles.bannerItem, { borderLeftColor: primaryColor }]}>
+          <Text style={styles.bannerLabel}>Total Obtained</Text>
+          <Text style={styles.bannerValue}>{totalScore} of {totalMaxScore} ({percentage}%)</Text>
+        </View>
+        <View style={[styles.bannerItem, { borderLeftColor: primaryColor }]}>
+          <Text style={styles.bannerLabel}>Average</Text>
+          <Text style={styles.bannerValue}>{safeAverage.toFixed(1)}%</Text>
+        </View>
+        <View style={[styles.bannerItemLast, { borderLeftColor: primaryColor }]}>
+          <Text style={styles.bannerLabel}>Position</Text>
+          <Text style={styles.bannerValue}>{getOrdinal(safePosition)} of {safeTotalStudents}</Text>
+        </View>
+      </View>
+
+      <View style={styles.traitsRow} wrap={false}>
+        <View style={styles.traitsCol}>
+          <Text style={styles.sectionLabel}>Affective Traits</Text>
+          <View style={styles.legendRow}>
+            <Text>E = Excellent</Text><Text>G = Good</Text><Text>F = Fair</Text><Text>P = Poor</Text>
+          </View>
+          {AFFECTIVE_TRAITS.map((trait) => (
+            <CheckboxGroup key={trait} label={trait} value={getRatingValue(data.affective_traits, trait, "trait")} />
+          ))}
+        </View>
+        <View style={styles.traitsColLast}>
+          <Text style={styles.sectionLabel}>Psychomotor Skills</Text>
+          <View style={styles.legendRow}>
+            <Text>E = Excellent</Text><Text>G = Good</Text><Text>F = Fair</Text><Text>P = Poor</Text>
+          </View>
+          {PSYCHOMOTOR_SKILLS.map((skill) => (
+            <CheckboxGroup key={skill} label={skill} value={getRatingValue(data.psychomotor_skills, skill, "skill")} />
+          ))}
+        </View>
+      </View>
+
+      <View style={styles.comment} wrap={false}>
+        <Text style={styles.commentLabel}>Class Teacher's Remark</Text>
+        <Text style={styles.commentText}>{data.teacher_comment || "—"}</Text>
+      </View>
+      <View style={styles.comment} wrap={false}>
+        <Text style={styles.commentLabel}>Principal's Remark</Text>
+        <Text style={styles.commentText}>{data.principal_comment || "—"}</Text>
+      </View>
+
+      <View style={styles.signatureBlock}>
+        {safeClass.teacher_name && (
+          <View style={styles.signatureItem}>
+            <View style={styles.signatureLine} />
+            <Text style={styles.signatureName}>{safeClass.teacher_name}</Text>
+            <Text style={styles.signatureTitle}>Class Teacher</Text>
+          </View>
+        )}
+        <View style={styles.signatureItem}>
+          <View style={styles.signatureLine} />
+          <Text style={styles.signatureName}>{formatDate(data.issued_date || new Date().toISOString())}</Text>
+          <Text style={styles.signatureTitle}>Date</Text>
+        </View>
+        {safeSchool.principal_name && (
+          <View style={styles.signatureItem}>
+            {safeSchool.principal_signature_url ? <Image src={safeSchool.principal_signature_url} style={styles.signatureImage} /> : null}
+            <View style={styles.signatureLine} />
+            <Text style={styles.signatureName}>{safeSchool.principal_name}</Text>
+            <Text style={styles.signatureTitle}>Principal</Text>
+          </View>
+        )}
+      </View>
+
+      <View style={styles.footer} fixed>
+        <Text>Issued {formatDate(data.issued_date || new Date().toISOString())}</Text>
+        <Text>Powered by NexaForges</Text>
+      </View>
+    </Page>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// The Batch Document
+// ─────────────────────────────────────────────────────────────────────────────
+export function ClassicNigerianBatchDocument({ students }: { students: IndividualReportCardData[] }) {
+  return (
     <Document>
-      <Page size="A4" style={styles.page}>
-        {/* ── Header ── */}
-        <View style={styles.headerContainer}>
-          {safeSchool.logo_url && (
-            <Image src={safeSchool.logo_url} style={styles.schoolLogo} />
-          )}
-          <Text style={styles.schoolName}>{safeSchool.name || "School Name"}</Text>
-          {safeSchool.address && (
-            <Text style={styles.schoolAddress}>{safeSchool.address}</Text>
-          )}
-          {(safeSchool.phone || safeSchool.email) && (
-            <Text style={styles.schoolAddress}>
-              {[safeSchool.phone, safeSchool.email].filter(Boolean).join(" | ")}
-            </Text>
-          )}
-        </View>
-
-        {/* ── Title Banner ── */}
-        <View style={[styles.titleBanner, { backgroundColor: primaryColor }]}>
-          <Text style={styles.titleText}>Student Report Card</Text>
-        </View>
-
-        {/* ── Identity Block ── */}
-        <View style={{ marginBottom: 8 }}>
-          <View style={styles.identityRow}>
-            <Text style={styles.identityText}>
-              <Text style={styles.bold}>Name: </Text>
-              {safeStudent.full_name || "Unknown Student"}
-            </Text>
-            <Text style={styles.identityText}>
-              <Text style={styles.bold}>Admission No: </Text>
-              {safeStudent.admission_number || "N/A"}
-            </Text>
-          </View>
-          <View style={styles.identityRow}>
-            <Text style={styles.identityText}>
-              <Text style={styles.bold}>Class: </Text>
-              {safeClass.name || "N/A"}
-            </Text>
-            <Text style={styles.identityText}>
-              <Text style={styles.bold}>Term: </Text>
-              {safeTerm.name || "N/A"}
-            </Text>
-          </View>
-          <View style={styles.identityRow}>
-            <Text style={styles.identityText}>
-              <Text style={styles.bold}>Session: </Text>
-              {safeTerm.academic_session || "N/A"}
-            </Text>
-            <Text style={styles.identityText}>
-              <Text style={styles.bold}>Date Issued: </Text>
-              {data.issued_date || "N/A"}
-            </Text>
-          </View>
-        </View>
-
-        {/* ── Subject Tables (Two Columns) ── */}
-        <View style={{ flexDirection: "row", marginBottom: 8 }}>
-          {renderSubjectTable(leftSubjects, false)}
-          {renderSubjectTable(rightSubjects, true)}
-        </View>
-
-        {/* ── Overall Banner ── */}
-        <View style={styles.bannerContainer}>
-          <View style={styles.bannerCell}>
-            <Text style={styles.bannerLabel}>Total Obtained</Text>
-            <Text style={styles.bannerValue}>
-              {totalScore} of {totalMaxScore} ({percentage}%)
-            </Text>
-          </View>
-          <View style={styles.bannerCell}>
-            <Text style={styles.bannerLabel}>Average</Text>
-            <Text style={styles.bannerValue}>{safeAverage.toFixed(1)}%</Text>
-          </View>
-          <View style={styles.bannerCell}>
-            <Text style={styles.bannerLabel}>Position</Text>
-            <Text style={styles.bannerValue}>
-              {safePosition} of {safeTotalStudents}
-            </Text>
-          </View>
-        </View>
-
-        {/* ── Affective & Psychomotor Grid ── */}
-        <View style={styles.gridContainer}>
-          {/* Affective Traits */}
-          <View style={styles.gridColumn}>
-            <Text style={styles.sectionTitle}>Affective Traits</Text>
-            <View style={styles.legendRow}>
-              <Text>E = Excellent</Text>
-              <Text>G = Good</Text>
-              <Text>F = Fair</Text>
-              <Text>P = Poor</Text>
-            </View>
-            {AFFECTIVE_TRAITS.map((trait) => (
-              <CheckboxGroup
-                key={trait}
-                label={trait}
-                value={getRatingValue(
-                  data.affective_traits,
-                  trait,
-                  "trait"
-                )}
-              />
-            ))}
-          </View>
-
-          {/* Psychomotor Skills */}
-          <View style={styles.gridColumn}>
-            <Text style={styles.sectionTitle}>Psychomotor Skills</Text>
-            <View style={styles.legendRow}>
-              <Text>E = Excellent</Text>
-              <Text>G = Good</Text>
-              <Text>F = Fair</Text>
-              <Text>P = Poor</Text>
-            </View>
-            {PSYCHOMOTOR_SKILLS.map((skill) => (
-              <CheckboxGroup
-                key={skill}
-                label={skill}
-                value={getRatingValue(
-                  data.psychomotor_skills,
-                  skill,
-                  "skill"
-                )}
-              />
-            ))}
-          </View>
-        </View>
-
-        {/* ── Remarks ── */}
-        <View style={styles.remarksContainer}>
-          <View style={styles.remarkRow}>
-            <Text style={styles.remarkLabel}>Class Teacher's Remark:</Text>
-            <Text style={styles.remarkValue}>
-              {data.teacher_comment || ""}
-            </Text>
-          </View>
-          <View style={styles.remarkRow}>
-            <Text style={styles.remarkLabel}>Principal's Remark:</Text>
-            <Text style={styles.remarkValue}>
-              {data.principal_comment || ""}
-            </Text>
-          </View>
-        </View>
-
-        {/* ── Signatures ── */}
-        <View style={styles.signatureRow}>
-          <View style={styles.signatureBlock}>
-            <View style={styles.signatureLine} />
-            <Text style={styles.signatureLabel}>Class Teacher</Text>
-          </View>
-          <View style={styles.signatureBlock}>
-            {safeSchool.principal_signature_url ? (
-              <Image
-                src={safeSchool.principal_signature_url}
-                style={styles.signatureImage}
-              />
-            ) : (
-              <View style={{ height: 25 }} />
-            )}
-            <View style={styles.signatureLine} />
-            <Text style={styles.signatureLabel}>
-              {safeSchool.principal_name || "Principal"}
-            </Text>
-          </View>
-        </View>
-
-        {/* ── Footer ── */}
-        <Text style={styles.footer}>
-          Generated by NexaForge • {new Date().toLocaleDateString()}
-        </Text>
-      </Page>
+      {students.map((student, i) => (
+        <ClassicNigerianPage key={student.student?.id || i} data={student} />
+      ))}
     </Document>
   );
 }
