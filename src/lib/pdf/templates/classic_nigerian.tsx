@@ -1,6 +1,6 @@
 // src/lib/pdf/templates/classic_nigerian.tsx
 import React from "react";
-import { Document, Page, Text, View, Image } from "@react-pdf/renderer";
+import { Page, Text, View, Image } from "@react-pdf/renderer";
 import type { IndividualReportCardData } from "@/types/printing";
 import { styles, COLOR, PAGE } from "./report-card-styles";
 
@@ -363,19 +363,3 @@ export function ClassicNigerianPage({ data }: { data: IndividualReportCardData }
   );
 }
 
-export function ClassicNigerianBatchDocument({
-  students,
-}: {
-  students: IndividualReportCardData[];
-}) {
-  return (
-    <Document>
-      {students.map((student, i) => (
-        <ClassicNigerianPage
-          key={student.student?.id || `student-${i}`}
-          data={student}
-        />
-      ))}
-    </Document>
-  );
-}
