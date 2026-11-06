@@ -16,7 +16,7 @@ export async function GET(
     const { data: school, error } = await supabase
       .from('schools')
       .select(
-        'id, name, slug, subdomain, domain, email, phone, address, city, state, country, logo_url, motto, subscription_status, subscription_tier, subscription_expires_at, created_at, updated_at, admin_id, principal_id'
+        'id, name, slug, subdomain, domain, email, phone, address, city, state, country, logo_url, motto, subscription_status, subscription_tier, subscription_expires_at, created_at, updated_at, admin_id, principal_id, report_card_template'
       )
       .eq('id', id)
       .maybeSingle();
@@ -120,6 +120,7 @@ export async function GET(
         subscription_expires_at: school.subscription_expires_at,
         created_at: school.created_at,
         updated_at: school.updated_at,
+        report_card_template: school.report_card_template || 'classic_nigerian',
       },
       principal,
       admin,
@@ -149,9 +150,7 @@ export async function PATCH(
     const { id } = await params;
     const body = await request.json();
 
-    // Whitelist editable fields. Anything else is silently dropped so the
-    // route can't be abused to change admin_id, principal_id, subscription
-    // fields, or is_deleted.
+    // Whitelist editable fields.
     const allowed = [
       'name',
       'email',
@@ -176,8 +175,6 @@ export async function PATCH(
       );
     }
 
-    // If name changed, regenerate slug + subdomain. Note this changes the
-    // school's public URL — warn the caller in the UI before they save.
     if (patch.name) {
       const newSlug = String(patch.name)
         .toLowerCase()

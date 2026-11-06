@@ -68,6 +68,12 @@ export default function SchoolDetailPage() {
   const [expiresAt, setExpiresAt] = useState('');
   const [showEdit, setShowEdit] = useState(false);
 
+  // Local mirror of the template so the modal reflects the change without
+  // refetching the whole school record after every Apply click.
+  const [reportCardTemplate, setReportCardTemplate] = useState<
+    string | undefined
+  >(undefined);
+
   const school = data?.school;
   const principal = data?.principal;
   const admin = data?.admin;
@@ -81,6 +87,9 @@ export default function SchoolDetailPage() {
         school.subscription_expires_at
           ? school.subscription_expires_at.slice(0, 10)
           : ''
+      );
+      setReportCardTemplate(
+        (school as any).report_card_template || 'classic_nigerian'
       );
     }
   }, [school]);
@@ -137,6 +146,14 @@ export default function SchoolDetailPage() {
         variant: 'destructive',
       });
     }
+  };
+
+  const handleTemplateChanged = (newKey: string) => {
+    setReportCardTemplate(newKey);
+    toast({
+      title: 'Template updated',
+      description: 'New report card PDFs will use this template.',
+    });
   };
 
   if (isLoading) {
@@ -384,6 +401,7 @@ export default function SchoolDetailPage() {
       <SchoolEditModal
         open={showEdit}
         onOpenChange={setShowEdit}
+        schoolId={id}
         initial={{
           name: school.name,
           email: school.email,
@@ -393,8 +411,10 @@ export default function SchoolDetailPage() {
           state: school.state,
           country: school.country,
           slug: school.slug,
+          report_card_template: reportCardTemplate,
         }}
         onSubmit={handleSaveSchool}
+        onTemplateChanged={handleTemplateChanged}
         isLoading={isEditing}
       />
     </div>
