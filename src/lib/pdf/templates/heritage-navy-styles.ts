@@ -407,8 +407,7 @@ export const heritageStyles = StyleSheet.create({
   signatureRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 6,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   signatureBlock: {
     flex: 1,
@@ -441,18 +440,19 @@ export const heritageStyles = StyleSheet.create({
     marginTop: 1,
   },
 
-  // ── GRADING SCALE + FOOTER (pinned to page bottom) ──
+  // ── BOTTOM PINNED ZONE (signatures + scale + footer) ──
   bottomPinned: {
     position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
+    paddingHorizontal: HERITAGE_PAGE.marginX,
+    paddingBottom: HERITAGE_PAGE.marginBottom,
   },
   scaleLine: {
     fontSize: 6.8,
     color: HERITAGE_COLOR.soft,
     paddingVertical: 4,
-    paddingHorizontal: HERITAGE_PAGE.marginX,
     borderTopWidth: 0.6,
     borderTopColor: HERITAGE_COLOR.line,
     lineHeight: 1.4,
@@ -465,7 +465,6 @@ export const heritageStyles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     paddingVertical: 4,
-    paddingHorizontal: HERITAGE_PAGE.marginX,
     borderTopWidth: 0.6,
     borderTopColor: HERITAGE_COLOR.line,
     fontSize: 6.8,

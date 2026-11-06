@@ -319,7 +319,7 @@ export function HeritageNavyPage({ data }: { data: IndividualReportCardData }) {
         </View>
       </View>
 
-      {/* ── FEEDBACK (2 remarks + next term dates) ── */}
+      {/* ── FEEDBACK (teacher / principal / parent) ── */}
       <Text style={s.sectionTitle}>Teacher and School Feedback</Text>
       <View style={s.feedbackBlock}>
         <View style={s.feedbackRow}>
@@ -336,41 +336,42 @@ export function HeritageNavyPage({ data }: { data: IndividualReportCardData }) {
         </View>
       </View>
 
-      {/* ── SIGNATURES ── */}
-      <View style={s.signatureRow}>
-        <View style={s.signatureBlock}>
-          <View style={s.signatureLine} />
-          <Text style={s.signatureLabel}>Class Teacher</Text>
-          <Text style={s.signatureDate}>Date: __________</Text>
-        </View>
-        <View style={s.signatureBlock}>
-          {safeSchool.principal_signature_url ? (
-            <Image
-              src={safeSchool.principal_signature_url}
-              style={s.signatureImage}
-            />
-          ) : null}
-          <View style={s.signatureLine} />
-          <Text style={s.signatureLabel}>
-            {safeSchool.principal_name || "Principal"}
-          </Text>
-          <Text style={s.signatureDate}>Date: __________</Text>
-        </View>
-        <View style={s.signatureBlock}>
-          <View style={s.signatureLine} />
-          <Text style={s.signatureLabel}>Parent / Guardian</Text>
-          <Text style={s.signatureDate}>Date: __________</Text>
-        </View>
-      </View>
-
-      {/* ── BOTTOM PINNED: SCALE + FOOTER ── */}
+      {/* ── BOTTOM PINNED ZONE: signatures + scale + footer ── */}
       <View style={s.bottomPinned}>
+        <View style={s.signatureRow}>
+          <View style={s.signatureBlock}>
+            <View style={s.signatureLine} />
+            <Text style={s.signatureLabel}>Class Teacher</Text>
+            <Text style={s.signatureDate}>Date: __________</Text>
+          </View>
+          <View style={s.signatureBlock}>
+            {safeSchool.principal_signature_url ? (
+              <Image
+                src={safeSchool.principal_signature_url}
+                style={s.signatureImage}
+              />
+            ) : null}
+            <View style={s.signatureLine} />
+            <Text style={s.signatureLabel}>
+              {safeSchool.principal_name || "Principal"}
+            </Text>
+            <Text style={s.signatureDate}>Date: __________</Text>
+          </View>
+          <View style={s.signatureBlock}>
+            <View style={s.signatureLine} />
+            <Text style={s.signatureLabel}>Parent / Guardian</Text>
+            <Text style={s.signatureDate}>Date: __________</Text>
+          </View>
+        </View>
+
         <Text style={s.scaleLine}>
           <Text style={s.scaleBold}>Grading scale: </Text>
           A1 75–100 Excellent  |  B2 70–74 Very Good  |  B3 65–69 Good  |  C4–C6 50–64 Credit  |  D7–E8 40–49 Pass  |  F9 0–39 Needs Support
         </Text>
         <View style={s.footerBar}>
-          <Text>{(safeSchool.name || "SCHOOL").toUpperCase()} • STUDENT REPORT</Text>
+          <Text>
+            {(safeSchool.name || "SCHOOL").toUpperCase()} • STUDENT REPORT
+          </Text>
           <Text>POWERED BY NEXAFORGES</Text>
         </View>
       </View>
