@@ -1,10 +1,6 @@
 // src/lib/pdf/templates/heritage-navy-styles.ts
 import { StyleSheet } from "@react-pdf/renderer";
 
-// ═══════════════════════════════════════════════════════════════════════════
-// "Heritage Navy" — deep navy + gold rule + teal accent.
-// Prints cleanly in B&W. Only black, white, and three muted hues.
-// ═══════════════════════════════════════════════════════════════════════════
 export const HERITAGE_COLOR = {
   blue: "#1A4F9C",
   navy: "#12356B",
@@ -42,7 +38,6 @@ export const heritageStyles = StyleSheet.create({
     color: HERITAGE_COLOR.ink,
   },
 
-  // ── TOP BAR ──
   topBar: {
     height: 10,
     backgroundColor: HERITAGE_COLOR.blue,
@@ -51,7 +46,6 @@ export const heritageStyles = StyleSheet.create({
     marginBottom: 14,
   },
 
-  // ── HEADER ──
   headerRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -75,9 +69,7 @@ export const heritageStyles = StyleSheet.create({
     fontFamily: "Helvetica-Bold",
     color: HERITAGE_COLOR.blue,
   },
-  headerCenter: {
-    flex: 1,
-  },
+  headerCenter: { flex: 1 },
   schoolName: {
     fontSize: 17,
     fontFamily: "Helvetica-Bold",
@@ -89,10 +81,7 @@ export const heritageStyles = StyleSheet.create({
     color: HERITAGE_COLOR.soft,
     marginTop: 2,
   },
-  headerRight: {
-    alignItems: "flex-end",
-    marginLeft: 10,
-  },
+  headerRight: { alignItems: "flex-end", marginLeft: 10 },
   titleMain: {
     fontSize: 10,
     fontFamily: "Helvetica-Bold",
@@ -106,7 +95,6 @@ export const heritageStyles = StyleSheet.create({
     marginTop: 1.5,
   },
 
-  // ── INFO GRID (2 rows × 4 cells) ──
   infoGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -157,7 +145,6 @@ export const heritageStyles = StyleSheet.create({
     color: HERITAGE_COLOR.navy,
   },
 
-  // ── SECTION TITLE ──
   sectionTitle: {
     fontSize: 8.6,
     fontFamily: "Helvetica-Bold",
@@ -167,7 +154,6 @@ export const heritageStyles = StyleSheet.create({
     marginBottom: 4,
   },
 
-  // ── ACADEMIC TABLE ──
   table: {
     borderWidth: 0.6,
     borderColor: HERITAGE_COLOR.line,
@@ -200,9 +186,7 @@ export const heritageStyles = StyleSheet.create({
     borderBottomColor: HERITAGE_COLOR.line,
     alignItems: "center",
   },
-  tableRowAlt: {
-    backgroundColor: HERITAGE_COLOR.tint,
-  },
+  tableRowAlt: { backgroundColor: HERITAGE_COLOR.tint },
   tableCell: {
     fontSize: 8.8,
     paddingHorizontal: 3,
@@ -227,15 +211,23 @@ export const heritageStyles = StyleSheet.create({
     color: HERITAGE_COLOR.ink,
   },
 
-  // Column weights
-  colSubject: { width: "30%" },
-  colCA: { width: "8%" },
-  colExam: { width: "8%" },
-  colTotal: { width: "9%" },
-  colGrade: { width: "10%" },
-  colRemark: { width: "27%" },
+  // Column weights — two variants.
+  // With CA3 (3 CAs): subject 30%, CA 8% ×3, exam 8%, total 9%, grade 10%, remark 19%
+  // Without CA3 (2 CAs): subject 33%, CA 9% ×2, exam 9%, total 10%, grade 10%, remark 20%
+  colSubject3: { width: "30%" },
+  colCA3: { width: "8%" },
+  colExam3: { width: "8%" },
+  colTotal3: { width: "9%" },
+  colGrade3: { width: "10%" },
+  colRemark3: { width: "27%" },
 
-  // Grade pill
+  colSubject2: { width: "33%" },
+  colCA2: { width: "9%" },
+  colExam2: { width: "9%" },
+  colTotal2: { width: "10%" },
+  colGrade2: { width: "10%" },
+  colRemark2: { width: "20%" },
+
   gradePill: {
     paddingVertical: 1,
     paddingHorizontal: 4,
@@ -246,7 +238,6 @@ export const heritageStyles = StyleSheet.create({
     textAlign: "center",
   },
 
-  // ── STAT BAND (3 cells: Average / Grade / Position) ──
   statBand: {
     flexDirection: "row",
     borderWidth: 0.6,
@@ -282,11 +273,7 @@ export const heritageStyles = StyleSheet.create({
     marginTop: 1.5,
   },
 
-  // ── PERSONAL DEVELOPMENT (two columns) ──
-  devRow: {
-    flexDirection: "row",
-    marginBottom: 10,
-  },
+  devRow: { flexDirection: "row", marginBottom: 8 },
   devColumn: {
     flex: 1,
     borderWidth: 0.6,
@@ -313,7 +300,7 @@ export const heritageStyles = StyleSheet.create({
   devTraitRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 3,
+    paddingVertical: 2.5,
     paddingHorizontal: 6,
     borderBottomWidth: 0.3,
     borderBottomColor: HERITAGE_COLOR.line,
@@ -334,8 +321,8 @@ export const heritageStyles = StyleSheet.create({
     marginLeft: 5,
   },
   checkbox: {
-    width: 7,
-    height: 7,
+    width: 6.5,
+    height: 6.5,
     borderWidth: 0.7,
     borderColor: HERITAGE_COLOR.ink,
     alignItems: "center",
@@ -343,14 +330,11 @@ export const heritageStyles = StyleSheet.create({
     marginRight: 1.5,
   },
   checkboxInner: {
-    width: 3.8,
-    height: 3.8,
+    width: 3.5,
+    height: 3.5,
     backgroundColor: HERITAGE_COLOR.ink,
   },
-  checkboxLabel: {
-    fontSize: 6.5,
-    color: HERITAGE_COLOR.soft,
-  },
+  checkboxLabel: { fontSize: 6.3, color: HERITAGE_COLOR.soft },
   legendRow: {
     flexDirection: "row",
     justifyContent: "flex-end",
@@ -359,12 +343,11 @@ export const heritageStyles = StyleSheet.create({
     paddingBottom: 2,
   },
   legendItem: {
-    fontSize: 6.2,
+    fontSize: 6,
     color: HERITAGE_COLOR.soft,
-    marginLeft: 6,
+    marginLeft: 5,
   },
 
-  // ── FEEDBACK / REMARKS ──
   feedbackBlock: {
     borderWidth: 0.6,
     borderColor: HERITAGE_COLOR.line,
@@ -403,7 +386,6 @@ export const heritageStyles = StyleSheet.create({
     color: HERITAGE_COLOR.ink,
   },
 
-  // ── SIGNATURES ──
   signatureRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -440,7 +422,6 @@ export const heritageStyles = StyleSheet.create({
     marginTop: 1,
   },
 
-  // ── BOTTOM PINNED ZONE (signatures + scale + footer) ──
   bottomPinned: {
     position: "absolute",
     bottom: 0,
