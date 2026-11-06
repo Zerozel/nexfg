@@ -5,6 +5,7 @@ import type React from "react";
 import { ClassicNigerianPage } from "./classic_nigerian";
 import { ClassicCompactPage } from "./classic_compact";
 import { HeritageNavyPage } from "./heritage_navy";
+import { HeritageBurgundyPage } from "./heritage_burgundy";
 
 export interface TemplateMeta {
   key: string;
@@ -18,7 +19,7 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateMeta> = {
     key: "classic_nigerian",
     name: "Classic Nigerian",
     description:
-      "Full-width subject table with CA/Exam breakdown, affective traits, psychomotor skills, and remarks.",
+      "Full-width subject table with CA/Exam breakdown, affective traits, psychomotor skills, and remarks. The standard Nigerian secondary school format.",
     Component: ClassicNigerianPage,
   },
   classic_compact: {
@@ -32,8 +33,15 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateMeta> = {
     key: "heritage_navy",
     name: "Heritage Navy",
     description:
-      "Deep navy and gold heritage layout with a full CA1/CA2/CA3 breakdown, checkbox traits, and dual feedback area. Prints cleanly in black and white.",
+      "Deep navy and gold heritage layout with full CA breakdown, checkbox traits, and dual feedback. Prints cleanly in black and white.",
     Component: HeritageNavyPage,
+  },
+  heritage_burgundy: {
+    key: "heritage_burgundy",
+    name: "Heritage Burgundy",
+    description:
+      "Premium burgundy-and-brass ledger design with a floating identity card, score progress bars, circular grade pills, and dot-scale affective traits. The flagship template.",
+    Component: HeritageBurgundyPage,
   },
 };
 
