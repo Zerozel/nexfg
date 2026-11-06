@@ -9,25 +9,17 @@ import {
 
 type RatingValue = "Excellent" | "Good" | "Fair" | "Poor" | null;
 
+// The 9 traits — exact names as specified.
 const AFFECTIVE_TRAITS = [
   "Punctuality",
   "Obedience",
-  "Readiness to Help",
-  "Self Control",
-  "Courteousness",
+  "Readiness to help",
+  "Demonstrate Self Control",
+  "Courteous",
   "Politeness",
   "Honesty",
   "Neatness",
   "Attentiveness",
-];
-
-const PSYCHOMOTOR_SKILLS = [
-  "Handwriting",
-  "Verbal Fluency",
-  "Games / Sports",
-  "Drawing & Painting",
-  "Handling Tools",
-  "Musical Skills",
 ];
 
 const RATING_OPTIONS: Array<{ key: Exclude<RatingValue, null>; label: string }> = [
@@ -39,12 +31,11 @@ const RATING_OPTIONS: Array<{ key: Exclude<RatingValue, null>; label: string }> 
 
 function getRatingValue(
   traits: any[] | null | undefined,
-  targetName: string,
-  key: "trait" | "skill"
+  targetName: string
 ): RatingValue {
   if (!traits) return null;
   const found = traits.find(
-    (t) => t[key]?.toString().toLowerCase() === targetName.toLowerCase()
+    (t) => t.trait?.toString().toLowerCase() === targetName.toLowerCase()
   );
   if (!found) return null;
   const val = found.rating?.toString().toLowerCase();
@@ -72,9 +63,25 @@ function gradePillColor(grade: string | null | undefined): string {
   return HERITAGE_COLOR.gradeD;
 }
 
-function CheckboxGroup({ label, value }: { label: string; value: RatingValue }) {
+function formatPrintDate(): string {
+  return new Date().toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function CheckboxGroup({
+  label,
+  value,
+  isLast,
+}: {
+  label: string;
+  value: RatingValue;
+  isLast?: boolean;
+}) {
   return (
-    <View style={s.devTraitRow}>
+    <View style={isLast ? s.devTraitRowLast : s.devTraitRow}>
       <Text style={s.devTraitLabel}>{label}</Text>
       <View style={s.checkboxGroup}>
         {RATING_OPTIONS.map((opt) => (
@@ -111,9 +118,7 @@ function SubjectRow({ subject, index, showCA3 }: SubjectRowProps) {
 
   return (
     <View style={[s.tableRow, isAlt ? s.tableRowAlt : {}]}>
-      <Text
-        style={[s.tableCell, showCA3 ? s.colSubject3 : s.colSubject2]}
-      >
+      <Text style={[s.tableCell, showCA3 ? s.colSubject3 : s.colSubject2]}>
         {subject?.name || "—"}
       </Text>
       <Text
@@ -178,7 +183,6 @@ export function HeritageNavyPage({ data }: { data: IndividualReportCardData }) {
   const subjects: any[] = Array.isArray(data?.subjects) ? data.subjects : [];
   const safeOverall: any = data?.overall || {};
 
-  // CA3 column only renders when the school has 3 CAs configured.
   const caCount: number = safeSchool.ca_count ?? 2;
   const showCA3 = caCount >= 3;
 
@@ -199,6 +203,8 @@ export function HeritageNavyPage({ data }: { data: IndividualReportCardData }) {
   ]
     .filter(Boolean)
     .join(" • ");
+
+  const printDate = formatPrintDate();
 
   return (
     <Page size="A4" style={s.page}>
@@ -379,55 +385,31 @@ export function HeritageNavyPage({ data }: { data: IndividualReportCardData }) {
         </View>
       </View>
 
-      {/* ── BOTTOM PINNED ZONE: PD + feedback + signatures + scale + footer ── */}
+      {/* ── BOTTOM PINNED: PD + feedback + signatures + scale + footer ── */}
       <View style={s.bottomPinned}>
-        {/* Personal Development */}
+        {/* Personal Development — single column, 9 traits */}
         <Text style={s.sectionTitle}>Personal Development</Text>
-        <View style={s.devRow}>
-          <View style={s.devColumn}>
-            <View style={s.devHeader}>
-              <Text style={s.devHeaderText}>Affective Traits</Text>
-            </View>
-            <View style={s.legendRow}>
-              <Text style={s.legendItem}>E = Excellent</Text>
-              <Text style={s.legendItem}>G = Good</Text>
-              <Text style={s.legendItem}>F = Fair</Text>
-              <Text style={s.legendItem}>P = Poor</Text>
-            </View>
-            {AFFECTIVE_TRAITS.map((trait) => (
-              <CheckboxGroup
-                key={trait}
-                label={trait}
-                value={getRatingValue(data.affective_traits, trait, "trait")}
-              />
-            ))}
+        <View style={s.devBlock}>
+          <View style={s.devHeader}>
+            <Text style={s.devHeaderText}>Affective Traits</Text>
           </View>
-
-          <View style={s.devColumnLast}>
-            <View style={s.devHeader}>
-              <Text style={s.devHeaderText}>Psychomotor Skills</Text>
-            </View>
-            <View style={s.legendRow}>
-              <Text style={s.legendItem}>E = Excellent</Text>
-              <Text style={s.legendItem}>G = Good</Text>
-              <Text style={s.legendItem}>F = Fair</Text>
-              <Text style={s.legendItem}>P = Poor</Text>
-            </View>
-            {PSYCHOMOTOR_SKILLS.map((skill) => (
-              <CheckboxGroup
-                key={skill}
-                label={skill}
-                value={getRatingValue(
-                  data.psychomotor_skills,
-                  skill,
-                  "skill"
-                )}
-              />
-            ))}
+          <View style={s.devLegendRow}>
+            <Text style={s.devLegendItem}>E = Excellent</Text>
+            <Text style={s.devLegendItem}>G = Good</Text>
+            <Text style={s.devLegendItem}>F = Fair</Text>
+            <Text style={s.devLegendItem}>P = Poor</Text>
           </View>
+          {AFFECTIVE_TRAITS.map((trait, idx) => (
+            <CheckboxGroup
+              key={trait}
+              label={trait}
+              value={getRatingValue(data.affective_traits, trait)}
+              isLast={idx === AFFECTIVE_TRAITS.length - 1}
+            />
+          ))}
         </View>
 
-        {/* Feedback — only teacher + principal */}
+        {/* Feedback — teacher + principal only */}
         <View style={s.feedbackBlock}>
           <View style={s.feedbackRow}>
             <Text style={s.feedbackLabel}>Class Teacher's Comment</Text>
@@ -439,12 +421,12 @@ export function HeritageNavyPage({ data }: { data: IndividualReportCardData }) {
           </View>
         </View>
 
-        {/* Signatures — only teacher + principal */}
+        {/* Signatures — teacher + principal only; date = print date */}
         <View style={s.signatureRow}>
           <View style={s.signatureBlock}>
             <View style={s.signatureLine} />
             <Text style={s.signatureLabel}>Class Teacher</Text>
-            <Text style={s.signatureDate}>Date: __________</Text>
+            <Text style={s.signatureDate}>Date: {printDate}</Text>
           </View>
           <View style={s.signatureBlock}>
             {safeSchool.principal_signature_url ? (
@@ -457,7 +439,7 @@ export function HeritageNavyPage({ data }: { data: IndividualReportCardData }) {
             <Text style={s.signatureLabel}>
               {safeSchool.principal_name || "Principal"}
             </Text>
-            <Text style={s.signatureDate}>Date: __________</Text>
+            <Text style={s.signatureDate}>Date: {printDate}</Text>
           </View>
         </View>
 

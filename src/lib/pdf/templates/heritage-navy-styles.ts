@@ -211,9 +211,6 @@ export const heritageStyles = StyleSheet.create({
     color: HERITAGE_COLOR.ink,
   },
 
-  // Column weights — two variants.
-  // With CA3 (3 CAs): subject 30%, CA 8% ×3, exam 8%, total 9%, grade 10%, remark 19%
-  // Without CA3 (2 CAs): subject 33%, CA 9% ×2, exam 9%, total 10%, grade 10%, remark 20%
   colSubject3: { width: "30%" },
   colCA3: { width: "8%" },
   colExam3: { width: "8%" },
@@ -273,80 +270,83 @@ export const heritageStyles = StyleSheet.create({
     marginTop: 1.5,
   },
 
-  devRow: { flexDirection: "row", marginBottom: 8 },
-  devColumn: {
-    flex: 1,
+  // ── PERSONAL DEVELOPMENT (single column, bolder, roomier) ──
+  devBlock: {
     borderWidth: 0.6,
     borderColor: HERITAGE_COLOR.line,
-    marginRight: 6,
-  },
-  devColumnLast: {
-    flex: 1,
-    borderWidth: 0.6,
-    borderColor: HERITAGE_COLOR.line,
+    marginBottom: 8,
   },
   devHeader: {
     backgroundColor: HERITAGE_COLOR.teal,
-    paddingVertical: 4,
-    paddingHorizontal: 6,
+    paddingVertical: 5,
+    paddingHorizontal: 8,
   },
   devHeaderText: {
-    fontSize: 7.4,
+    fontSize: 8,
     fontFamily: "Helvetica-Bold",
     color: HERITAGE_COLOR.paper,
-    letterSpacing: 0.3,
+    letterSpacing: 0.4,
     textTransform: "uppercase",
+  },
+  devLegendRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    paddingHorizontal: 8,
+    paddingTop: 4,
+    paddingBottom: 3,
+    borderBottomWidth: 0.3,
+    borderBottomColor: HERITAGE_COLOR.line,
+  },
+  devLegendItem: {
+    fontSize: 6.6,
+    color: HERITAGE_COLOR.soft,
+    marginLeft: 8,
   },
   devTraitRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 2.5,
-    paddingHorizontal: 6,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
     borderBottomWidth: 0.3,
     borderBottomColor: HERITAGE_COLOR.line,
   },
+  devTraitRowLast: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
   devTraitLabel: {
-    flex: 1.6,
-    fontSize: 8,
+    flex: 1.5,
+    fontSize: 9,
+    fontFamily: "Helvetica-Bold",
     color: HERITAGE_COLOR.ink,
   },
   checkboxGroup: {
     flexDirection: "row",
-    flex: 1.2,
+    flex: 1,
     justifyContent: "flex-end",
   },
   checkboxWrapper: {
     flexDirection: "row",
     alignItems: "center",
-    marginLeft: 5,
+    marginLeft: 10,
   },
   checkbox: {
-    width: 6.5,
-    height: 6.5,
-    borderWidth: 0.7,
+    width: 8,
+    height: 8,
+    borderWidth: 0.8,
     borderColor: HERITAGE_COLOR.ink,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 1.5,
+    marginRight: 2,
   },
   checkboxInner: {
-    width: 3.5,
-    height: 3.5,
+    width: 4.4,
+    height: 4.4,
     backgroundColor: HERITAGE_COLOR.ink,
   },
-  checkboxLabel: { fontSize: 6.3, color: HERITAGE_COLOR.soft },
-  legendRow: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    paddingHorizontal: 6,
-    paddingTop: 3,
-    paddingBottom: 2,
-  },
-  legendItem: {
-    fontSize: 6,
-    color: HERITAGE_COLOR.soft,
-    marginLeft: 5,
-  },
+  checkboxLabel: { fontSize: 7.5, color: HERITAGE_COLOR.soft },
 
   feedbackBlock: {
     borderWidth: 0.6,
