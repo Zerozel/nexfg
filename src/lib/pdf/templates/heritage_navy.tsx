@@ -9,7 +9,6 @@ import {
 
 type RatingValue = "Excellent" | "Good" | "Fair" | "Poor" | null;
 
-// The 9 traits — exact names as specified.
 const AFFECTIVE_TRAITS = [
   "Punctuality",
   "Obedience",
@@ -122,18 +121,12 @@ function SubjectRow({ subject, index, showCA3 }: SubjectRowProps) {
         {subject?.name || "—"}
       </Text>
       <Text
-        style={[
-          s.tableCellCenter,
-          showCA3 ? s.colCA3 : s.colCA2,
-        ]}
+        style={[s.tableCellCenter, showCA3 ? s.colCA3 : s.colCA2]}
       >
         {fmt(ca1)}
       </Text>
       <Text
-        style={[
-          s.tableCellCenter,
-          showCA3 ? s.colCA3 : s.colCA2,
-        ]}
+        style={[s.tableCellCenter, showCA3 ? s.colCA3 : s.colCA2]}
       >
         {fmt(ca2)}
       </Text>
@@ -141,18 +134,12 @@ function SubjectRow({ subject, index, showCA3 }: SubjectRowProps) {
         <Text style={[s.tableCellCenter, s.colCA3]}>{fmt(ca3)}</Text>
       )}
       <Text
-        style={[
-          s.tableCellCenter,
-          showCA3 ? s.colExam3 : s.colExam2,
-        ]}
+        style={[s.tableCellCenter, showCA3 ? s.colExam3 : s.colExam2]}
       >
         {fmt(exam)}
       </Text>
       <Text
-        style={[
-          s.tableCellTotal,
-          showCA3 ? s.colTotal3 : s.colTotal2,
-        ]}
+        style={[s.tableCellTotal, showCA3 ? s.colTotal3 : s.colTotal2]}
       >
         {total}
       </Text>
@@ -164,10 +151,7 @@ function SubjectRow({ subject, index, showCA3 }: SubjectRowProps) {
         </Text>
       </View>
       <Text
-        style={[
-          s.tableCellRemark,
-          showCA3 ? s.colRemark3 : s.colRemark2,
-        ]}
+        style={[s.tableCellRemark, showCA3 ? s.colRemark3 : s.colRemark2]}
       >
         {remark}
       </Text>
@@ -208,7 +192,6 @@ export function HeritageNavyPage({ data }: { data: IndividualReportCardData }) {
 
   return (
     <Page size="A4" style={s.page}>
-      {/* ── TOP BAR ── */}
       <View style={s.topBar} />
 
       {/* ── HEADER ── */}
@@ -387,17 +370,16 @@ export function HeritageNavyPage({ data }: { data: IndividualReportCardData }) {
 
       {/* ── BOTTOM PINNED: PD + feedback + signatures + scale + footer ── */}
       <View style={s.bottomPinned}>
-        {/* Personal Development — single column, 9 traits */}
         <Text style={s.sectionTitle}>Personal Development</Text>
         <View style={s.devBlock}>
           <View style={s.devHeader}>
             <Text style={s.devHeaderText}>Affective Traits</Text>
-          </View>
-          <View style={s.devLegendRow}>
-            <Text style={s.devLegendItem}>E = Excellent</Text>
-            <Text style={s.devLegendItem}>G = Good</Text>
-            <Text style={s.devLegendItem}>F = Fair</Text>
-            <Text style={s.devLegendItem}>P = Poor</Text>
+            <View style={s.devLegendInline}>
+              <Text style={s.devLegendItemInline}>E = Excellent</Text>
+              <Text style={s.devLegendItemInline}>G = Good</Text>
+              <Text style={s.devLegendItemInline}>F = Fair</Text>
+              <Text style={s.devLegendItemInline}>P = Poor</Text>
+            </View>
           </View>
           {AFFECTIVE_TRAITS.map((trait, idx) => (
             <CheckboxGroup
@@ -409,7 +391,6 @@ export function HeritageNavyPage({ data }: { data: IndividualReportCardData }) {
           ))}
         </View>
 
-        {/* Feedback — teacher + principal only */}
         <View style={s.feedbackBlock}>
           <View style={s.feedbackRow}>
             <Text style={s.feedbackLabel}>Class Teacher's Comment</Text>
@@ -421,7 +402,6 @@ export function HeritageNavyPage({ data }: { data: IndividualReportCardData }) {
           </View>
         </View>
 
-        {/* Signatures — teacher + principal only; date = print date */}
         <View style={s.signatureRow}>
           <View style={s.signatureBlock}>
             <View style={s.signatureLine} />
@@ -443,7 +423,6 @@ export function HeritageNavyPage({ data }: { data: IndividualReportCardData }) {
           </View>
         </View>
 
-        {/* Scale + footer */}
         <Text style={s.scaleLine}>
           <Text style={s.scaleBold}>Grading scale: </Text>
           A1 75–100 Excellent  |  B2 70–74 Very Good  |  B3 65–69 Good  |  C4–C6 50–64 Credit  |  D7–E8 40–49 Pass  |  F9 0–39 Needs Support
