@@ -358,48 +358,53 @@ export const burgundyStyles = StyleSheet.create({
     marginRight: 10,
   },
 
-  // ── PERSONAL DEVELOPMENT (dots scale) ──
+    // ── PERSONAL DEVELOPMENT (tick rubric) ──
   devBlock: {
     marginBottom: 8,
   },
   devTraitRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 2,
+    paddingVertical: 2.5,
     borderBottomWidth: 0.4,
     borderBottomColor: BURGUNDY_COLOR.line,
   },
   devTraitLabel: {
-    fontSize: 8.6,
+    fontSize: 8.4,
     fontFamily: "Helvetica-Bold",
     color: BURGUNDY_COLOR.ink,
-    flex: 1,
+    width: 130,
   },
-  devDotsGroup: {
+  devRubricGroup: {
+    flex: 1,
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  devRubricItem: {
     flexDirection: "row",
     alignItems: "center",
   },
-  devDots: {
-    flexDirection: "row",
-    marginLeft: 4,
+  devRubricCheckbox: {
+    width: 7,
+    height: 7,
+    borderWidth: 0.7,
+    borderColor: BURGUNDY_COLOR.ink,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 2,
   },
-  devDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: BURGUNDY_COLOR.line,
-    marginLeft: 1.5,
-  },
-  devDotOn: {
+  devRubricCheckboxChecked: {
     backgroundColor: BURGUNDY_COLOR.primary,
+    borderColor: BURGUNDY_COLOR.primary,
   },
-  devRatingText: {
-    fontSize: 7.4,
+  devRubricCheckmark: {
+    width: 4,
+    height: 4,
+    backgroundColor: BURGUNDY_COLOR.white,
+  },
+  devRubricLabel: {
+    fontSize: 6.6,
     color: BURGUNDY_COLOR.soft,
-    marginLeft: 6,
-    width: 60,
-    textAlign: "right",
   },
 
   // ── FEEDBACK (remarks) ──

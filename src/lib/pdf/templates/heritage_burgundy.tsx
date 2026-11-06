@@ -7,8 +7,6 @@ import {
   BURGUNDY_COLOR,
 } from "./heritage-burgundy-styles";
 
-type RatingValue = "Excellent" | "Good" | "Fair" | "Poor" | null;
-
 const AFFECTIVE_TRAITS = [
   "Punctuality",
   "Obedience",
@@ -21,30 +19,41 @@ const AFFECTIVE_TRAITS = [
   "Attentiveness",
 ];
 
-// Dot scale: value 1–5, mapped from rating strings
-const RATING_TO_DOTS: Record<Exclude<RatingValue, null>, number> = {
-  Excellent: 5,
-  Good: 4,
-  Fair: 2,
-  Poor: 1,
-};
+// Five-tier rubric for each affective trait.
+// Stored values come from student_affective_traits.rating.
+const TRAIT_RUBRIC: Array<{ key: string; label: string }> = [
+  { key: "Excellent", label: "Excellent" },
+  { key: "Very Good", label: "Very Good" },
+  { key: "Good", label: "Good" },
+  { key: "Fair", label: "Fair" },
+  { key: "Poor", label: "Poor" },
+];
 
 function getRatingValue(
   traits: any[] | null | undefined,
   targetName: string
-): RatingValue {
+): string | null {
   if (!traits) return null;
   const found = traits.find(
     (t) => t.trait?.toString().toLowerCase() === targetName.toLowerCase()
   );
   if (!found) return null;
-  const val = found.rating?.toString().toLowerCase();
-  if (!val) return null;
-  if (val === "excellent" || val === "a") return "Excellent";
-  if (val === "good" || val === "b") return "Good";
-  if (val === "fair" || val === "c") return "Fair";
-  if (val === "poor" || val === "d" || val === "f") return "Poor";
-  return null;
+  const raw = found.rating?.toString().trim() || "";
+  if (!raw) return null;
+
+  // Normalize legacy A/B/C/D/F
+  const upper = raw.toUpperCase();
+  if (upper === "A") return "Excellent";
+  if (upper === "B") return "Very Good";
+  if (upper === "C") return "Good";
+  if (upper === "D") return "Fair";
+  if (upper === "F") return "Poor";
+
+  // Match by exact label
+  const match = TRAIT_RUBRIC.find(
+    (r) => r.label.toLowerCase() === raw.toLowerCase()
+  );
+  return match ? match.label : null;
 }
 
 function getOrdinal(n: number): string {
@@ -70,8 +79,6 @@ function formatPrintDate(): string {
     year: "numeric",
   });
 }
-
-// ── Sub-components ────────────────────────────────────────────────────────
 
 function GradeCircle({ grade }: { grade: string | null | undefined }) {
   if (!grade || grade === "—") {
@@ -102,8 +109,6 @@ function ScoreBar({
   if (!hasData) {
     return <View style={s.barTrackNil} />;
   }
-  // Normalize to 100. CA max is up to 40, exam up to 60 in the ledger vision.
-  // Actual widths scale by score/100.
   const caPct = Math.min(100, Math.max(0, caTotal));
   const examPct = Math.min(100 - caPct, Math.max(0, exam));
   return (
@@ -194,28 +199,32 @@ function TraitRow({
   value,
 }: {
   label: string;
-  value: RatingValue;
+  value: string | null;
 }) {
-  const dots = value ? RATING_TO_DOTS[value] : 0;
   return (
     <View style={s.devTraitRow}>
       <Text style={s.devTraitLabel}>{label}</Text>
-      <View style={s.devDotsGroup}>
-        <View style={s.devDots}>
-          {[1, 2, 3, 4, 5].map((i) => (
-            <View
-              key={i}
-              style={[s.devDot, i <= dots ? s.devDotOn : {}]}
-            />
-          ))}
-        </View>
-        <Text style={s.devRatingText}>{value || "—"}</Text>
+      <View style={s.devRubricGroup}>
+        {TRAIT_RUBRIC.map((opt) => {
+          const isChecked = value === opt.label;
+          return (
+            <View key={opt.label} style={s.devRubricItem}>
+              <View
+                style={[
+                  s.devRubricCheckbox,
+                  isChecked ? s.devRubricCheckboxChecked : {},
+                ]}
+              >
+                {isChecked && <View style={s.devRubricCheckmark} />}
+              </View>
+              <Text style={s.devRubricLabel}>{opt.label}</Text>
+            </View>
+          );
+        })}
       </View>
     </View>
   );
 }
-
-// ── Main Page ─────────────────────────────────────────────────────────────
 
 export function HeritageBurgundyPage({
   data,
@@ -261,7 +270,6 @@ export function HeritageBurgundyPage({
 
   return (
     <Page size="A4" style={s.page}>
-      {/* ── BAND ── */}
       <View style={s.band}>
         {safeSchool.logo_url ? (
           <Image src={safeSchool.logo_url} style={s.crest} />
@@ -290,7 +298,6 @@ export function HeritageBurgundyPage({
         <View style={s.bandRule} />
       </View>
 
-      {/* ── FLOATING IDENTITY CARD ── */}
       <View style={s.card}>
         <View style={s.cardLeft}>
           <Text style={s.cardStudentName}>
@@ -327,7 +334,6 @@ export function HeritageBurgundyPage({
         </View>
       </View>
 
-      {/* ── STAT ROW ── */}
       <View style={s.statRow}>
         <View style={s.statCell}>
           <Text style={s.statLabel}>Total Score</Text>
@@ -355,7 +361,6 @@ export function HeritageBurgundyPage({
         </View>
       </View>
 
-      {/* ── ACADEMIC TABLE ── */}
       <Text style={s.sectionTitle}>Academic Performance</Text>
       <View style={s.tableHeaderRow}>
         <Text style={[s.tableHeaderCell, s.colSubject]}>Subject</Text>
@@ -391,11 +396,17 @@ export function HeritageBurgundyPage({
 
       <View style={s.tableLegend}>
         <View
-          style={[s.legendSwatch, { backgroundColor: BURGUNDY_COLOR.primaryDeep }]}
+          style={[
+            s.legendSwatch,
+            { backgroundColor: BURGUNDY_COLOR.primaryDeep },
+          ]}
         />
         <Text style={s.legendText}>Continuous assessment</Text>
         <View
-          style={[s.legendSwatch, { backgroundColor: BURGUNDY_COLOR.primaryLight }]}
+          style={[
+            s.legendSwatch,
+            { backgroundColor: BURGUNDY_COLOR.primaryLight },
+          ]}
         />
         <Text style={s.legendText}>Exam</Text>
         <Text style={s.legendText}>
@@ -403,9 +414,7 @@ export function HeritageBurgundyPage({
         </Text>
       </View>
 
-      {/* ── BOTTOM PINNED ZONE ── */}
       <View style={s.bottomPinned}>
-        {/* Personal Development */}
         <Text style={s.sectionTitle}>Personal Development</Text>
         <View style={s.devBlock}>
           {AFFECTIVE_TRAITS.map((trait) => (
@@ -417,7 +426,6 @@ export function HeritageBurgundyPage({
           ))}
         </View>
 
-        {/* Feedback — teacher + principal only */}
         <View style={s.feedbackBlock}>
           <View style={s.feedbackRow}>
             <Text style={s.feedbackLabel}>Class Teacher's Comment</Text>
@@ -433,7 +441,6 @@ export function HeritageBurgundyPage({
           </View>
         </View>
 
-        {/* Signatures — teacher + principal only; date = print date */}
         <View style={s.signatureRow}>
           <View style={s.signatureBlock}>
             <View style={s.signatureLine} />
@@ -455,7 +462,6 @@ export function HeritageBurgundyPage({
           </View>
         </View>
 
-        {/* Scale + footer */}
         <Text style={s.scaleLine}>
           <Text style={s.scaleBold}>Grading scale: </Text>
           A1 75–100 Excellent  |  B2 70–74 Very Good  |  B3 65–69 Good  |  C4–C6 50–64 Credit  |  D7–E8 40–49 Pass  |  F9 0–39 Needs Support

@@ -6,6 +6,7 @@ import { ClassicNigerianPage } from "./classic_nigerian";
 import { ClassicCompactPage } from "./classic_compact";
 import { HeritageNavyPage } from "./heritage_navy";
 import { HeritageBurgundyPage } from "./heritage_burgundy";
+import { HeritageSlatePage } from "./heritage_slate";
 
 export interface TemplateMeta {
   key: string;
@@ -40,8 +41,15 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateMeta> = {
     key: "heritage_burgundy",
     name: "Heritage Burgundy",
     description:
-      "Premium burgundy-and-brass ledger design with a floating identity card, score progress bars, circular grade pills, and dot-scale affective traits. The flagship template.",
+      "Premium burgundy-and-brass ledger design with a floating identity card, score progress bars, circular grade pills, and tick rubric traits. The flagship template.",
     Component: HeritageBurgundyPage,
+  },
+  heritage_slate: {
+    key: "heritage_slate",
+    name: "Heritage Slate",
+    description:
+      "Modern sidebar layout with dark slate + amber accents. Sidebar carries school and student identity; main panel shows subject tiles in a compact grid. Tick rubric traits and dual feedback.",
+    Component: HeritageSlatePage,
   },
 };
 
