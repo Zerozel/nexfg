@@ -3,7 +3,7 @@ import { renderToBuffer, Document } from "@react-pdf/renderer";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { fetchCompiledResultsByStudent } from "@/lib/printing/compiled-results";
 import { transformStudentReportData } from "@/lib/printing/data-transform";
-import { ClassicNigerianPage } from "@/lib/pdf/templates/classic_nigerian";
+import { getReportCardPage } from "@/lib/pdf";
 import type { IndividualReportCardData } from "@/types/printing";
 import React from "react";
 
@@ -219,10 +219,9 @@ export async function GET(
     const reportData: IndividualReportCardData =
       transformStudentReportData(raw);
 
+    const templateName = schoolPayload.report_card_template;
     const pdfBuffer = await renderToBuffer(
-      <Document>
-        <ClassicNigerianPage data={reportData} />
-      </Document>
+      <Document>{getReportCardPage(templateName, reportData)}</Document>
     );
 
     const pdfBytes = new Uint8Array(pdfBuffer);

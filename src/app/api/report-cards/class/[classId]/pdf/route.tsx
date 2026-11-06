@@ -4,7 +4,7 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { fetchCompiledResultsByStudent } from "@/lib/printing/compiled-results";
 import { transformStudentReportData } from "@/lib/printing/data-transform";
-import { ClassicNigerianBatchDocument } from "@/lib/pdf/templates/classic_nigerian";
+import { getReportCardBatchDocument } from "@/lib/pdf";
 import type { IndividualReportCardData } from "@/types/printing";
 
 export const runtime = "nodejs";
@@ -254,8 +254,9 @@ export async function GET(
       })
       .sort((a, b) => a.overall.position - b.overall.position);
 
+    const templateName = schoolPayload.report_card_template;
     const pdfBuffer = await renderToBuffer(
-      <ClassicNigerianBatchDocument students={reportData} />
+      getReportCardBatchDocument(templateName, reportData)
     );
 
     const pdfBytes = new Uint8Array(pdfBuffer);

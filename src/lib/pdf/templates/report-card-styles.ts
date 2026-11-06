@@ -359,6 +359,13 @@ export const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 0.5,
   },
+    // ── BOTTOM BLOCK (pins traits + remarks + signatures) ──
+  bottomBlock: {
+    position: "absolute",
+    bottom: 28,
+    left: PAGE.marginX,
+    right: PAGE.marginX,
+  },
 
   // ── BOTTOM BLOCK (pins traits + remarks + signatures to page bottom) ──
   bottomBlock: {
