@@ -123,7 +123,7 @@ function SubjectTile({ subject }: { subject: any }) {
   return (
     <View style={[s.tile, hasData ? {} : s.tileEmpty, hasData ? { borderLeftColor: gradeColor(grade) } : {}]}>
       <View style={s.tileLeft}>
-        <Text style={s.tileSubjectName} numberOfLines={2}>
+        <Text style={s.tileSubjectName}>
           {subject?.name || "—"}
         </Text>
         <Text style={s.tileMeta}>
