@@ -1,37 +1,21 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createServerSupabase } from '@/lib/supabase/server';
+// src/app/api/admin/students/route.ts
+import { NextRequest, NextResponse } from "next/server";
+import { createServerSupabase } from "@/lib/supabase/server";
 import {
   listStudents,
   createStudent,
   ensureStudentEnrollment,
-} from '@/lib/supabase/admin';
-import { studentSchema } from '@/lib/validations/student.schema';
-import { ZodError } from 'zod';
+} from "@/lib/supabase/admin";
+import { studentSchema } from "@/lib/validations/student.schema";
+import {
+  getTierLimits,
+  isStudentCapReached,
+  isAccountWritable,
+} from "@/lib/subscriptions/tier-limits";
+import { ZodError } from "zod";
 
 // ============================================================================
 // generateAdmissionNumber
-// ----------------------------------------------------------------------------
-// Produces admission numbers of the form:
-//   <SCHOOL_CODE>/<YEAR>/<PREFIX><SERIAL>
-//
-// where:
-//   SCHOOL_CODE — initials of the school name, max 4 chars, uppercased
-//                 "Rock Foundation Academy"        -> "RFA"
-//                 "Green Wood"                     -> "GW"
-//                 "Wisdomgate Academy"             -> "WA"
-//                 "Zoan Nika Institute of Science" -> "ZNIS"
-//   YEAR        — 4-digit enrollment year
-//   PREFIX      — the class's code_prefix column (e.g. 10A for JSS 1A)
-//   SERIAL      — per-class-per-year sequence, 3 digits (001, 002, ...)
-//
-// Examples:
-//   RFA/2026/10A001   — first student in JSS 1A, Rock Foundation Academy
-//   GW/2026/2002      — second student in JSS 2, Green Wood
-//   WA/2026/10A003    — third student in JSS 1A, Wisdomgate Academy
-//   ZNIS/2026/UN001   — unassigned student at Zoan Nika Institute
-//
-// Every school gets its own distinct code, derived from its name — never
-// from the slug (which is a URL segment and can be arbitrarily long).
 // ============================================================================
 
 function schoolAbbreviation(name: string): string {
@@ -40,8 +24,8 @@ function schoolAbbreviation(name: string): string {
       .split(/\s+/)
       .filter(Boolean)
       .map((word) => word.charAt(0).toUpperCase())
-      .join('')
-      .slice(0, 4) || 'SCH'
+      .join("")
+      .slice(0, 4) || "SCH"
   );
 }
 
@@ -51,65 +35,66 @@ async function generateAdmissionNumber(
   enrollmentYear: number,
   classId: string | null
 ): Promise<string> {
-  // 1. Fetch school name. We derive the abbreviation from `name`, not `slug`.
   const { data: school, error: schoolError } = await supabase
-    .from('schools')
-    .select('name')
-    .eq('id', schoolId)
+    .from("schools")
+    .select("name")
+    .eq("id", schoolId)
     .single();
 
   if (schoolError || !school?.name) {
-    console.error('Failed to fetch school for admission number:', schoolError);
+    console.error(
+      "Failed to fetch school for admission number:",
+      schoolError
+    );
     const random = Math.random().toString(36).substring(2, 5).toUpperCase();
     return `SCH/${enrollmentYear}/XX${random}`;
   }
 
   const schoolCode = schoolAbbreviation(school.name);
 
-  // 2. Unassigned students (no class yet) share an UN prefix
   if (!classId) {
     const { count, error: countError } = await supabase
-      .from('students')
-      .select('id', { count: 'exact', head: true })
-      .eq('school_id', schoolId)
-      .eq('enrollment_year', enrollmentYear)
-      .is('class_id', null)
-      .eq('is_deleted', false);
+      .from("students")
+      .select("id", { count: "exact", head: true })
+      .eq("school_id", schoolId)
+      .eq("enrollment_year", enrollmentYear)
+      .is("class_id", null)
+      .eq("is_deleted", false);
 
     if (countError) throw countError;
 
-    const serial = String((count || 0) + 1).padStart(3, '0');
+    const serial = String((count || 0) + 1).padStart(3, "0");
     return `${schoolCode}/${enrollmentYear}/UN${serial}`;
   }
 
-  // 3. Resolve the class's code_prefix (e.g. "10A" for JSS 1A)
   const { data: cls, error: classError } = await supabase
-    .from('classes')
-    .select('code_prefix')
-    .eq('id', classId)
-    .eq('school_id', schoolId)
+    .from("classes")
+    .select("code_prefix")
+    .eq("id", classId)
+    .eq("school_id", schoolId)
     .maybeSingle();
 
   if (classError) throw classError;
 
-  const prefix = (cls?.code_prefix as string) || 'UN';
+  const prefix = (cls?.code_prefix as string) || "UN";
 
-  // 4. Count existing students in the same class + year for the next serial
   const { count, error: countError } = await supabase
-    .from('students')
-    .select('id', { count: 'exact', head: true })
-    .eq('school_id', schoolId)
-    .eq('class_id', classId)
-    .eq('enrollment_year', enrollmentYear)
-    .eq('is_deleted', false);
+    .from("students")
+    .select("id", { count: "exact", head: true })
+    .eq("school_id", schoolId)
+    .eq("class_id", classId)
+    .eq("enrollment_year", enrollmentYear)
+    .eq("is_deleted", false);
 
   if (countError) throw countError;
 
-  const serial = String((count || 0) + 1).padStart(3, '0');
-
-  // Result: RFA/2026/10A001 (15 chars)
+  const serial = String((count || 0) + 1).padStart(3, "0");
   return `${schoolCode}/${enrollmentYear}/${prefix}${serial}`;
 }
+
+// ============================================================================
+// GET
+// ============================================================================
 
 export async function GET(request: NextRequest) {
   try {
@@ -119,29 +104,28 @@ export async function GET(request: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const schoolId = user.app_metadata?.school_id;
     if (!schoolId) {
       return NextResponse.json(
-        { error: 'No school associated' },
+        { error: "No school associated" },
         { status: 403 }
       );
     }
 
     const { searchParams } = new URL(request.url);
-    const grouped = searchParams.get('grouped') === '1';
+    const grouped = searchParams.get("grouped") === "1";
 
-    // ─── Grouped response for the paid-tier student view ───
     if (grouped) {
       const { data: classes, error: classesError } = (await supabase
-        .from('classes')
-        .select('id, name, base_name, display_order')
-        .eq('school_id', schoolId)
-        .is('is_deleted', false)
-        .order('display_order', { ascending: true, nullsFirst: false })
-        .order('name', { ascending: true })) as unknown as {
+        .from("classes")
+        .select("id, name, base_name, display_order")
+        .eq("school_id", schoolId)
+        .is("is_deleted", false)
+        .order("display_order", { ascending: true, nullsFirst: false })
+        .order("name", { ascending: true })) as unknown as {
         data: any[] | null;
         error: unknown;
       };
@@ -149,11 +133,11 @@ export async function GET(request: NextRequest) {
       if (classesError) throw classesError;
 
       const { data: students, error: studentsError } = (await supabase
-        .from('students')
-        .select('*')
-        .eq('school_id', schoolId)
-        .eq('is_deleted', false)
-        .order('full_name', { ascending: true })) as unknown as {
+        .from("students")
+        .select("*")
+        .eq("school_id", schoolId)
+        .eq("is_deleted", false)
+        .order("full_name", { ascending: true })) as unknown as {
         data: any[] | null;
         error: unknown;
       };
@@ -188,7 +172,7 @@ export async function GET(request: NextRequest) {
       if (unassigned.length > 0) {
         groups.push({
           class_id: null,
-          class_name: 'Unassigned',
+          class_name: "Unassigned",
           base_name: null,
           display_order: 999999,
           students: unassigned,
@@ -202,18 +186,21 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // ─── Flat paginated response (existing behavior) ───
-    const page = parseInt(searchParams.get('page') || '1');
-    const pageSize = parseInt(searchParams.get('pageSize') || '10');
-    const search = searchParams.get('search') || '';
+    const page = parseInt(searchParams.get("page") || "1");
+    const pageSize = parseInt(searchParams.get("pageSize") || "10");
+    const search = searchParams.get("search") || "";
 
     const result = await listStudents(supabase, { page, pageSize, search });
     return NextResponse.json(result);
   } catch (error: any) {
-    console.error('GET /api/admin/students error:', error);
+    console.error("GET /api/admin/students error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+
+// ============================================================================
+// POST — gated by subscription tier + account status
+// ============================================================================
 
 export async function POST(request: NextRequest) {
   try {
@@ -224,28 +211,98 @@ export async function POST(request: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const schoolId = user.app_metadata?.school_id;
     if (!schoolId) {
       return NextResponse.json(
-        { error: 'No school associated' },
+        { error: "No school associated" },
         { status: 403 }
       );
     }
 
+    // ── Subscription gate (status + cap) ──
+    const { data: schoolSubRaw, error: subError } = await supabase
+      .from("schools")
+      .select("subscription_tier, subscription_status")
+      .eq("id", schoolId)
+      .maybeSingle();
+
+    const schoolSub = schoolSubRaw as {
+      subscription_tier: "free" | "trial" | "starter" | "growth" | "premium";
+      subscription_status: "trial" | "active" | "expired" | "inactive";
+    } | null;
+
+    if (subError) {
+      console.error("Subscription lookup error:", subError);
+      return NextResponse.json(
+        { error: "Unable to verify subscription" },
+        { status: 500 }
+      );
+    }
+
+    if (!schoolSub) {
+      return NextResponse.json(
+        { error: "School not found" },
+        { status: 404 }
+      );
+    }
+
+    if (!isAccountWritable(schoolSub.subscription_status)) {
+      return NextResponse.json(
+        {
+          error:
+            "Your subscription is inactive. Renew your plan to add students.",
+          code: "SUBSCRIPTION_INACTIVE",
+          status: schoolSub.subscription_status,
+        },
+        { status: 403 }
+      );
+    }
+
+    const { count: activeCount, error: countError } = await supabase
+      .from("students")
+      .select("id", { count: "exact", head: true })
+      .eq("school_id", schoolId)
+      .eq("is_deleted", false);
+
+    if (countError) {
+      console.error("Student count error:", countError);
+      return NextResponse.json(
+        { error: "Unable to verify student count" },
+        { status: 500 }
+      );
+    }
+
+    const currentCount = activeCount ?? 0;
+
+    if (isStudentCapReached(schoolSub.subscription_tier, currentCount)) {
+      const limits = getTierLimits(schoolSub.subscription_tier);
+      return NextResponse.json(
+        {
+          error: `Your ${schoolSub.subscription_tier} plan allows up to ${limits.studentCap} students. Upgrade to add more.`,
+          code: "STUDENT_CAP_REACHED",
+          tier: schoolSub.subscription_tier,
+          cap: limits.studentCap,
+          current: currentCount,
+        },
+        { status: 403 }
+      );
+    }
+
+    // ── Existing creation flow ──
     const validatedData = studentSchema.parse(body);
 
     const sanitized = Object.fromEntries(
       Object.entries(validatedData).map(([key, value]) => [
         key,
-        value === '' || value === null || value === undefined ? null : value,
+        value === "" || value === null || value === undefined ? null : value,
       ])
     );
 
     let enrollmentYear = sanitized.enrollment_year;
-    if (typeof enrollmentYear === 'string') {
+    if (typeof enrollmentYear === "string") {
       enrollmentYear = parseInt(enrollmentYear, 10);
     }
     if (!enrollmentYear || isNaN(enrollmentYear)) {
@@ -277,13 +334,13 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { data: student, message: 'Student created successfully' },
+      { data: student, message: "Student created successfully" },
       { status: 201 }
     );
   } catch (error: any) {
     if (error instanceof ZodError) {
       console.error(
-        'Zod validation errors:',
+        "Zod validation errors:",
         JSON.stringify(error.errors, null, 2)
       );
       const firstError = error.errors[0];
@@ -295,7 +352,7 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    console.error('POST /api/admin/students error:', error);
+    console.error("POST /api/admin/students error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

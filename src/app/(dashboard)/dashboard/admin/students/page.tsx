@@ -13,7 +13,10 @@ import { StudentGroupList } from '@/components/admin/students/StudentGroupList';
 import { CreateModal } from '@/components/admin/CreateModal';
 import { EditModal } from '@/components/admin/EditModal';
 import { DeleteConfirmation } from '@/components/admin/DeleteConfirmation';
-import { StudentForm } from '@/components/admin/forms/StudentForm';
+import {
+  StudentForm,
+  type StudentFormSubscriptionError,
+} from '@/components/admin/forms/StudentForm';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Plus, Search, Loader2 } from 'lucide-react';
@@ -41,6 +44,12 @@ export default function StudentsPage() {
     class_id: null,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Blocks the create form when the school's subscription tier/status
+  // prevents new students. Cleared on modal close or when the admin
+  // acknowledges the message.
+  const [subscriptionError, setSubscriptionError] =
+    useState<StudentFormSubscriptionError | null>(null);
 
   const { toast } = useToast();
 
@@ -87,6 +96,7 @@ export default function StudentsPage() {
 
   const handleCreate = async () => {
     setIsSubmitting(true);
+    setSubscriptionError(null);
     try {
       const submitData: Partial<Student> = {
         full_name: formData.full_name,
@@ -111,15 +121,30 @@ export default function StudentsPage() {
       await createStudent(submitData);
       toast({ title: 'Success', description: 'Student created successfully' });
       setShowCreate(false);
+      setSubscriptionError(null);
       resetForm();
       refetchFlat();
       refetchGrouped();
     } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      });
+      // ── Subscription gate ──
+      if (
+        error.code === 'STUDENT_CAP_REACHED' ||
+        error.code === 'SUBSCRIPTION_INACTIVE'
+      ) {
+        setSubscriptionError({
+          code: error.code,
+          tier: error.tier,
+          cap: error.cap,
+          current: error.current,
+          message: error.message,
+        });
+      } else {
+        toast({
+          title: 'Error',
+          description: error.message,
+          variant: 'destructive',
+        });
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -211,6 +236,14 @@ export default function StudentsPage() {
     setShowEdit(true);
   };
 
+  // Reset the subscription error any time the create modal is opened or closed.
+  const handleCreateOpenChange = (open: boolean) => {
+    setShowCreate(open);
+    if (!open) {
+      setSubscriptionError(null);
+    }
+  };
+
   if (subLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -219,7 +252,6 @@ export default function StudentsPage() {
     );
   }
 
-  // Filter groups by search
   const filteredGroups = search
     ? groups.map((g) => ({
         ...g,
@@ -245,6 +277,7 @@ export default function StudentsPage() {
         <Button
           onClick={() => {
             resetForm();
+            setSubscriptionError(null);
             setShowCreate(true);
           }}
         >
@@ -302,7 +335,7 @@ export default function StudentsPage() {
 
       <CreateModal
         open={showCreate}
-        onOpenChange={setShowCreate}
+        onOpenChange={handleCreateOpenChange}
         title="Add New Student"
         onSubmit={handleCreate}
         isLoading={isSubmitting}
@@ -311,6 +344,7 @@ export default function StudentsPage() {
           data={formData}
           onChange={(f, v) => setFormData((prev) => ({ ...prev, [f]: v }))}
           classes={classes}
+          subscriptionError={subscriptionError}
         />
       </CreateModal>
 
