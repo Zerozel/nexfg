@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { getSectionsForRole, type SidebarSection } from "@/config/roles";
 import { useCurrentSchoolName } from "@/hooks/useCurrentSchoolName";
+import { useSubscription } from "@/hooks/useSubscription";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -46,15 +47,27 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  const { status: subscription } = useSubscription();
+
+  const studentsUsed = subscription?.usage?.students ?? 0;
+  const studentsCap = subscription?.limits?.students;
+  const studentsCapKnown =
+    typeof studentsCap === "number" && Number.isFinite(studentsCap);
+  const studentsCapUnlimited = studentsCap === Infinity || !studentsCapKnown;
+  const studentsAtCap =
+    studentsCapKnown && studentsUsed >= (studentsCap as number);
+  const studentsNearCap =
+    studentsCapKnown &&
+    (studentsUsed / (studentsCap as number)) >= 0.8 &&
+    !studentsAtCap;
+
   // Group expansion state, persisted per-browser.
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
 
-  // Hydrate from localStorage once on mount.
   useEffect(() => {
     setOpenGroups(loadOpenGroups());
   }, []);
 
-  // Close mobile drawer on route change.
   useEffect(() => {
     setMobileOpen(false);
   }, [pathname]);
@@ -64,7 +77,6 @@ export function Sidebar() {
     return getSectionsForRole(role);
   }, [role]);
 
-  // Auto-open the group that contains the active route.
   useEffect(() => {
     if (!pathname) return;
     let changed = false;
@@ -103,7 +115,27 @@ export function Sidebar() {
 
   if (!role) return null;
 
-  // ── Sidebar body ────────────────────────────────────────────────────────
+  // Capacity badge — rendered only on the Students item
+  const renderCapacityBadge = () => {
+    if (studentsCapUnlimited) return null;
+    const cap = studentsCap as number;
+    const label = `${studentsUsed}/${cap}`;
+    return (
+      <span
+        className={cn(
+          "ml-auto text-[10px] font-medium px-1.5 py-0.5 rounded",
+          studentsAtCap
+            ? "bg-red-100 text-red-700"
+            : studentsNearCap
+              ? "bg-amber-100 text-amber-700"
+              : "bg-gray-100 text-gray-600"
+        )}
+      >
+        {label}
+      </span>
+    );
+  };
+
   const renderNav = (isMobile = false) => (
     <nav className="flex-1 py-3 px-2 overflow-y-auto">
       {sections.map((section, idx) => {
@@ -111,6 +143,8 @@ export function Sidebar() {
           const { item } = section;
           const Icon = item.icon;
           const isActive = isLinkActive(item.href);
+          const isStudentsItem =
+            item.href === "/dashboard/admin/students";
           return (
             <Link
               key={item.href}
@@ -128,16 +162,16 @@ export function Sidebar() {
               {collapsed && !isMobile ? (
                 <Icon className="h-5 w-5" />
               ) : (
-                <div className="flex items-center gap-3 min-w-0">
+                <div className="flex items-center gap-3 min-w-0 w-full">
                   <Icon className="h-4 w-4 shrink-0" />
                   <span className="truncate">{item.label}</span>
+                  {isStudentsItem && renderCapacityBadge()}
                 </div>
               )}
             </Link>
           );
         }
 
-        // Group
         const { group } = section;
         const GroupIcon = group.icon;
         const isOpen = !!openGroups[group.label];
@@ -145,7 +179,6 @@ export function Sidebar() {
           isLinkActive(it.href)
         );
 
-        // When collapsed (desktop), render group items as icons only.
         if (collapsed && !isMobile) {
           return (
             <div
@@ -178,7 +211,6 @@ export function Sidebar() {
           );
         }
 
-        // Expanded group rendering
         return (
           <div
             key={group.label}
@@ -236,7 +268,6 @@ export function Sidebar() {
     </nav>
   );
 
-  // ── Desktop sidebar ────────────────────────────────────────────────────
   const sidebarContent = (
     <div
       className={cn(
@@ -244,7 +275,6 @@ export function Sidebar() {
         collapsed ? "w-16" : "w-60"
       )}
     >
-      {/* Brand */}
       <div
         className={cn(
           "flex items-center h-16 px-4 border-b border-gray-100 gap-2",
@@ -282,7 +312,6 @@ export function Sidebar() {
 
       {renderNav(false)}
 
-      {/* Footer */}
       {!collapsed && (
         <div className="p-4 border-t border-gray-100">
           <p className="text-xs text-gray-400">NexaForges v1.0</p>
@@ -293,10 +322,8 @@ export function Sidebar() {
 
   return (
     <>
-      {/* Desktop sidebar */}
       <aside className="hidden md:block">{sidebarContent}</aside>
 
-      {/* Mobile sidebar */}
       <div className="md:hidden fixed top-4 left-4 z-50">
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
           <SheetTrigger asChild>

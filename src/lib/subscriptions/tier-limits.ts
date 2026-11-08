@@ -3,10 +3,15 @@ import type {
   SubscriptionTier,
   SubscriptionStatusValue,
 } from "@/types/subscription";
+import { PLAN_LIMITS } from "@/lib/paystack/plans";
 
 /**
  * Per-tier feature limits.
  * `Infinity` means unlimited within that tier.
+ *
+ * Student and staff caps are DERIVED from `PLAN_LIMITS` (the billing
+ * source of truth). Do not hardcode them here — a mismatch between what
+ * the school pays for and what the gate enforces is a trust issue.
  */
 export interface TierLimits {
   studentCap: number;
@@ -19,24 +24,24 @@ export interface TierLimits {
 
 export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
   free: {
-    studentCap: 50,
-    staffCap: 10,
+    studentCap: PLAN_LIMITS.free.students,
+    staffCap: PLAN_LIMITS.free.staff,
     allowedTemplates: ["classic_nigerian"],
     ocrQuotaPerTerm: 0,
     customDomain: false,
     removeWatermark: false,
   },
   trial: {
-    studentCap: 100,
-    staffCap: 20,
+    studentCap: PLAN_LIMITS.trial.students,
+    staffCap: PLAN_LIMITS.trial.staff,
     allowedTemplates: ["classic_nigerian", "classic_compact"],
     ocrQuotaPerTerm: 5,
     customDomain: false,
     removeWatermark: false,
   },
   starter: {
-    studentCap: 300,
-    staffCap: 50,
+    studentCap: PLAN_LIMITS.starter.students,
+    staffCap: PLAN_LIMITS.starter.staff,
     allowedTemplates: [
       "classic_nigerian",
       "classic_compact",
@@ -47,16 +52,16 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     removeWatermark: true,
   },
   growth: {
-    studentCap: Infinity,
-    staffCap: Infinity,
+    studentCap: PLAN_LIMITS.growth.students,
+    staffCap: PLAN_LIMITS.growth.staff,
     allowedTemplates: "all",
     ocrQuotaPerTerm: 200,
     customDomain: false,
     removeWatermark: true,
   },
   premium: {
-    studentCap: Infinity,
-    staffCap: Infinity,
+    studentCap: PLAN_LIMITS.premium.students,
+    staffCap: PLAN_LIMITS.premium.staff,
     allowedTemplates: "all",
     ocrQuotaPerTerm: Infinity,
     customDomain: true,

@@ -25,6 +25,8 @@ interface TemplateOption {
   key: string;
   name: string;
   description: string;
+  is_premium?: boolean;
+  is_allowed?: boolean;
 }
 
 interface SchoolEditModalProps {
@@ -85,6 +87,9 @@ export function SchoolEditModal({
   const [templateOptions, setTemplateOptions] = useState<TemplateOption[]>([]);
   const [templatesLoading, setTemplatesLoading] = useState(false);
 
+  // Demo quota — null means unlimited (paid tier).
+  const [demoRemaining, setDemoRemaining] = useState<number | null>(null);
+
   // Reset form when the modal reopens
   useEffect(() => {
     if (open) {
@@ -100,6 +105,7 @@ export function SchoolEditModal({
       setTemplateKey(initial.report_card_template || 'classic_nigerian');
       setTemplateError(null);
       setTemplateSuccess(false);
+      setDemoRemaining(null);
     }
   }, [open, initial]);
 
@@ -112,6 +118,12 @@ export function SchoolEditModal({
       .then((data) => {
         if (data.success) {
           setTemplateOptions(data.templates || []);
+          if (
+            typeof data.demo_uses_remaining === 'number' ||
+            data.demo_uses_remaining === null
+          ) {
+            setDemoRemaining(data.demo_uses_remaining);
+          }
         }
       })
       .catch((err) => {
@@ -123,6 +135,8 @@ export function SchoolEditModal({
   const nameChanged = formData.name.trim() !== initial.name.trim();
   const templateChanged =
     templateKey !== (initial.report_card_template || 'classic_nigerian');
+
+  const selectedOption = templateOptions.find((t) => t.key === templateKey);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -158,6 +172,19 @@ export function SchoolEditModal({
       setTemplateSuccess(true);
       onTemplateChanged?.(templateKey);
       setTimeout(() => setTemplateSuccess(false), 2500);
+
+      // Refresh demo quota after switch (the PATCH response doesn't
+      // include it, so re-fetch the GET endpoint).
+      fetch(`/api/super-admin/schools/${schoolId}/template`)
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.success) {
+            if (typeof d.demo_uses_remaining === 'number' || d.demo_uses_remaining === null) {
+              setDemoRemaining(d.demo_uses_remaining);
+            }
+          }
+        })
+        .catch(() => {});
     } catch (err: any) {
       setTemplateError(err?.message || 'Network error');
     } finally {
@@ -316,11 +343,21 @@ export function SchoolEditModal({
                 <SelectValue placeholder="Select a template" />
               </SelectTrigger>
               <SelectContent>
-                {templateOptions.map((t) => (
-                  <SelectItem key={t.key} value={t.key}>
-                    {t.name}
-                  </SelectItem>
-                ))}
+                {templateOptions.map((t) => {
+                  const locked = t.is_allowed === false && t.key !== templateKey;
+                  return (
+                    <SelectItem key={t.key} value={t.key} disabled={locked}>
+                      <span className="flex items-center gap-2">
+                        {t.name}
+                        {locked && (
+                          <span className="text-[10px] uppercase tracking-wide text-amber-600">
+                            Locked
+                          </span>
+                        )}
+                      </span>
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
 
@@ -345,9 +382,32 @@ export function SchoolEditModal({
             </Button>
           </div>
 
-          {templateOptions.find((t) => t.key === templateKey) && (
+          {/* ── Demo quota banner ── */}
+          {demoRemaining !== null && (
+            <p
+              className={
+                demoRemaining > 0
+                  ? 'text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2'
+                  : 'text-xs text-red-700 bg-red-50 border border-red-200 rounded p-2'
+              }
+            >
+              {demoRemaining > 0 ? (
+                <>
+                  Demo renders remaining on premium templates:{' '}
+                  <strong>{demoRemaining}</strong> of 10.
+                </>
+              ) : (
+                <>
+                  Demo quota exhausted. Upgrade the school&apos;s plan to print
+                  premium report cards again.
+                </>
+              )}
+            </p>
+          )}
+
+          {selectedOption && (
             <p className="text-xs text-gray-600 leading-relaxed">
-              {templateOptions.find((t) => t.key === templateKey)!.description}
+              {selectedOption.description}
             </p>
           )}
 

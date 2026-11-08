@@ -289,9 +289,9 @@ export async function GET(
 
     // Increment demo counter on successful render (once per batch).
     if (isPremium && isFreeTier) {
-      await supabase
+      await (supabase as any)
         .from("schools")
-        .update({ template_demo_uses: demoUsed + 1 } as any)
+        .update({ template_demo_uses: demoUsed + 1 })
         .eq("id", school.id);
     }
 
