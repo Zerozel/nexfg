@@ -1,3 +1,4 @@
+// src/app/api/report-cards/class/[classId]/pdf/route.tsx
 import React from "react";
 import { NextRequest, NextResponse } from "next/server";
 import { renderToBuffer } from "@react-pdf/renderer";
@@ -9,6 +10,13 @@ import type { IndividualReportCardData } from "@/types/printing";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
+
+const DEMO_QUOTA = 10;
+const PREMIUM_TEMPLATE_KEYS = new Set([
+  "heritage_navy",
+  "heritage_burgundy",
+  "heritage_slate",
+]);
 
 export async function GET(
   request: NextRequest,
@@ -255,9 +263,37 @@ export async function GET(
       .sort((a, b) => a.overall.position - b.overall.position);
 
     const templateName = schoolPayload.report_card_template;
+
+    // ── Demo quota gate (1 use per batch request) ──
+    const isPremium = PREMIUM_TEMPLATE_KEYS.has(templateName);
+    const isFreeTier = (school.subscription_tier || "free") === "free";
+    const demoUsed = school.template_demo_uses || 0;
+
+    if (isPremium && isFreeTier && demoUsed >= DEMO_QUOTA) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "You have used all 10 demo report cards on premium templates. Upgrade your plan to continue.",
+          code: "DEMO_QUOTA_EXHAUSTED",
+          tier: school.subscription_tier,
+          quota: DEMO_QUOTA,
+        },
+        { status: 403 }
+      );
+    }
+
     const pdfBuffer = await renderToBuffer(
       getReportCardBatchDocument(templateName, reportData)
     );
+
+    // Increment demo counter on successful render (once per batch).
+    if (isPremium && isFreeTier) {
+      await supabase
+        .from("schools")
+        .update({ template_demo_uses: demoUsed + 1 } as any)
+        .eq("id", school.id);
+    }
 
     const pdfBytes = new Uint8Array(pdfBuffer);
 

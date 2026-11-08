@@ -1,3 +1,4 @@
+// src/app/api/report-cards/student/[id]/pdf/route.tsx
 import { NextRequest, NextResponse } from "next/server";
 import { renderToBuffer, Document } from "@react-pdf/renderer";
 import { createServerSupabase } from "@/lib/supabase/server";
@@ -9,6 +10,13 @@ import React from "react";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
+
+const DEMO_QUOTA = 10;
+const PREMIUM_TEMPLATE_KEYS = new Set([
+  "heritage_navy",
+  "heritage_burgundy",
+  "heritage_slate",
+]);
 
 export async function GET(
   request: NextRequest,
@@ -39,7 +47,9 @@ export async function GET(
 
     const studentResult = await supabase
       .from("students")
-      .select("id, full_name, admission_number, avatar_url:profile_image_url, school_id")
+      .select(
+        "id, full_name, admission_number, avatar_url:profile_image_url, school_id"
+      )
       .eq("id", studentId)
       .maybeSingle();
 
@@ -82,39 +92,45 @@ export async function GET(
       }
     }
 
-    const [schoolResult, classResult, termResult, compiledMap, affectiveRes, psychomotorRes] =
-      await Promise.all([
-        supabase
-          .from("schools")
-          .select("*")
-          .eq("id", student.school_id)
-          .maybeSingle(),
-        supabase
-          .from("classes")
-          .select("id, name, teacher_id")
-          .eq("id", classId)
-          .maybeSingle(),
-        supabase
-          .from("terms")
-          .select("*, academic_years:academic_year_id(name)")
-          .eq("id", termId)
-          .maybeSingle(),
-        fetchCompiledResultsByStudent(supabase, {
-          classId,
-          termId,
-          studentIds: [studentId],
-        }),
-        supabase
-          .from("student_affective_traits")
-          .select("*")
-          .eq("student_id", studentId)
-          .eq("term_id", termId),
-        supabase
-          .from("student_psychomotor_skills")
-          .select("*")
-          .eq("student_id", studentId)
-          .eq("term_id", termId),
-      ]);
+    const [
+      schoolResult,
+      classResult,
+      termResult,
+      compiledMap,
+      affectiveRes,
+      psychomotorRes,
+    ] = await Promise.all([
+      supabase
+        .from("schools")
+        .select("*")
+        .eq("id", student.school_id)
+        .maybeSingle(),
+      supabase
+        .from("classes")
+        .select("id, name, teacher_id")
+        .eq("id", classId)
+        .maybeSingle(),
+      supabase
+        .from("terms")
+        .select("*, academic_years:academic_year_id(name)")
+        .eq("id", termId)
+        .maybeSingle(),
+      fetchCompiledResultsByStudent(supabase, {
+        classId,
+        termId,
+        studentIds: [studentId],
+      }),
+      supabase
+        .from("student_affective_traits")
+        .select("*")
+        .eq("student_id", studentId)
+        .eq("term_id", termId),
+      supabase
+        .from("student_psychomotor_skills")
+        .select("*")
+        .eq("student_id", studentId)
+        .eq("term_id", termId),
+    ]);
 
     if (!schoolResult.data) {
       return NextResponse.json(
@@ -220,9 +236,37 @@ export async function GET(
       transformStudentReportData(raw);
 
     const templateName = schoolPayload.report_card_template;
+
+    // ── Demo quota gate ──
+    const isPremium = PREMIUM_TEMPLATE_KEYS.has(templateName);
+    const isFreeTier = (school.subscription_tier || "free") === "free";
+    const demoUsed = school.template_demo_uses || 0;
+
+    if (isPremium && isFreeTier && demoUsed >= DEMO_QUOTA) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "You have used all 10 demo report cards on premium templates. Upgrade your plan to continue.",
+          code: "DEMO_QUOTA_EXHAUSTED",
+          tier: school.subscription_tier,
+          quota: DEMO_QUOTA,
+        },
+        { status: 403 }
+      );
+    }
+
     const pdfBuffer = await renderToBuffer(
       <Document>{getReportCardPage(templateName, reportData)}</Document>
     );
+
+    // Increment demo counter on successful render.
+    if (isPremium && isFreeTier) {
+      await supabase
+        .from("schools")
+        .update({ template_demo_uses: demoUsed + 1 } as any)
+        .eq("id", school.id);
+    }
 
     const pdfBytes = new Uint8Array(pdfBuffer);
 
