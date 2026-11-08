@@ -4,7 +4,7 @@ import { requireSuperAdmin } from '@/lib/supabase/super-admin-auth';
 import { listTemplates, getTemplate } from '@/lib/pdf/templates/registry';
 import { getTierLimits } from '@/lib/subscriptions/tier-limits';
 
-export const DEMO_QUOTA = 10;
+const DEMO_QUOTA = 10;
 
 /**
  * GET /api/super-admin/schools/[id]/template
